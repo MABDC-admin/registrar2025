@@ -46,6 +46,13 @@ export const CSVImport = () => {
     return undefined;
   };
 
+  // Generate a temporary LRN for students without one
+  const generateTempLRN = (index: number): string => {
+    const timestamp = Date.now();
+    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    return `TEMP-${timestamp}-${index.toString().padStart(4, '0')}-${random}`;
+  };
+
   const processCSV = useCallback((results: Papa.ParseResult<CSVStudent>) => {
     setParseError(null);
     
@@ -54,27 +61,37 @@ export const CSVImport = () => {
       return;
     }
 
+    let tempLRNCount = 0;
     const students: StudentFormData[] = results.data
-      .filter(row => row.lrn && row.student_name) // Filter out empty rows
-      .map(row => ({
-        lrn: row.lrn?.trim(),
-        student_name: row.student_name?.trim(),
-        level: row.level?.trim() || 'Level 1',
-        birth_date: parseDate(row.birth_date),
-        age: row.age ? parseInt(row.age) : undefined,
-        gender: row.gender?.trim().toUpperCase(),
-        mother_contact: row.mother_contact?.trim(),
-        mother_maiden_name: row.mother_maiden_name?.trim(),
-        father_contact: row.father_contact?.trim(),
-        father_name: row.father_name?.trim(),
-        phil_address: row.phil_address?.trim(),
-        uae_address: row.uae_address?.trim(),
-        previous_school: row.previous_school?.trim(),
-      }));
+      .filter(row => row.student_name?.trim()) // Only require student name, not LRN
+      .map((row, index) => {
+        const hasLRN = row.lrn?.trim();
+        if (!hasLRN) tempLRNCount++;
+        
+        return {
+          lrn: hasLRN || generateTempLRN(index),
+          student_name: row.student_name?.trim(),
+          level: row.level?.trim() || 'Level 1',
+          birth_date: parseDate(row.birth_date),
+          age: row.age ? parseInt(row.age) : undefined,
+          gender: row.gender?.trim().toUpperCase(),
+          mother_contact: row.mother_contact?.trim(),
+          mother_maiden_name: row.mother_maiden_name?.trim(),
+          father_contact: row.father_contact?.trim(),
+          father_name: row.father_name?.trim(),
+          phil_address: row.phil_address?.trim(),
+          uae_address: row.uae_address?.trim(),
+          previous_school: row.previous_school?.trim(),
+        };
+      });
 
     if (students.length === 0) {
       setParseError('No valid student records found in CSV');
       return;
+    }
+
+    if (tempLRNCount > 0) {
+      console.log(`Generated temporary LRNs for ${tempLRNCount} students without LRN`);
     }
 
     setParsedData(students);
@@ -228,12 +245,20 @@ export const CSVImport = () => {
           animate={{ opacity: 1, y: 0 }}
           className="mt-6 space-y-4"
         >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-success" />
-              <span className="font-medium text-foreground">
-                {parsedData.length} students ready to import
-              </span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-success" />
+                <span className="font-medium text-foreground">
+                  {parsedData.length} students ready to import
+                </span>
+              </div>
+              {parsedData.filter(s => s.lrn.startsWith('TEMP-')).length > 0 && (
+                <p className="text-sm text-warning flex items-center gap-1.5 ml-7">
+                  <AlertCircle className="h-4 w-4" />
+                  {parsedData.filter(s => s.lrn.startsWith('TEMP-')).length} students with temporary LRN (highlighted in orange)
+                </p>
+              )}
             </div>
             <Button onClick={handleImport} disabled={bulkCreate.isPending}>
               {bulkCreate.isPending ? (
@@ -263,14 +288,26 @@ export const CSVImport = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {parsedData.slice(0, 10).map((student, i) => (
-                    <tr key={i} className="hover:bg-secondary/30">
-                      <td className="px-4 py-2 font-mono text-foreground">{student.lrn}</td>
-                      <td className="px-4 py-2 text-foreground">{student.student_name}</td>
-                      <td className="px-4 py-2 text-muted-foreground">{student.level}</td>
-                      <td className="px-4 py-2 text-muted-foreground">{student.gender || '-'}</td>
-                    </tr>
-                  ))}
+                  {parsedData.slice(0, 10).map((student, i) => {
+                    const isTempLRN = student.lrn.startsWith('TEMP-');
+                    return (
+                      <tr key={i} className={cn(
+                        "hover:bg-secondary/30",
+                        isTempLRN && "bg-warning/10"
+                      )}>
+                        <td className="px-4 py-2 font-mono text-foreground">
+                          {isTempLRN ? (
+                            <span className="text-warning font-semibold">TEMP</span>
+                          ) : (
+                            student.lrn
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-foreground">{student.student_name}</td>
+                        <td className="px-4 py-2 text-muted-foreground">{student.level}</td>
+                        <td className="px-4 py-2 text-muted-foreground">{student.gender || '-'}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
