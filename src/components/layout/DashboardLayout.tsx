@@ -1,5 +1,5 @@
-import { ReactNode } from 'react';
-import { motion } from 'framer-motion';
+import { ReactNode, useState, useEffect } from 'react';
+import { motion, Reorder } from 'framer-motion';
 import { 
   GraduationCap, 
   Users, 
@@ -14,11 +14,12 @@ import {
   BookOpen,
   UserCircle,
   Library,
-  Calendar
+  Calendar,
+  GripVertical,
+  LucideIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/hooks/useTheme';
-import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
@@ -32,15 +33,25 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
+interface NavItem {
+  id: string;
+  icon: LucideIcon;
+  label: string;
+}
+
 interface DashboardLayoutProps {
   children: ReactNode;
   activeTab: string;
   onTabChange: (tab: string) => void;
 }
 
-// Role-specific navigation configurations
-const getNavItemsForRole = (role: string | null) => {
-  const baseItems = [
+// Icon mapping for serialization
+const iconMap: Record<string, LucideIcon> = {
+  Home, BarChart3, Users, BookOpen, Library, Calendar, GraduationCap, Upload, UserCircle
+};
+
+const getNavItemsForRole = (role: string | null): NavItem[] => {
+  const baseItems: NavItem[] = [
     { id: 'portal', icon: Home, label: 'Portal Home' },
   ];
 
@@ -110,8 +121,43 @@ export const DashboardLayout = ({ children, activeTab, onTabChange }: DashboardL
   const { isDark, toggle } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, role, signOut } = useAuth();
+  const [isDragging, setIsDragging] = useState(false);
 
-  const navItems = getNavItemsForRole(role);
+  const defaultNavItems = getNavItemsForRole(role);
+  
+  // Load saved menu order from localStorage
+  const [navItems, setNavItems] = useState<NavItem[]>(defaultNavItems);
+  
+  useEffect(() => {
+    if (role === 'admin') {
+      const savedOrder = localStorage.getItem(`menu-order-${role}`);
+      if (savedOrder) {
+        try {
+          const orderIds = JSON.parse(savedOrder) as string[];
+          const reorderedItems = orderIds
+            .map(id => defaultNavItems.find(item => item.id === id))
+            .filter((item): item is NavItem => item !== undefined);
+          
+          // Add any new items that weren't in the saved order
+          const newItems = defaultNavItems.filter(item => !orderIds.includes(item.id));
+          setNavItems([...reorderedItems, ...newItems]);
+        } catch {
+          setNavItems(defaultNavItems);
+        }
+      } else {
+        setNavItems(defaultNavItems);
+      }
+    } else {
+      setNavItems(defaultNavItems);
+    }
+  }, [role]);
+
+  const handleReorder = (newOrder: NavItem[]) => {
+    setNavItems(newOrder);
+    if (role === 'admin') {
+      localStorage.setItem(`menu-order-${role}`, JSON.stringify(newOrder.map(item => item.id)));
+    }
+  };
 
   const getInitials = (email: string) => {
     return email.substring(0, 2).toUpperCase();
@@ -202,29 +248,68 @@ export const DashboardLayout = ({ children, activeTab, onTabChange }: DashboardL
           </div>
         )}
 
-        <nav className="px-3 space-y-1 flex-1">
-          {navItems.map((item, index) => (
-            <motion.button
-              key={item.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.1 }}
-              onClick={() => {
-                onTabChange(item.id);
-                setSidebarOpen(false);
-              }}
-              className={cn(
-                "w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-200",
-                activeTab === item.id
-                  ? "bg-stat-purple text-white shadow-md"
-                  : "text-muted-foreground hover:bg-secondary hover:text-secondary-foreground"
-              )}
-            >
-              <item.icon className="h-5 w-5" />
-              {item.label}
-            </motion.button>
-          ))}
-        </nav>
+        {role === 'admin' ? (
+          <Reorder.Group 
+            axis="y" 
+            values={navItems} 
+            onReorder={handleReorder}
+            className="px-3 space-y-1 flex-1"
+          >
+            {navItems.map((item) => (
+              <Reorder.Item
+                key={item.id}
+                value={item}
+                onDragStart={() => setIsDragging(true)}
+                onDragEnd={() => setIsDragging(false)}
+                className="list-none"
+                whileDrag={{ scale: 1.02, boxShadow: "0 4px 20px rgba(0,0,0,0.15)" }}
+              >
+                <button
+                  onClick={() => {
+                    if (!isDragging) {
+                      onTabChange(item.id);
+                      setSidebarOpen(false);
+                    }
+                  }}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-200 cursor-grab active:cursor-grabbing",
+                    activeTab === item.id
+                      ? "bg-stat-purple text-white shadow-md"
+                      : "text-muted-foreground hover:bg-secondary hover:text-secondary-foreground"
+                  )}
+                >
+                  <GripVertical className="h-4 w-4 opacity-40" />
+                  <item.icon className="h-5 w-5" />
+                  {item.label}
+                </button>
+              </Reorder.Item>
+            ))}
+          </Reorder.Group>
+        ) : (
+          <nav className="px-3 space-y-1 flex-1">
+            {navItems.map((item, index) => (
+              <motion.button
+                key={item.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.1 }}
+                onClick={() => {
+                  onTabChange(item.id);
+                  setSidebarOpen(false);
+                }}
+                className={cn(
+                  "w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-200",
+                  activeTab === item.id
+                    ? "bg-stat-purple text-white shadow-md"
+                    : "text-muted-foreground hover:bg-secondary hover:text-secondary-foreground"
+                )}
+              >
+                <item.icon className="h-5 w-5" />
+                {item.label}
+              </motion.button>
+            ))}
+          </nav>
+        )}
 
         {/* Bottom Section - Admin & Theme Toggle */}
         <div className="px-3 pb-6 space-y-2">
