@@ -1,13 +1,202 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { Users, GraduationCap, TrendingUp, UserPlus } from 'lucide-react';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { StatsCard } from '@/components/dashboard/StatsCard';
+import { Charts } from '@/components/dashboard/Charts';
+import { StudentTable } from '@/components/students/StudentTable';
+import { StudentProfileModal } from '@/components/students/StudentProfileModal';
+import { StudentFormModal } from '@/components/students/StudentFormModal';
+import { DeleteConfirmModal } from '@/components/students/DeleteConfirmModal';
+import { CSVImport } from '@/components/import/CSVImport';
+import { Button } from '@/components/ui/button';
+import { useStudents, useCreateStudent, useUpdateStudent, useDeleteStudent } from '@/hooks/useStudents';
+import { Student, StudentFormData } from '@/types/student';
 
 const Index = () => {
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+
+  const { data: students = [], isLoading } = useStudents();
+  const createStudent = useCreateStudent();
+  const updateStudent = useUpdateStudent();
+  const deleteStudent = useDeleteStudent();
+
+  // Calculate stats
+  const totalStudents = students.length;
+  const maleCount = students.filter(s => s.gender?.toUpperCase() === 'MALE').length;
+  const femaleCount = students.filter(s => s.gender?.toUpperCase() === 'FEMALE').length;
+  const levels = [...new Set(students.map(s => s.level))].length;
+
+  const handleView = (student: Student) => {
+    setSelectedStudent(student);
+    setIsViewModalOpen(true);
+  };
+
+  const handleEdit = (student: Student) => {
+    setEditingStudent(student);
+    setIsFormModalOpen(true);
+  };
+
+  const handleDelete = (student: Student) => {
+    setSelectedStudent(student);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleAddNew = () => {
+    setEditingStudent(null);
+    setIsFormModalOpen(true);
+  };
+
+  const handleFormSubmit = async (data: StudentFormData & { id?: string }) => {
+    if (data.id) {
+      await updateStudent.mutateAsync(data as StudentFormData & { id: string });
+    } else {
+      await createStudent.mutateAsync(data);
+    }
+    setIsFormModalOpen(false);
+    setEditingStudent(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (selectedStudent) {
+      await deleteStudent.mutateAsync(selectedStudent.id);
+      setIsDeleteModalOpen(false);
+      setSelectedStudent(null);
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
-    </div>
+    <DashboardLayout activeTab={activeTab} onTabChange={setActiveTab}>
+      {activeTab === 'dashboard' && (
+        <div className="space-y-6">
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+          >
+            <div>
+              <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Dashboard</h1>
+              <p className="text-muted-foreground mt-1">Overview of student records</p>
+            </div>
+          </motion.div>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+            <StatsCard
+              title="Total Students"
+              value={totalStudents}
+              subtitle="Enrolled students"
+              icon={Users}
+              variant="primary"
+              delay={0}
+            />
+            <StatsCard
+              title="Male Students"
+              value={maleCount}
+              subtitle={`${totalStudents ? ((maleCount / totalStudents) * 100).toFixed(1) : 0}% of total`}
+              icon={TrendingUp}
+              delay={0.1}
+            />
+            <StatsCard
+              title="Female Students"
+              value={femaleCount}
+              subtitle={`${totalStudents ? ((femaleCount / totalStudents) * 100).toFixed(1) : 0}% of total`}
+              icon={TrendingUp}
+              delay={0.2}
+            />
+            <StatsCard
+              title="Grade Levels"
+              value={levels}
+              subtitle="Active levels"
+              icon={GraduationCap}
+              variant="accent"
+              delay={0.3}
+            />
+          </div>
+
+          {/* Charts */}
+          <Charts students={students} />
+        </div>
+      )}
+
+      {activeTab === 'students' && (
+        <div className="space-y-6">
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+          >
+            <div>
+              <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Students</h1>
+              <p className="text-muted-foreground mt-1">Manage student records</p>
+            </div>
+            <Button onClick={handleAddNew} className="w-full sm:w-auto">
+              <UserPlus className="h-4 w-4 mr-2" />
+              Add Student
+            </Button>
+          </motion.div>
+
+          <StudentTable
+            students={students}
+            onView={handleView}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            isLoading={isLoading}
+          />
+        </div>
+      )}
+
+      {activeTab === 'import' && (
+        <div className="space-y-6">
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Import Data</h1>
+            <p className="text-muted-foreground mt-1">Bulk import students from CSV files</p>
+          </motion.div>
+
+          <CSVImport />
+        </div>
+      )}
+
+      {/* Modals */}
+      <StudentProfileModal
+        student={selectedStudent}
+        isOpen={isViewModalOpen}
+        onClose={() => {
+          setIsViewModalOpen(false);
+          setSelectedStudent(null);
+        }}
+      />
+
+      <StudentFormModal
+        student={editingStudent}
+        isOpen={isFormModalOpen}
+        onClose={() => {
+          setIsFormModalOpen(false);
+          setEditingStudent(null);
+        }}
+        onSubmit={handleFormSubmit}
+        isLoading={createStudent.isPending || updateStudent.isPending}
+      />
+
+      <DeleteConfirmModal
+        student={selectedStudent}
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setSelectedStudent(null);
+        }}
+        onConfirm={handleDeleteConfirm}
+        isLoading={deleteStudent.isPending}
+      />
+    </DashboardLayout>
   );
 };
 
