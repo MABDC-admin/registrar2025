@@ -23,8 +23,12 @@ export const StudentCard = ({ student, onView, onEdit, onDelete, index }: Studen
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.03, duration: 0.2 }}
-      className="bg-card rounded-xl shadow-card p-3 hover:shadow-lg transition-all duration-300 border border-border/50 group"
+      className="relative bg-card rounded-xl shadow-card hover:shadow-lg transition-all duration-300 border border-border/50 group overflow-hidden"
     >
+      {/* Gradient Header */}
+      <div className="h-2 bg-gradient-to-r from-emerald-600 to-lime-400" />
+      
+      <div className="p-3">
       {/* Status Badge & Actions */}
       <div className="flex justify-between items-start mb-2">
         <span className={cn(
@@ -115,6 +119,7 @@ export const StudentCard = ({ student, onView, onEdit, onDelete, index }: Studen
         <Eye className="h-3 w-3 mr-1" />
         View
       </Button>
+      </div>
     </motion.div>
   );
 };
