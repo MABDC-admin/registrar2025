@@ -44,9 +44,9 @@ type ViewMode = 'cards' | 'table';
 const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
 const SCHOOLS = [
-  { id: 'all', name: 'All Schools', acronym: 'ALL' },
-  { id: 'mabdc', name: 'M.A Brain Development Center', acronym: 'MABDC' },
-  { id: 'stfxsa', name: 'St. Francis Xavier Smart Academy Inc', acronym: 'STFXSA' },
+  { id: 'all', name: 'All Schools', acronym: 'ALL', dbValue: '' },
+  { id: 'mabdc', name: 'M.A Brain Development Center', acronym: 'MABDC', dbValue: 'MABDC' },
+  { id: 'stfxsa', name: 'St. Francis Xavier Smart Academy Inc', acronym: 'STFXSA', dbValue: 'STFXSA' },
 ];
 
 export const StudentTable = ({ 
@@ -80,6 +80,7 @@ export const StudentTable = ({
 
   // Filter and sort students
   const filteredStudents = useMemo(() => {
+    const selectedSchool = SCHOOLS.find(s => s.id === schoolFilter);
     return students
       .filter(student => {
         const matchesSearch = 
@@ -87,7 +88,8 @@ export const StudentTable = ({
           student.lrn.toLowerCase().includes(search.toLowerCase());
         const matchesLevel = levelFilter === 'all' || student.level === levelFilter;
         const matchesGender = genderFilter === 'all' || student.gender === genderFilter;
-        return matchesSearch && matchesLevel && matchesGender;
+        const matchesSchool = schoolFilter === 'all' || student.school === selectedSchool?.dbValue;
+        return matchesSearch && matchesLevel && matchesGender && matchesSchool;
       })
       .sort((a, b) => {
         let aVal = a[sortField];
@@ -104,7 +106,7 @@ export const StudentTable = ({
         const comparison = (aVal as number) - (bVal as number);
         return sortDirection === 'asc' ? comparison : -comparison;
       });
-  }, [students, search, levelFilter, genderFilter, sortField, sortDirection]);
+  }, [students, search, schoolFilter, levelFilter, genderFilter, sortField, sortDirection]);
 
   // Pagination
   const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
