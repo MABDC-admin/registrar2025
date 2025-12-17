@@ -9,6 +9,7 @@ import { StudentProfileModal } from '@/components/students/StudentProfileModal';
 import { StudentFormModal } from '@/components/students/StudentFormModal';
 import { DeleteConfirmModal } from '@/components/students/DeleteConfirmModal';
 import { CSVImport } from '@/components/import/CSVImport';
+import { EnrollmentForm } from '@/components/enrollment/EnrollmentForm';
 import { AdminPanel } from '@/components/admin/AdminPanel';
 import { AdminPinModal } from '@/components/admin/AdminPinModal';
 import { Button } from '@/components/ui/button';
@@ -147,6 +148,20 @@ const Index = () => {
 
           {/* Charts */}
           <Charts students={students} />
+        </div>
+      )}
+
+      {activeTab === 'enrollment' && (
+        <div className="space-y-6">
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Enrollment</h1>
+            <p className="text-muted-foreground mt-1">Enroll new students</p>
+          </motion.div>
+
+          <EnrollmentForm />
         </div>
       )}
 
