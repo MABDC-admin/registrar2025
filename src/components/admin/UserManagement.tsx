@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Users, UserPlus, Key, Loader2, Eye, EyeOff, Copy, Check, RefreshCcw, Trash2, AlertTriangle, Filter, Printer } from 'lucide-react';
+import { Users, UserPlus, Key, Loader2, Eye, EyeOff, Copy, Check, RefreshCcw, Trash2, AlertTriangle, Filter, Printer, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,7 @@ interface UserCredential {
   created_at: string;
   password_changed: boolean;
   student_id: string | null;
+  user_id: string | null;
   student_name?: string;
   student_level?: string;
 }
@@ -37,6 +38,7 @@ export const UserManagement = () => {
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [showPrintDialog, setShowPrintDialog] = useState(false);
   const [selectedSchool, setSelectedSchool] = useState('M.A Brain Development Center');
+  const [resettingPasswordId, setResettingPasswordId] = useState<string | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
   
   const schoolOptions = [
@@ -279,6 +281,34 @@ export const UserManagement = () => {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const handleResetPassword = async (cred: UserCredential) => {
+    if (!cred.user_id) {
+      toast.error('Cannot reset password: No user account linked');
+      return;
+    }
+
+    setResettingPasswordId(cred.id);
+    try {
+      const { data: result, error } = await supabase.functions.invoke('create-users', {
+        body: {
+          action: 'reset_student_password',
+          credentialId: cred.id,
+          userId: cred.user_id,
+        },
+      });
+
+      if (error) throw error;
+      
+      toast.success(`Password reset! New password: ${result.newPassword}`);
+      fetchCredentials();
+    } catch (error: any) {
+      console.error('Error resetting password:', error);
+      toast.error(error.message || 'Failed to reset password');
+    } finally {
+      setResettingPasswordId(null);
+    }
+  };
+
   const roleColors: Record<string, string> = {
     admin: 'bg-red-500',
     registrar: 'bg-blue-500',
@@ -508,17 +538,35 @@ export const UserManagement = () => {
                         {new Date(cred.created_at).toLocaleDateString()}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => copyToClipboard(`Username: ${cred.email}\nPassword: ${cred.temp_password}`, cred.id)}
-                        >
-                          {copiedId === cred.id ? (
-                            <Check className="h-4 w-4 text-green-500" />
-                          ) : (
-                            <Copy className="h-4 w-4" />
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyToClipboard(`Username: ${cred.email}\nPassword: ${cred.temp_password}`, cred.id)}
+                            title="Copy credentials"
+                          >
+                            {copiedId === cred.id ? (
+                              <Check className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <Copy className="h-4 w-4" />
+                            )}
+                          </Button>
+                          {cred.role === 'student' && cred.user_id && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleResetPassword(cred)}
+                              disabled={resettingPasswordId === cred.id}
+                              title="Reset password"
+                            >
+                              {resettingPasswordId === cred.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <RotateCcw className="h-4 w-4" />
+                              )}
+                            </Button>
                           )}
-                        </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

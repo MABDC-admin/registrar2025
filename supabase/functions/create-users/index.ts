@@ -7,10 +7,15 @@ const corsHeaders = {
 };
 
 interface CreateUserRequest {
-  action: "create_admin" | "create_registrar" | "create_teacher" | "bulk_create_students" | "reset_student_accounts";
+  action: "create_admin" | "create_registrar" | "create_teacher" | "bulk_create_students" | "reset_student_accounts" | "create_single_student" | "reset_student_password";
   email?: string;
   password?: string;
   fullName?: string;
+  studentId?: string;
+  studentLrn?: string;
+  studentName?: string;
+  credentialId?: string;
+  userId?: string;
 }
 
 // Generate a random password
@@ -47,7 +52,7 @@ const handler = async (req: Request): Promise<Response> => {
       },
     });
 
-    const { action, email, password, fullName }: CreateUserRequest = await req.json();
+    const { action, email, password, fullName, studentId, studentLrn, studentName, credentialId, userId }: CreateUserRequest = await req.json();
     console.log(`Processing action: ${action}`);
 
     if (action === "create_admin" || action === "create_registrar" || action === "create_teacher") {
@@ -248,6 +253,125 @@ const handler = async (req: Request): Promise<Response> => {
           message: `Deleted ${deleted} student accounts${failed > 0 ? `, ${failed} failed` : ''}`,
           deleted,
           failed
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Create a single student account (used during enrollment)
+    if (action === "create_single_student") {
+      if (!studentId || !studentLrn || !studentName) {
+        return new Response(
+          JSON.stringify({ error: "Student ID, LRN, and name are required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check if student already has an account
+      const { data: existingCred } = await supabaseAdmin
+        .from("user_credentials")
+        .select("id")
+        .eq("student_id", studentId)
+        .single();
+
+      if (existingCred) {
+        return new Response(
+          JSON.stringify({ error: "Student already has an account" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const generatedEmail = generateEmail(studentLrn);
+      const generatedPassword = generatePassword();
+
+      const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
+        email: generatedEmail,
+        password: generatedPassword,
+        email_confirm: true,
+        user_metadata: { full_name: studentName },
+      });
+
+      if (userError) {
+        console.error("Error creating student user:", userError);
+        return new Response(
+          JSON.stringify({ error: userError.message }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Update role to student
+      await supabaseAdmin
+        .from("user_roles")
+        .update({ role: "student" })
+        .eq("user_id", userData.user.id);
+
+      // Store credentials
+      await supabaseAdmin.from("user_credentials").insert({
+        user_id: userData.user.id,
+        email: studentLrn,
+        temp_password: generatedPassword,
+        role: "student",
+        student_id: studentId,
+      });
+
+      console.log(`Created account for student: ${studentName}`);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "Student account created successfully",
+          username: studentLrn,
+          password: generatedPassword,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Reset a single student's password
+    if (action === "reset_student_password") {
+      if (!credentialId || !userId) {
+        return new Response(
+          JSON.stringify({ error: "Credential ID and User ID are required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const newPassword = generatePassword();
+
+      // Update password in auth
+      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        password: newPassword,
+      });
+
+      if (updateError) {
+        console.error("Error resetting password:", updateError);
+        return new Response(
+          JSON.stringify({ error: updateError.message }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Update credentials table
+      const { error: credError } = await supabaseAdmin
+        .from("user_credentials")
+        .update({ temp_password: newPassword, password_changed: false })
+        .eq("id", credentialId);
+
+      if (credError) {
+        console.error("Error updating credentials:", credError);
+        return new Response(
+          JSON.stringify({ error: credError.message }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log(`Password reset for credential: ${credentialId}`);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "Password reset successfully",
+          newPassword,
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
