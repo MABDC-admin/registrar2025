@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { UserPlus, Loader2, AlertCircle, CheckCircle2, Printer, Download } from 'lucide-react';
+import { UserPlus, Loader2, AlertCircle, CheckCircle2, Printer, Download, Key } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -23,6 +23,7 @@ import {
 import { useCreateStudent } from '@/hooks/useStudents';
 import { toast } from 'sonner';
 import { differenceInYears } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
 
 const GRADE_LEVELS = [
   'Kinder 1', 'Kinder 2',
@@ -82,6 +83,7 @@ export const EnrollmentForm = () => {
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [enrollmentComplete, setEnrollmentComplete] = useState(false);
+  const [createdCredentials, setCreatedCredentials] = useState<{ username: string; password: string } | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
 
   const createStudent = useCreateStudent();
@@ -201,7 +203,7 @@ export const EnrollmentForm = () => {
       // Generate temp LRN for Kinder students without LRN
       const finalLrn = formData.lrn.trim() || `TEMP-${Date.now()}`;
 
-      await createStudent.mutateAsync({
+      const result = await createStudent.mutateAsync({
         student_name: formData.student_name.trim(),
         lrn: finalLrn,
         level: formData.level,
@@ -218,7 +220,32 @@ export const EnrollmentForm = () => {
         previous_school: formData.previous_school.trim() || undefined,
       });
       
-      toast.success('Student enrolled successfully!');
+      // Auto-create student account
+      try {
+        const { data: credResult, error: credError } = await supabase.functions.invoke('create-users', {
+          body: {
+            action: 'create_single_student',
+            studentId: result.id,
+            studentLrn: finalLrn,
+            studentName: formData.student_name.trim(),
+          },
+        });
+
+        if (credError) {
+          console.error('Error creating student credentials:', credError);
+          toast.error('Student enrolled but failed to create login account');
+        } else if (credResult) {
+          setCreatedCredentials({
+            username: credResult.username,
+            password: credResult.password,
+          });
+          toast.success('Student enrolled with login credentials created!');
+        }
+      } catch (credErr) {
+        console.error('Error creating credentials:', credErr);
+        toast.error('Student enrolled but failed to create login account');
+      }
+      
       setEnrollmentComplete(true);
     } catch (error) {
       toast.error('Failed to enroll student');
@@ -315,6 +342,7 @@ export const EnrollmentForm = () => {
   const handleNewEnrollment = () => {
     setShowConfirmDialog(false);
     setEnrollmentComplete(false);
+    setCreatedCredentials(null);
     setFormData({
       student_name: '',
       lrn: '',
@@ -680,6 +708,31 @@ export const EnrollmentForm = () => {
                 <ReviewItem label="Previous School" value={formData.previous_school} />
               </div>
             </div>
+
+            {/* Login Credentials - shown after enrollment */}
+            {enrollmentComplete && createdCredentials && (
+              <div>
+                <h4 className="font-semibold text-foreground mb-2 flex items-center gap-2">
+                  <Key className="h-4 w-4 text-stat-purple" />
+                  <span className="text-stat-purple">Login Credentials</span>
+                </h4>
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Save these credentials for the student to access the portal:
+                  </p>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center py-2 border-b border-border/50">
+                      <span className="text-muted-foreground text-sm">Username (LRN)</span>
+                      <span className="font-mono font-medium bg-secondary px-3 py-1 rounded">{createdCredentials.username}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2">
+                      <span className="text-muted-foreground text-sm">Password</span>
+                      <span className="font-mono font-medium bg-secondary px-3 py-1 rounded">{createdCredentials.password}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter className="gap-2 flex-wrap">
