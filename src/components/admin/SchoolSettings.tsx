@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Building2, Save, Loader2, Upload, Palette, Check } from 'lucide-react';
+import { Building2, Save, Loader2, Upload, Palette, Check, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -153,6 +154,16 @@ export const SchoolSettings = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState<string>('default');
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [newSchool, setNewSchool] = useState({
+    school_id: '',
+    name: '',
+    acronym: '',
+    address: '',
+  });
 
   useEffect(() => {
     fetchSchools();
@@ -248,6 +259,60 @@ export const SchoolSettings = () => {
     toast.success('Logo uploaded');
   };
 
+  const handleCreateSchool = async () => {
+    if (!newSchool.school_id || !newSchool.name) {
+      toast.error('School ID and name are required');
+      return;
+    }
+
+    // Check if school_id already exists
+    const exists = schools.some(s => s.school_id.toLowerCase() === newSchool.school_id.toLowerCase());
+    if (exists) {
+      toast.error('A school with this ID already exists');
+      return;
+    }
+
+    setIsCreating(true);
+    const { error } = await supabase
+      .from('school_settings')
+      .insert({
+        school_id: newSchool.school_id.toUpperCase(),
+        name: newSchool.name,
+        acronym: newSchool.acronym || newSchool.school_id.toUpperCase(),
+        address: newSchool.address,
+      });
+
+    if (error) {
+      toast.error('Failed to create school: ' + error.message);
+    } else {
+      toast.success('School created successfully');
+      setShowAddDialog(false);
+      setNewSchool({ school_id: '', name: '', acronym: '', address: '' });
+      fetchSchools();
+      setSelectedSchool(newSchool.school_id.toUpperCase());
+    }
+    setIsCreating(false);
+  };
+
+  const handleDeleteSchool = async () => {
+    if (!formData.id) return;
+
+    setIsDeleting(true);
+    const { error } = await supabase
+      .from('school_settings')
+      .delete()
+      .eq('id', formData.id);
+
+    if (error) {
+      toast.error('Failed to delete school: ' + error.message);
+    } else {
+      toast.success('School deleted successfully');
+      setShowDeleteDialog(false);
+      fetchSchools();
+    }
+    setIsDeleting(false);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -313,7 +378,7 @@ export const SchoolSettings = () => {
       {/* School Information */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Building2 className="h-5 w-5" />
@@ -321,18 +386,28 @@ export const SchoolSettings = () => {
               </CardTitle>
               <CardDescription>Manage school details and branding</CardDescription>
             </div>
-            <Select value={selectedSchool} onValueChange={setSelectedSchool}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Select school" />
-              </SelectTrigger>
-              <SelectContent>
-                {schools.map((school) => (
-                  <SelectItem key={school.school_id} value={school.school_id}>
-                    {school.acronym || school.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Select value={selectedSchool} onValueChange={setSelectedSchool}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Select school" />
+                </SelectTrigger>
+                <SelectContent>
+                  {schools.map((school) => (
+                    <SelectItem key={school.school_id} value={school.school_id}>
+                      {school.acronym || school.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="icon" onClick={() => setShowAddDialog(true)} title="Add new school">
+                <Plus className="h-4 w-4" />
+              </Button>
+              {schools.length > 1 && (
+                <Button variant="outline" size="icon" onClick={() => setShowDeleteDialog(true)} title="Delete school" className="text-destructive hover:text-destructive">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -438,6 +513,101 @@ export const SchoolSettings = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Add School Dialog */}
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5" />
+              Add New School
+            </DialogTitle>
+            <DialogDescription>
+              Create a new school profile with basic information.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>School ID <span className="text-destructive">*</span></Label>
+                <Input
+                  value={newSchool.school_id}
+                  onChange={(e) => setNewSchool({ ...newSchool, school_id: e.target.value.toUpperCase() })}
+                  placeholder="e.g., NEWSCH"
+                  maxLength={10}
+                />
+                <p className="text-xs text-muted-foreground">Unique identifier (uppercase)</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Acronym</Label>
+                <Input
+                  value={newSchool.acronym}
+                  onChange={(e) => setNewSchool({ ...newSchool, acronym: e.target.value })}
+                  placeholder="e.g., NSA"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>School Name <span className="text-destructive">*</span></Label>
+              <Input
+                value={newSchool.name}
+                onChange={(e) => setNewSchool({ ...newSchool, name: e.target.value })}
+                placeholder="Full school name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Address</Label>
+              <Textarea
+                value={newSchool.address}
+                onChange={(e) => setNewSchool({ ...newSchool, address: e.target.value })}
+                placeholder="School address"
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateSchool} disabled={isCreating || !newSchool.school_id || !newSchool.name}>
+              {isCreating ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Plus className="h-4 w-4 mr-2" />
+              )}
+              Create School
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete School Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" />
+              Delete School
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete <strong>{formData.name}</strong>? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteSchool} disabled={isDeleting}>
+              {isDeleting ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-2" />
+              )}
+              Delete School
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
