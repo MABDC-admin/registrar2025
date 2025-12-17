@@ -488,7 +488,7 @@ const StudentProfile = () => {
           <Button 
             variant="ghost" 
             className="gap-2"
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/', { state: { activeTab: 'students' } })}
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Students
