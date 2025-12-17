@@ -196,7 +196,7 @@ export const StudentProfileModal = ({ student, isOpen, onClose }: StudentProfile
             className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] max-w-3xl max-h-[90vh] bg-card rounded-2xl shadow-lg z-50 overflow-hidden flex flex-col"
           >
             {/* Header with Photo */}
-            <div className="px-6 py-6 border-b border-border bg-gradient-to-r from-stat-purple/10 via-stat-pink/5 to-transparent">
+            <div className="px-6 py-6 border-b border-border bg-gradient-to-r from-emerald-600/10 via-lime-400/5 to-transparent">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-5">
                   {/* Photo Upload Area */}
@@ -212,10 +212,10 @@ export const StudentProfileModal = ({ student, isOpen, onClose }: StudentProfile
                       <img 
                         src={student.photo_url} 
                         alt={student.student_name}
-                        className="h-20 w-20 rounded-2xl object-cover border-4 border-stat-purple-light shadow-lg"
+                        className="h-20 w-20 rounded-2xl object-cover border-4 border-emerald-300 shadow-lg"
                       />
                     ) : (
-                      <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-stat-purple to-stat-pink flex items-center justify-center border-4 border-stat-purple-light shadow-lg">
+                      <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-emerald-600 to-lime-400 flex items-center justify-center border-4 border-emerald-300 shadow-lg">
                         <span className="text-3xl font-bold text-white">
                           {student.student_name.charAt(0)}
                         </span>
@@ -240,7 +240,7 @@ export const StudentProfileModal = ({ student, isOpen, onClose }: StudentProfile
                   </div>
                   <div>
                     <h2 className="text-xl font-bold text-foreground">{student.student_name}</h2>
-                    <p className="text-stat-purple font-medium">{student.level}</p>
+                    <p className="text-emerald-600 font-medium">{student.level}</p>
                     <p className="text-sm text-muted-foreground font-mono">LRN: {student.lrn}</p>
                   </div>
                 </div>

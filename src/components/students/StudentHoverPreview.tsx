@@ -15,7 +15,7 @@ export const StudentHoverPreview = ({ student, children }: StudentHoverPreviewPr
       </HoverCardTrigger>
       <HoverCardContent className="w-80 p-0" side="right" align="start">
         {/* Header */}
-        <div className="bg-gradient-to-r from-stat-purple to-stat-pink p-4 rounded-t-md">
+        <div className="bg-gradient-to-r from-emerald-600 to-lime-400 p-4 rounded-t-md">
           <div className="flex items-center gap-3">
             {student.photo_url ? (
               <img 
@@ -45,11 +45,11 @@ export const StudentHoverPreview = ({ student, children }: StudentHoverPreviewPr
           {/* Basic Info */}
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div className="flex items-center gap-1.5 text-muted-foreground">
-              <Calendar className="h-3 w-3 text-stat-purple" />
+              <Calendar className="h-3 w-3 text-emerald-500" />
               <span>{student.birth_date || 'N/A'}</span>
             </div>
             <div className="flex items-center gap-1.5 text-muted-foreground">
-              <User className="h-3 w-3 text-stat-purple" />
+              <User className="h-3 w-3 text-emerald-500" />
               <span>{student.age ? `${student.age} yrs` : 'N/A'} • {student.gender || 'N/A'}</span>
             </div>
           </div>
@@ -108,7 +108,7 @@ export const StudentHoverPreview = ({ student, children }: StudentHoverPreviewPr
           {/* Previous School */}
           {student.previous_school && (
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground pt-1 border-t border-border">
-              <BookOpen className="h-3 w-3 text-stat-purple" />
+              <BookOpen className="h-3 w-3 text-emerald-500" />
               <span className="truncate">From: {student.previous_school}</span>
             </div>
           )}
