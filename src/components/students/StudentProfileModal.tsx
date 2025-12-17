@@ -1,43 +1,24 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useRef, useMemo, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { 
   X, 
-  User, 
-  Phone, 
-  MapPin, 
-  School, 
-  Calendar,
-  Users,
-  Mail,
   Printer,
   Camera,
-  FileText,
   Loader2,
-  Search,
-  BookOpen
+  FileText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Student, StudentDocument } from '@/types/student';
 import { DocumentSlot } from './DocumentSlot';
+import { StudentProfileCard } from './StudentProfileCard';
 import { 
   useStudentDocuments, 
   useUploadDocument, 
   useDeleteDocument,
   useUploadStudentPhoto 
 } from '@/hooks/useStudentDocuments';
-import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
-
-interface EnrolledSubject {
-  id: string;
-  code: string;
-  name: string;
-  status: string;
-  academic_year_name: string;
-}
 
 interface StudentProfileModalProps {
   student: Student | null;
@@ -45,28 +26,9 @@ interface StudentProfileModalProps {
   onClose: () => void;
 }
 
-interface SearchableField {
-  label: string;
-  value: string | null;
-  tab: string;
-  tabLabel: string;
-  icon?: any;
-}
-
-const tabs = [
-  { id: 'personal', label: 'Personal Info', icon: User },
-  { id: 'parents', label: 'Parents/Guardian', icon: Users },
-  { id: 'address', label: 'Address', icon: MapPin },
-  { id: 'academic', label: 'Academic', icon: School },
-  { id: 'documents', label: 'Documents', icon: FileText },
-];
-
 export const StudentProfileModal = ({ student, isOpen, onClose }: StudentProfileModalProps) => {
-  const [activeTab, setActiveTab] = useState('personal');
+  const [activeTab, setActiveTab] = useState('profile');
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [enrolledSubjects, setEnrolledSubjects] = useState<EnrolledSubject[]>([]);
-  const [isLoadingSubjects, setIsLoadingSubjects] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   
   const { data: documents = [] } = useStudentDocuments(student?.id || '');
@@ -74,103 +36,10 @@ export const StudentProfileModal = ({ student, isOpen, onClose }: StudentProfile
   const deleteDocument = useDeleteDocument();
   const uploadPhoto = useUploadStudentPhoto();
 
-  // Fetch enrolled subjects
-  useEffect(() => {
-    const fetchEnrolledSubjects = async () => {
-      if (!student?.id) return;
-      
-      setIsLoadingSubjects(true);
-      try {
-        const { data, error } = await supabase
-          .from('student_subjects')
-          .select(`
-            id,
-            status,
-            subjects:subject_id (
-              id,
-              code,
-              name
-            ),
-            academic_years:academic_year_id (
-              name
-            )
-          `)
-          .eq('student_id', student.id);
-
-        if (!error && data) {
-          const subjects: EnrolledSubject[] = data
-            .filter((item: any) => item.subjects)
-            .map((item: any) => ({
-              id: item.subjects.id,
-              code: item.subjects.code,
-              name: item.subjects.name,
-              status: item.status || 'enrolled',
-              academic_year_name: item.academic_years?.name || 'N/A',
-            }));
-          setEnrolledSubjects(subjects);
-        }
-      } catch (error) {
-        console.error('Error fetching enrolled subjects:', error);
-      } finally {
-        setIsLoadingSubjects(false);
-      }
-    };
-
-    fetchEnrolledSubjects();
-  }, [student?.id]);
-
-  // Build searchable fields
-  const searchableFields: SearchableField[] = useMemo(() => {
-    if (!student) return [];
-    return [
-      { label: 'Full Name', value: student.student_name, tab: 'personal', tabLabel: 'Personal Info', icon: User },
-      { label: 'LRN', value: student.lrn, tab: 'personal', tabLabel: 'Personal Info', icon: Mail },
-      { label: 'Date of Birth', value: student.birth_date, tab: 'personal', tabLabel: 'Personal Info', icon: Calendar },
-      { label: 'Age', value: student.age?.toString() || null, tab: 'personal', tabLabel: 'Personal Info' },
-      { label: 'Gender', value: student.gender, tab: 'personal', tabLabel: 'Personal Info' },
-      { label: 'Level', value: student.level, tab: 'personal', tabLabel: 'Personal Info', icon: School },
-      { label: "Mother's Maiden Name", value: student.mother_maiden_name, tab: 'parents', tabLabel: 'Parents/Guardian' },
-      { label: "Mother's Contact", value: student.mother_contact, tab: 'parents', tabLabel: 'Parents/Guardian', icon: Phone },
-      { label: "Father's Name", value: student.father_name, tab: 'parents', tabLabel: 'Parents/Guardian' },
-      { label: "Father's Contact", value: student.father_contact, tab: 'parents', tabLabel: 'Parents/Guardian', icon: Phone },
-      { label: 'Philippines Address', value: student.phil_address, tab: 'address', tabLabel: 'Address', icon: MapPin },
-      { label: 'UAE Address', value: student.uae_address, tab: 'address', tabLabel: 'Address', icon: MapPin },
-      { label: 'Current Level', value: student.level, tab: 'academic', tabLabel: 'Academic', icon: School },
-      { label: 'Previous School', value: student.previous_school, tab: 'academic', tabLabel: 'Academic', icon: School },
-    ];
-  }, [student]);
-
-  // Filter search results
-  const searchResults = useMemo(() => {
-    if (!searchQuery.trim()) return [];
-    const query = searchQuery.toLowerCase();
-    return searchableFields.filter(field => 
-      field.value?.toLowerCase().includes(query) || 
-      field.label.toLowerCase().includes(query)
-    );
-  }, [searchQuery, searchableFields]);
-
-  const isSearching = searchQuery.trim().length > 0;
-
   if (!student) return null;
 
   const handlePrint = () => {
     window.print();
-  };
-
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !student) return;
-
-    setIsUploadingPhoto(true);
-    try {
-      await uploadPhoto.mutateAsync({ studentId: student.id, file });
-      toast.success('Photo uploaded successfully');
-    } catch (error) {
-      toast.error('Failed to upload photo');
-    } finally {
-      setIsUploadingPhoto(false);
-    }
   };
 
   const handleDocumentUpload = async (slot: number, file: File) => {
@@ -179,6 +48,7 @@ export const StudentProfileModal = ({ student, isOpen, onClose }: StudentProfile
       slotNumber: slot, 
       file 
     });
+    toast.success('Document uploaded successfully');
   };
 
   const handleDocumentDelete = async (slot: number, documentId: string) => {
@@ -188,49 +58,11 @@ export const StudentProfileModal = ({ student, isOpen, onClose }: StudentProfile
       studentId: student.id,
       fileUrl: doc?.file_url || null
     });
+    toast.success('Document deleted');
   };
 
   const getDocumentForSlot = (slot: number): StudentDocument | null => {
     return documents.find(d => d.slot_number === slot) || null;
-  };
-
-  const highlightMatch = (text: string | null, query: string) => {
-    if (!text || !query.trim()) return text || 'Not provided';
-    
-    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-    const parts = text.split(regex);
-    
-    return parts.map((part, i) => 
-      regex.test(part) ? (
-        <mark key={i} className="bg-stat-yellow text-foreground px-0.5 rounded">
-          {part}
-        </mark>
-      ) : (
-        part
-      )
-    );
-  };
-
-  const InfoItem = ({ label, value, icon: Icon, highlight = false }: { 
-    label: string; 
-    value: string | null; 
-    icon?: any;
-    highlight?: boolean;
-  }) => (
-    <div className="space-y-1">
-      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-        {Icon && <Icon className="h-3.5 w-3.5" />}
-        {highlight ? highlightMatch(label, searchQuery) : label}
-      </p>
-      <p className="text-foreground font-medium">
-        {highlight ? highlightMatch(value, searchQuery) : (value || 'Not provided')}
-      </p>
-    </div>
-  );
-
-  const handleSearchResultClick = (tab: string) => {
-    setActiveTab(tab);
-    setSearchQuery('');
   };
 
   return (
@@ -251,311 +83,60 @@ export const StudentProfileModal = ({ student, isOpen, onClose }: StudentProfile
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] max-w-3xl max-h-[90vh] bg-card rounded-2xl shadow-lg z-50 overflow-hidden flex flex-col"
+            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] max-w-4xl max-h-[90vh] bg-card rounded-2xl shadow-lg z-50 overflow-hidden flex flex-col"
           >
-            {/* Header with Photo */}
-            <div className="px-6 py-6 border-b border-border bg-gradient-to-r from-emerald-600/10 via-lime-400/5 to-transparent">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-5">
-                  {/* Photo Upload Area */}
-                  <div className="relative group">
-                    <input
-                      ref={photoInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handlePhotoUpload}
-                    />
-                    {student.photo_url ? (
-                      <img 
-                        src={student.photo_url} 
-                        alt={student.student_name}
-                        className="h-20 w-20 rounded-2xl object-cover border-4 border-emerald-300 shadow-lg"
-                      />
-                    ) : (
-                      <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-emerald-600 to-lime-400 flex items-center justify-center border-4 border-emerald-300 shadow-lg">
-                        <span className="text-3xl font-bold text-white">
-                          {student.student_name.charAt(0)}
-                        </span>
-                      </div>
-                    )}
-                    {/* Upload Overlay */}
-                    <button
-                      onClick={() => photoInputRef.current?.click()}
-                      disabled={isUploadingPhoto}
-                      className="absolute inset-0 rounded-2xl bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                    >
-                      {isUploadingPhoto ? (
-                        <Loader2 className="h-6 w-6 text-white animate-spin" />
-                      ) : (
-                        <Camera className="h-6 w-6 text-white" />
-                      )}
-                    </button>
-                    {/* Status indicator */}
-                    <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-stat-green border-2 border-card flex items-center justify-center">
-                      <div className="h-2 w-2 rounded-full bg-white" />
-                    </div>
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-foreground">{student.student_name}</h2>
-                    <p className="text-emerald-600 font-medium">{student.level}</p>
-                    <p className="text-sm text-muted-foreground font-mono">LRN: {student.lrn}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 no-print">
-                  <Button variant="ghost" size="icon" onClick={handlePrint} aria-label="Print">
-                    <Printer className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close">
-                    <X className="h-5 w-5" />
-                  </Button>
-                </div>
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-border bg-muted/30 flex items-center justify-between shrink-0">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">{student.student_name}</h2>
+                <p className="text-sm text-muted-foreground">LRN: {student.lrn}</p>
               </div>
-
-              {/* Search Bar */}
-              <div className="mt-4 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search student information..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 bg-background/50"
-                />
-                {searchQuery && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                    onClick={() => setSearchQuery('')}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                )}
+              <div className="flex items-center gap-2 no-print">
+                <Button variant="ghost" size="icon" onClick={handlePrint} aria-label="Print">
+                  <Printer className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close">
+                  <X className="h-5 w-5" />
+                </Button>
               </div>
             </div>
 
-            {/* Search Results */}
-            <AnimatePresence>
-              {isSearching && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  className="border-b border-border overflow-hidden"
-                >
-                  <div className="p-4 bg-stat-purple-light/30 max-h-48 overflow-y-auto">
-                    <p className="text-xs font-medium text-muted-foreground mb-3">
-                      {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} found
-                    </p>
-                    {searchResults.length > 0 ? (
-                      <div className="space-y-2">
-                        {searchResults.map((result, index) => (
-                          <motion.button
-                            key={`${result.tab}-${result.label}`}
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: index * 0.05 }}
-                            onClick={() => handleSearchResultClick(result.tab)}
-                            className="w-full text-left p-3 rounded-lg bg-card hover:bg-secondary transition-colors"
-                          >
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-sm font-medium text-foreground">
-                                  {highlightMatch(result.value || 'Not provided', searchQuery)}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {result.label} • {result.tabLabel}
-                                </p>
-                              </div>
-                              <span className="text-xs px-2 py-1 rounded-full bg-stat-purple/10 text-stat-purple">
-                                {result.tabLabel}
-                              </span>
-                            </div>
-                          </motion.button>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground text-center py-4">
-                        No matching information found
-                      </p>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
             {/* Tabs */}
-            {!isSearching && (
-              <div className="px-6 py-3 border-b border-border no-print overflow-x-auto">
-                <div className="flex gap-1">
-                  {tabs.map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={cn(
-                        "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap",
-                        activeTab === tab.id
-                          ? "bg-stat-purple text-white"
-                          : "text-muted-foreground hover:bg-secondary hover:text-secondary-foreground"
-                      )}
-                    >
-                      <tab.icon className="h-4 w-4" />
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+            <div className="px-6 pt-4 no-print">
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList>
+                  <TabsTrigger value="profile">Profile</TabsTrigger>
+                  <TabsTrigger value="documents">Documents</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-6">
               <AnimatePresence mode="wait">
-                {activeTab === 'personal' && !isSearching && (
+                {activeTab === 'profile' && (
                   <motion.div
-                    key="personal"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    className="grid grid-cols-1 sm:grid-cols-2 gap-6"
+                    key="profile"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
                   >
-                    <InfoItem label="Full Name" value={student.student_name} icon={User} />
-                    <InfoItem label="LRN" value={student.lrn} icon={Mail} />
-                    <InfoItem label="Date of Birth" value={student.birth_date} icon={Calendar} />
-                    <InfoItem label="Age" value={student.age?.toString() || null} />
-                    <InfoItem label="Gender" value={student.gender} />
-                    <InfoItem label="Level" value={student.level} icon={School} />
+                    <StudentProfileCard student={student} showPhotoUpload={true} />
                   </motion.div>
                 )}
 
-                {activeTab === 'parents' && !isSearching && (
-                  <motion.div
-                    key="parents"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    className="space-y-6"
-                  >
-                    <div className="p-4 rounded-xl bg-stat-pink-light">
-                      <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-                        <Users className="h-4 w-4 text-stat-pink" />
-                        Mother's Information
-                      </h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <InfoItem label="Maiden Name" value={student.mother_maiden_name} />
-                        <InfoItem label="Contact Number" value={student.mother_contact} icon={Phone} />
-                      </div>
-                    </div>
-                    <div className="p-4 rounded-xl bg-stat-purple-light">
-                      <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-                        <Users className="h-4 w-4 text-stat-purple" />
-                        Father's Information
-                      </h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <InfoItem label="Full Name" value={student.father_name} />
-                        <InfoItem label="Contact Number" value={student.father_contact} icon={Phone} />
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-
-                {activeTab === 'address' && !isSearching && (
-                  <motion.div
-                    key="address"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    className="space-y-6"
-                  >
-                    <div className="p-4 rounded-xl bg-stat-green-light">
-                      <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-stat-green" />
-                        Philippines Address
-                      </h3>
-                      <p className="text-foreground">{student.phil_address || 'Not provided'}</p>
-                    </div>
-                    <div className="p-4 rounded-xl bg-stat-yellow-light">
-                      <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-stat-yellow" />
-                        UAE Address
-                      </h3>
-                      <p className="text-foreground">{student.uae_address || 'Not provided'}</p>
-                    </div>
-                  </motion.div>
-                )}
-
-                {activeTab === 'academic' && !isSearching && (
-                  <motion.div
-                    key="academic"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    className="space-y-6"
-                  >
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                      <InfoItem label="Current Level" value={student.level} icon={School} />
-                      <InfoItem label="LRN" value={student.lrn} />
-                    </div>
-                    <div className="p-4 rounded-xl bg-stat-purple-light">
-                      <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-                        <School className="h-4 w-4 text-stat-purple" />
-                        Previous School
-                      </h3>
-                      <p className="text-foreground">{student.previous_school || 'Not provided'}</p>
-                    </div>
-                    
-                    {/* Enrolled Subjects */}
-                    <div className="p-4 rounded-xl bg-stat-green-light">
-                      <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-                        <BookOpen className="h-4 w-4 text-stat-green" />
-                        Enrolled Subjects
-                        <Badge variant="secondary" className="ml-2">
-                          {enrolledSubjects.length}
-                        </Badge>
-                      </h3>
-                      {isLoadingSubjects ? (
-                        <div className="flex items-center justify-center py-4">
-                          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                        </div>
-                      ) : enrolledSubjects.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {enrolledSubjects.map((subject) => (
-                            <div 
-                              key={subject.id}
-                              className="flex items-center justify-between p-2 bg-card rounded-lg border"
-                            >
-                              <div className="flex items-center gap-2 min-w-0">
-                                <Badge variant="outline" className="font-mono text-xs shrink-0">
-                                  {subject.code}
-                                </Badge>
-                                <span className="text-sm truncate">{subject.name}</span>
-                              </div>
-                              <Badge 
-                                variant={subject.status === 'enrolled' ? 'default' : 'secondary'}
-                                className="text-xs shrink-0 ml-2"
-                              >
-                                {subject.status}
-                              </Badge>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-muted-foreground text-center py-4">
-                          No subjects enrolled yet
-                        </p>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-
-                {activeTab === 'documents' && !isSearching && (
+                {activeTab === 'documents' && (
                   <motion.div
                     key="documents"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
                   >
                     <div className="mb-6">
-                      <h3 className="text-lg font-semibold text-foreground mb-2">Student Documents</h3>
+                      <h3 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
+                        <FileText className="h-5 w-5" />
+                        Student Documents
+                      </h3>
                       <p className="text-sm text-muted-foreground">
                         Upload and manage student documents. Drag and drop or click to upload files.
                       </p>
