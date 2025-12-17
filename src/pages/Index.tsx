@@ -5,6 +5,7 @@ import { Users, GraduationCap, TrendingUp, UserPlus } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { StatsCard } from '@/components/dashboard/StatsCard';
 import { Charts } from '@/components/dashboard/Charts';
+import { GlobalStudentSearch } from '@/components/dashboard/GlobalStudentSearch';
 import { StudentTable } from '@/components/students/StudentTable';
 import { StudentProfileModal } from '@/components/students/StudentProfileModal';
 import { StudentFormModal } from '@/components/students/StudentFormModal';
@@ -191,12 +192,13 @@ const Index = () => {
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+            className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"
           >
             <div>
               <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Dashboard</h1>
               <p className="text-muted-foreground mt-1">Overview of student records</p>
             </div>
+            <GlobalStudentSearch />
           </motion.div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
