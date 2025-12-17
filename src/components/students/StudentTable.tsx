@@ -38,6 +38,12 @@ type SortDirection = 'asc' | 'desc';
 
 const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
+const SCHOOLS = [
+  { id: 'all', name: 'All Schools', acronym: 'ALL' },
+  { id: 'mabdc', name: 'M.A Brain Development Center', acronym: 'MABDC' },
+  { id: 'stfxsa', name: 'St. Francis Xavier Smart Academy Inc', acronym: 'STFXSA' },
+];
+
 export const StudentTable = ({ 
   students, 
   onView, 
@@ -46,6 +52,7 @@ export const StudentTable = ({
   isLoading 
 }: StudentTableProps) => {
   const [search, setSearch] = useState('');
+  const [schoolFilter, setSchoolFilter] = useState<string>('all');
   const [levelFilter, setLevelFilter] = useState<string>('all');
   const [genderFilter, setGenderFilter] = useState<string>('all');
   const [sortField, setSortField] = useState<SortField>('student_name');
@@ -143,19 +150,39 @@ export const StudentTable = ({
 
   const clearFilters = () => {
     setSearch('');
+    setSchoolFilter('all');
     setLevelFilter('all');
     setGenderFilter('all');
     setCurrentPage(1);
   };
 
-  const hasActiveFilters = search || levelFilter !== 'all' || genderFilter !== 'all';
+  const hasActiveFilters = search || schoolFilter !== 'all' || levelFilter !== 'all' || genderFilter !== 'all';
 
   return (
     <div className="bg-card rounded-2xl shadow-card overflow-hidden">
       {/* Header */}
       <div className="p-4 lg:p-6 border-b border-border space-y-4">
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <div className="relative flex-1 w-full sm:max-w-md">
+        {/* School Selector */}
+        <div className="flex flex-wrap items-center gap-2">
+          {SCHOOLS.map((school) => (
+            <button
+              key={school.id}
+              onClick={() => { setSchoolFilter(school.id); setCurrentPage(1); }}
+              className={cn(
+                "px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-200",
+                schoolFilter === school.id
+                  ? "bg-primary text-primary-foreground shadow-md"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+              )}
+            >
+              {school.acronym}
+            </button>
+          ))}
+        </div>
+
+        {/* Search and Level Filter Row */}
+        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
+          <div className="relative flex-1 w-full lg:max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by name or LRN..."
@@ -167,28 +194,45 @@ export const StudentTable = ({
               className="pl-10"
             />
           </div>
-          <div className="flex gap-2 w-full sm:w-auto">
+          
+          {/* Level Filter - Always Visible */}
+          <div className="flex items-center gap-2 w-full lg:w-auto">
+            <label className="text-sm font-medium text-muted-foreground whitespace-nowrap">Level:</label>
+            <Select value={levelFilter} onValueChange={(v) => { setLevelFilter(v); setCurrentPage(1); }}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="All Levels" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Levels</SelectItem>
+                {levels.map(level => (
+                  <SelectItem key={level} value={level}>{level}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex gap-2 w-full lg:w-auto">
             <Button 
               variant="outline" 
               onClick={() => setShowFilters(!showFilters)}
               className={cn(showFilters && "bg-secondary")}
             >
               <Filter className="h-4 w-4 mr-2" />
-              Filters
-              {hasActiveFilters && (
-                <span className="ml-2 bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-xs">
-                  !
-                </span>
-              )}
+              More
             </Button>
             <Button variant="outline" onClick={exportToCSV}>
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
+            {hasActiveFilters && (
+              <Button variant="ghost" size="icon" onClick={clearFilters} title="Clear all filters">
+                <X className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </div>
 
-        {/* Filters Panel */}
+        {/* Additional Filters Panel */}
         <AnimatePresence>
           {showFilters && (
             <motion.div
@@ -198,20 +242,6 @@ export const StudentTable = ({
               className="overflow-hidden"
             >
               <div className="flex flex-wrap gap-4 pt-4 border-t border-border">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-muted-foreground">Level</label>
-                  <Select value={levelFilter} onValueChange={(v) => { setLevelFilter(v); setCurrentPage(1); }}>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="All Levels" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Levels</SelectItem>
-                      {levels.map(level => (
-                        <SelectItem key={level} value={level}>{level}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-muted-foreground">Gender</label>
                   <Select value={genderFilter} onValueChange={(v) => { setGenderFilter(v); setCurrentPage(1); }}>
@@ -226,14 +256,6 @@ export const StudentTable = ({
                     </SelectContent>
                   </Select>
                 </div>
-                {hasActiveFilters && (
-                  <div className="flex items-end">
-                    <Button variant="ghost" size="sm" onClick={clearFilters}>
-                      <X className="h-4 w-4 mr-1" />
-                      Clear
-                    </Button>
-                  </div>
-                )}
               </div>
             </motion.div>
           )}
