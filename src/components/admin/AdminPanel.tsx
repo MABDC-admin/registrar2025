@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Trash2, AlertTriangle, Loader2, Database, RefreshCcw, Users, Settings } from 'lucide-react';
+import { Trash2, AlertTriangle, Loader2, Database, RefreshCcw, Users, Settings, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { UserManagement } from './UserManagement';
+import { SchoolSettings } from './SchoolSettings';
 
 export const AdminPanel = () => {
   const [isResetting, setIsResetting] = useState(false);
@@ -52,10 +53,14 @@ export const AdminPanel = () => {
       </div>
 
       <Tabs defaultValue="users" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
+        <TabsList className="grid w-full grid-cols-3 lg:w-[500px]">
           <TabsTrigger value="users" className="gap-2">
             <Users className="h-4 w-4" />
-            User Management
+            Users
+          </TabsTrigger>
+          <TabsTrigger value="school" className="gap-2">
+            <Building2 className="h-4 w-4" />
+            School Info
           </TabsTrigger>
           <TabsTrigger value="system" className="gap-2">
             <Settings className="h-4 w-4" />
@@ -65,6 +70,10 @@ export const AdminPanel = () => {
         
         <TabsContent value="users" className="mt-6">
           <UserManagement />
+        </TabsContent>
+
+        <TabsContent value="school" className="mt-6">
+          <SchoolSettings />
         </TabsContent>
         
         <TabsContent value="system" className="mt-6 space-y-6">
