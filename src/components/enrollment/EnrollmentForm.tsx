@@ -39,6 +39,11 @@ const SCHOOL_YEARS = Array.from({ length: 15 }, (_, i) => {
   return `${startYear}-${startYear + 1}`;
 });
 
+const SCHOOLS = [
+  { id: 'MABDC', name: 'M.A Brain Development Center', acronym: 'MABDC' },
+  { id: 'STFXSA', name: 'St. Francis Xavier Smart Academy Inc', acronym: 'STFXSA' },
+];
+
 const GENDERS = ['Male', 'Female'];
 
 interface FormErrors {
@@ -60,6 +65,7 @@ export const EnrollmentForm = () => {
     student_name: '',
     lrn: '',
     level: '',
+    school: 'MABDC',
     school_year: '2025-2026',
     birth_date: '',
     gender: '',
@@ -199,6 +205,7 @@ export const EnrollmentForm = () => {
         student_name: formData.student_name.trim(),
         lrn: finalLrn,
         level: formData.level,
+        school: formData.school,
         birth_date: formData.birth_date || undefined,
         age: calculatedAge || undefined,
         gender: formData.gender || undefined,
@@ -253,6 +260,7 @@ export const EnrollmentForm = () => {
         <body>
           <div class="header">
             <h1>Student Enrollment Confirmation</h1>
+            <p>${SCHOOLS.find(s => s.id === formData.school)?.name || formData.school}</p>
             <p>School Year ${formData.school_year}</p>
           </div>
           
@@ -261,6 +269,7 @@ export const EnrollmentForm = () => {
             <div class="row"><span class="label">Full Name</span><span class="value">${formData.student_name}</span></div>
             <div class="row"><span class="label">LRN</span><span class="value">${formData.lrn || (isKinderLevel ? 'To be assigned' : '-')}</span></div>
             <div class="row"><span class="label">Grade Level</span><span class="value">${formData.level}</span></div>
+            <div class="row"><span class="label">School</span><span class="value">${SCHOOLS.find(s => s.id === formData.school)?.name || formData.school}</span></div>
             <div class="row"><span class="label">Birth Date</span><span class="value">${formData.birth_date}</span></div>
             <div class="row"><span class="label">Age</span><span class="value">${calculatedAge !== null ? `${calculatedAge} years old` : '-'}</span></div>
             <div class="row"><span class="label">Gender</span><span class="value">${formData.gender}</span></div>
@@ -310,6 +319,7 @@ export const EnrollmentForm = () => {
       student_name: '',
       lrn: '',
       level: '',
+      school: 'MABDC',
       school_year: '2025-2026',
       birth_date: '',
       gender: '',
@@ -403,6 +413,26 @@ export const EnrollmentForm = () => {
                   </SelectContent>
                 </Select>
                 {touched.level && <FieldError error={errors.level} />}
+              </div>
+              <div className="space-y-2">
+                <Label className="text-stat-purple">
+                  School <span className="text-destructive">*</span>
+                </Label>
+                <Select value={formData.school} onValueChange={(v) => handleChange('school', v)}>
+                  <SelectTrigger className="bg-secondary/50">
+                    <SelectValue placeholder="Select school" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SCHOOLS.map(school => (
+                      <SelectItem key={school.id} value={school.id}>
+                        <div className="flex flex-col">
+                          <span className="font-semibold">{school.acronym}</span>
+                          <span className="text-xs text-muted-foreground">{school.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label className="text-stat-purple">
@@ -615,6 +645,7 @@ export const EnrollmentForm = () => {
                 <ReviewItem label="Full Name" value={formData.student_name} />
                 <ReviewItem label="LRN" value={formData.lrn || (isKinderLevel ? 'Will be auto-generated' : '-')} />
                 <ReviewItem label="Grade Level" value={formData.level} />
+                <ReviewItem label="School" value={SCHOOLS.find(s => s.id === formData.school)?.name || formData.school} />
                 <ReviewItem label="School Year" value={formData.school_year} />
                 <ReviewItem label="Birth Date" value={formData.birth_date} />
                 <ReviewItem label="Age" value={calculatedAge !== null ? `${calculatedAge} years old` : '-'} />

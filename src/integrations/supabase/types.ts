@@ -74,6 +74,7 @@ export type Database = {
           phil_address: string | null
           photo_url: string | null
           previous_school: string | null
+          school: string | null
           student_name: string
           uae_address: string | null
           updated_at: string
@@ -93,6 +94,7 @@ export type Database = {
           phil_address?: string | null
           photo_url?: string | null
           previous_school?: string | null
+          school?: string | null
           student_name: string
           uae_address?: string | null
           updated_at?: string
@@ -112,6 +114,7 @@ export type Database = {
           phil_address?: string | null
           photo_url?: string | null
           previous_school?: string | null
+          school?: string | null
           student_name?: string
           uae_address?: string | null
           updated_at?: string

@@ -3,6 +3,7 @@ export interface Student {
   lrn: string;
   student_name: string;
   level: string;
+  school: string | null;
   birth_date: string | null;
   age: number | null;
   gender: string | null;
@@ -34,6 +35,7 @@ export interface StudentFormData {
   lrn: string;
   student_name: string;
   level: string;
+  school?: string;
   birth_date?: string;
   age?: number;
   gender?: string;
