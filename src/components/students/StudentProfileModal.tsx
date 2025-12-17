@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { 
   X, 
   User, 
@@ -13,10 +13,12 @@ import {
   Camera,
   FileText,
   Loader2,
-  Search
+  Search,
+  BookOpen
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { Student, StudentDocument } from '@/types/student';
 import { DocumentSlot } from './DocumentSlot';
 import { 
@@ -27,6 +29,15 @@ import {
 } from '@/hooks/useStudentDocuments';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+
+interface EnrolledSubject {
+  id: string;
+  code: string;
+  name: string;
+  status: string;
+  academic_year_name: string;
+}
 
 interface StudentProfileModalProps {
   student: Student | null;
@@ -54,12 +65,59 @@ export const StudentProfileModal = ({ student, isOpen, onClose }: StudentProfile
   const [activeTab, setActiveTab] = useState('personal');
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [enrolledSubjects, setEnrolledSubjects] = useState<EnrolledSubject[]>([]);
+  const [isLoadingSubjects, setIsLoadingSubjects] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   
   const { data: documents = [] } = useStudentDocuments(student?.id || '');
   const uploadDocument = useUploadDocument();
   const deleteDocument = useDeleteDocument();
   const uploadPhoto = useUploadStudentPhoto();
+
+  // Fetch enrolled subjects
+  useEffect(() => {
+    const fetchEnrolledSubjects = async () => {
+      if (!student?.id) return;
+      
+      setIsLoadingSubjects(true);
+      try {
+        const { data, error } = await supabase
+          .from('student_subjects')
+          .select(`
+            id,
+            status,
+            subjects:subject_id (
+              id,
+              code,
+              name
+            ),
+            academic_years:academic_year_id (
+              name
+            )
+          `)
+          .eq('student_id', student.id);
+
+        if (!error && data) {
+          const subjects: EnrolledSubject[] = data
+            .filter((item: any) => item.subjects)
+            .map((item: any) => ({
+              id: item.subjects.id,
+              code: item.subjects.code,
+              name: item.subjects.name,
+              status: item.status || 'enrolled',
+              academic_year_name: item.academic_years?.name || 'N/A',
+            }));
+          setEnrolledSubjects(subjects);
+        }
+      } catch (error) {
+        console.error('Error fetching enrolled subjects:', error);
+      } finally {
+        setIsLoadingSubjects(false);
+      }
+    };
+
+    fetchEnrolledSubjects();
+  }, [student?.id]);
 
   // Build searchable fields
   const searchableFields: SearchableField[] = useMemo(() => {
@@ -443,6 +501,48 @@ export const StudentProfileModal = ({ student, isOpen, onClose }: StudentProfile
                         Previous School
                       </h3>
                       <p className="text-foreground">{student.previous_school || 'Not provided'}</p>
+                    </div>
+                    
+                    {/* Enrolled Subjects */}
+                    <div className="p-4 rounded-xl bg-stat-green-light">
+                      <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                        <BookOpen className="h-4 w-4 text-stat-green" />
+                        Enrolled Subjects
+                        <Badge variant="secondary" className="ml-2">
+                          {enrolledSubjects.length}
+                        </Badge>
+                      </h3>
+                      {isLoadingSubjects ? (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : enrolledSubjects.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {enrolledSubjects.map((subject) => (
+                            <div 
+                              key={subject.id}
+                              className="flex items-center justify-between p-2 bg-card rounded-lg border"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <Badge variant="outline" className="font-mono text-xs shrink-0">
+                                  {subject.code}
+                                </Badge>
+                                <span className="text-sm truncate">{subject.name}</span>
+                              </div>
+                              <Badge 
+                                variant={subject.status === 'enrolled' ? 'default' : 'secondary'}
+                                className="text-xs shrink-0 ml-2"
+                              >
+                                {subject.status}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          No subjects enrolled yet
+                        </p>
+                      )}
                     </div>
                   </motion.div>
                 )}
