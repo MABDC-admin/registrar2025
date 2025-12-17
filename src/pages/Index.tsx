@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Users, GraduationCap, TrendingUp, UserPlus } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -37,6 +37,7 @@ import { ReportsManagement } from '@/components/reports/ReportsManagement';
 
 const Index = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, loading, role } = useAuth();
   
   useEffect(() => {
@@ -44,6 +45,16 @@ const Index = () => {
       navigate('/auth');
     }
   }, [user, loading, navigate]);
+
+  // Handle navigation state (e.g., from StudentProfile back button)
+  useEffect(() => {
+    const state = location.state as { activeTab?: string } | null;
+    if (state?.activeTab) {
+      setActiveTab(state.activeTab);
+      // Clear the state to avoid re-triggering
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, navigate, location.pathname]);
 
   // Set default tab based on role
   const getDefaultTab = (userRole: string | null) => {
