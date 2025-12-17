@@ -67,8 +67,10 @@ import {
 import { useStudents, useUpdateStudent } from '@/hooks/useStudents';
 import { useUploadStudentPhoto } from '@/hooks/useStudentDocuments';
 import { DocumentsManager } from '@/components/students/DocumentsManager';
+import { useColorTheme } from '@/contexts/ColorThemeContext';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 
 interface EnrolledSubject {
   id: string;
@@ -113,6 +115,7 @@ const StudentProfile = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('personal');
+  const { theme } = useColorTheme();
   const [enrolledSubjects, setEnrolledSubjects] = useState<EnrolledSubject[]>([]);
   const [grades, setGrades] = useState<StudentGrade[]>([]);
   const [incidents, setIncidents] = useState<StudentIncident[]>([]);
@@ -475,9 +478,12 @@ const StudentProfile = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className={cn("min-h-screen bg-background transition-colors duration-500", theme.pageBg)}>
       {/* Top Navigation Bar */}
-      <div className="border-b border-border bg-card sticky top-0 z-10">
+      <div className={cn(
+        "border-b border-border/50 sticky top-0 z-10 backdrop-blur-sm",
+        theme.pageBg ? "bg-background/80" : "bg-card"
+      )}>
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <Button 
             variant="ghost" 
@@ -506,7 +512,8 @@ const StudentProfile = () => {
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-card border border-border rounded-xl p-6"
+          className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-xl p-6 shadow-lg"
+          style={theme.accentColor ? { borderTopColor: theme.accentColor, borderTopWidth: '3px' } : {}}
         >
           <div className="flex flex-col lg:flex-row lg:items-start gap-6">
             {/* Avatar and Info */}
@@ -519,9 +526,15 @@ const StudentProfile = () => {
                   className="hidden"
                   onChange={handlePhotoUpload}
                 />
-                <Avatar className="h-20 w-20 border-4 border-primary/20">
+                <Avatar 
+                  className="h-20 w-20 border-4"
+                  style={{ borderColor: theme.accentColor || 'hsl(var(--primary) / 0.2)' }}
+                >
                   <AvatarImage src={student.photo_url || ''} alt={student.student_name} />
-                  <AvatarFallback className="text-2xl font-bold bg-primary text-primary-foreground">
+                  <AvatarFallback 
+                    className="text-2xl font-bold text-white"
+                    style={{ backgroundColor: theme.accentColor || 'hsl(var(--primary))' }}
+                  >
                     {student.student_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                   </AvatarFallback>
                 </Avatar>
@@ -561,7 +574,10 @@ const StudentProfile = () => {
 
             {/* Stats */}
             <div className="lg:ml-auto text-right">
-              <p className="text-4xl font-bold text-foreground">
+              <p 
+                className="text-4xl font-bold"
+                style={{ color: theme.accentColor || 'hsl(var(--foreground))' }}
+              >
                 {grades.length > 0 && grades[0].final_grade 
                   ? grades[0].final_grade.toFixed(2)
                   : '--'}
@@ -573,50 +589,58 @@ const StudentProfile = () => {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent flex-wrap">
-            <TabsTrigger 
-              value="personal" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
-            >
-              <User className="h-4 w-4 mr-2" />
-              Personal Information
-            </TabsTrigger>
-            <TabsTrigger 
-              value="academic" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
-            >
-              <BookOpen className="h-4 w-4 mr-2" />
-              Academic History
-            </TabsTrigger>
-            <TabsTrigger 
-              value="subjects" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
-            >
-              <GraduationCap className="h-4 w-4 mr-2" />
-              Subjects
-            </TabsTrigger>
-            <TabsTrigger 
-              value="grades" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              Grades
-            </TabsTrigger>
-            <TabsTrigger 
-              value="documents" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
-            >
-              <FolderOpen className="h-4 w-4 mr-2" />
-              Documents
-            </TabsTrigger>
-            <TabsTrigger 
-              value="anecdotal" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
-            >
-              <AlertTriangle className="h-4 w-4 mr-2" />
-              Anecdotal/Behavior
-            </TabsTrigger>
-          </TabsList>
+          <div style={{ '--accent-color': theme.accentColor } as React.CSSProperties}>
+            <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent flex-wrap">
+              <TabsTrigger 
+                value="personal" 
+                className="rounded-none border-b-2 border-transparent data-[state=active]:bg-transparent px-4 py-3"
+                style={activeTab === 'personal' ? { borderBottomColor: theme.accentColor || 'hsl(var(--primary))' } : {}}
+              >
+                <User className="h-4 w-4 mr-2" />
+                Personal Information
+              </TabsTrigger>
+              <TabsTrigger 
+                value="academic" 
+                className="rounded-none border-b-2 border-transparent data-[state=active]:bg-transparent px-4 py-3"
+                style={activeTab === 'academic' ? { borderBottomColor: theme.accentColor || 'hsl(var(--primary))' } : {}}
+              >
+                <BookOpen className="h-4 w-4 mr-2" />
+                Academic History
+              </TabsTrigger>
+              <TabsTrigger 
+                value="subjects" 
+                className="rounded-none border-b-2 border-transparent data-[state=active]:bg-transparent px-4 py-3"
+                style={activeTab === 'subjects' ? { borderBottomColor: theme.accentColor || 'hsl(var(--primary))' } : {}}
+              >
+                <GraduationCap className="h-4 w-4 mr-2" />
+                Subjects
+              </TabsTrigger>
+              <TabsTrigger 
+                value="grades" 
+                className="rounded-none border-b-2 border-transparent data-[state=active]:bg-transparent px-4 py-3"
+                style={activeTab === 'grades' ? { borderBottomColor: theme.accentColor || 'hsl(var(--primary))' } : {}}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Grades
+              </TabsTrigger>
+              <TabsTrigger 
+                value="documents" 
+                className="rounded-none border-b-2 border-transparent data-[state=active]:bg-transparent px-4 py-3"
+                style={activeTab === 'documents' ? { borderBottomColor: theme.accentColor || 'hsl(var(--primary))' } : {}}
+              >
+                <FolderOpen className="h-4 w-4 mr-2" />
+                Documents
+              </TabsTrigger>
+              <TabsTrigger 
+                value="anecdotal" 
+                className="rounded-none border-b-2 border-transparent data-[state=active]:bg-transparent px-4 py-3"
+                style={activeTab === 'anecdotal' ? { borderBottomColor: theme.accentColor || 'hsl(var(--primary))' } : {}}
+              >
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                Anecdotal/Behavior
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Personal Information Tab */}
           <TabsContent value="personal" className="mt-6">
