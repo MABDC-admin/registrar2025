@@ -205,7 +205,7 @@ export const StudentTable = ({
         <div className="flex flex-wrap items-center justify-between gap-4">
           {/* School Dropdown */}
           <Select value={schoolFilter} onValueChange={(v) => setSchoolFilter(v)}>
-            <SelectTrigger className="w-[280px] bg-card border-2 border-stat-purple/20 hover:border-stat-purple/40">
+            <SelectTrigger className="w-[140px] bg-card border-2 border-stat-purple/20 hover:border-stat-purple/40">
               <div className="flex items-center gap-2">
                 <GraduationCap className="h-4 w-4 text-stat-purple" />
                 <SelectValue>
