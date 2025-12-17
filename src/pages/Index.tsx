@@ -110,14 +110,13 @@ const Index = () => {
             </div>
           </motion.div>
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
             <StatsCard
               title="Total Students"
               value={totalStudents}
               subtitle="Enrolled students"
               icon={Users}
-              variant="primary"
+              variant="purple"
               delay={0}
             />
             <StatsCard
@@ -125,6 +124,7 @@ const Index = () => {
               value={maleCount}
               subtitle={`${totalStudents ? ((maleCount / totalStudents) * 100).toFixed(1) : 0}% of total`}
               icon={TrendingUp}
+              variant="pink"
               delay={0.1}
             />
             <StatsCard
@@ -132,6 +132,7 @@ const Index = () => {
               value={femaleCount}
               subtitle={`${totalStudents ? ((femaleCount / totalStudents) * 100).toFixed(1) : 0}% of total`}
               icon={TrendingUp}
+              variant="yellow"
               delay={0.2}
             />
             <StatsCard
@@ -139,7 +140,7 @@ const Index = () => {
               value={levels}
               subtitle="Active levels"
               icon={GraduationCap}
-              variant="accent"
+              variant="green"
               delay={0.3}
             />
           </div>

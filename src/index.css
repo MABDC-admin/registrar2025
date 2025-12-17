@@ -42,6 +42,16 @@
     --info: 199 89% 48%;
     --info-foreground: 0 0% 100%;
 
+    /* Colorful stat card colors */
+    --stat-purple: 259 67% 59%;
+    --stat-purple-light: 259 67% 95%;
+    --stat-pink: 340 82% 59%;
+    --stat-pink-light: 340 82% 95%;
+    --stat-yellow: 45 93% 58%;
+    --stat-yellow-light: 45 93% 95%;
+    --stat-green: 158 64% 52%;
+    --stat-green-light: 158 64% 95%;
+
     --border: 220 13% 91%;
     --input: 220 13% 91%;
     --ring: 168 76% 36%;
@@ -102,6 +112,16 @@
 
     --info: 199 89% 48%;
     --info-foreground: 0 0% 100%;
+
+    /* Colorful stat card colors - dark mode */
+    --stat-purple: 259 67% 52%;
+    --stat-purple-light: 259 30% 20%;
+    --stat-pink: 340 82% 52%;
+    --stat-pink-light: 340 30% 20%;
+    --stat-yellow: 45 93% 52%;
+    --stat-yellow-light: 45 30% 20%;
+    --stat-green: 158 64% 45%;
+    --stat-green-light: 158 30% 20%;
 
     --border: 222 47% 18%;
     --input: 222 47% 18%;
