@@ -83,7 +83,11 @@ export const SubjectManagement = () => {
       });
     } else {
       setEditingSubject(null);
-      setFormData(initialFormState);
+      // Pre-select the filtered grade level if one is selected
+      setFormData({
+        ...initialFormState,
+        grade_levels: gradeFilter !== 'all' ? [gradeFilter] : [],
+      });
     }
     setIsModalOpen(true);
   };
