@@ -59,8 +59,7 @@ const Index = () => {
   };
 
   const handleView = (student: Student) => {
-    setSelectedStudent(student);
-    setIsViewModalOpen(true);
+    window.open(`/student/${student.id}`, '_blank');
   };
 
   const handleEdit = (student: Student) => {
