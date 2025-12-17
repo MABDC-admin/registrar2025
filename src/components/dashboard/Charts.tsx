@@ -44,7 +44,7 @@ export const Charts = ({ students }: ChartsProps) => {
     return acc;
   }, [] as { name: string; value: number }[]);
 
-  const COLORS = ['hsl(168, 76%, 36%)', 'hsl(35, 92%, 55%)', 'hsl(199, 89%, 48%)', 'hsl(142, 71%, 45%)'];
+  const COLORS = ['hsl(259, 67%, 59%)', 'hsl(340, 82%, 59%)', 'hsl(45, 93%, 58%)', 'hsl(158, 64%, 52%)'];
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -88,7 +88,7 @@ export const Charts = ({ students }: ChartsProps) => {
               <Tooltip content={<CustomTooltip />} />
               <Bar 
                 dataKey="count" 
-                fill="hsl(var(--primary))" 
+                fill="hsl(259, 67%, 59%)" 
                 radius={[6, 6, 0, 0]}
                 maxBarSize={50}
               />
