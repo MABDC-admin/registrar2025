@@ -891,29 +891,32 @@ const StudentProfile = () => {
 
           {/* Academic History Tab */}
           <TabsContent value="academic" className="mt-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-base">Academic Background</CardTitle>
-                {isEditingAcademic ? (
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setIsEditingAcademic(false)}>
-                      <X className="h-4 w-4 mr-2" />
-                      Cancel
-                    </Button>
-                    <Button size="sm" onClick={handleSaveStudent} disabled={isSavingStudent}>
-                      {isSavingStudent ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                      Save
-                    </Button>
-                  </div>
-                ) : (
-                  <Button variant="outline" size="sm" onClick={() => setIsEditingAcademic(true)}>
-                    <Pencil className="h-4 w-4 mr-2" />
-                    Edit
+            <div className="flex justify-end mb-4">
+              {isEditingAcademic ? (
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setIsEditingAcademic(false)}>
+                    <X className="h-4 w-4 mr-2" />
+                    Cancel
                   </Button>
-                )}
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {isEditingAcademic ? (
+                  <Button size="sm" onClick={handleSaveStudent} disabled={isSavingStudent}>
+                    {isSavingStudent ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                    Save
+                  </Button>
+                </div>
+              ) : (
+                <Button variant="default" size="sm" onClick={() => setIsEditingAcademic(true)} className="bg-slate-700 hover:bg-slate-800 text-white gap-2">
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </Button>
+              )}
+            </div>
+
+            {isEditingAcademic ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Academic Background</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-1">
                       <Label className="text-xs">Current Level</Label>
@@ -942,143 +945,246 @@ const StudentProfile = () => {
                     </div>
                     <EditableField label="Previous School" value={studentForm.previous_school} field="previous_school" />
                   </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <InfoRow label="Current Level" value={student.level} />
-                    <InfoRow label="School" value={student.school || 'MABDC'} />
-                    <InfoRow label="Previous School" value={student.previous_school} />
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Academic Background Card - Blue Gradient */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.1 }}
+                  className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 shadow-lg border-t-4"
+                  style={{ borderTopColor: '#3b82f6' }}
+                >
+                  <div 
+                    className="px-5 py-3 flex items-center gap-2"
+                    style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%)' }}
+                  >
+                    <BookOpen className="h-4 w-4 text-white" />
+                    <h3 className="font-semibold text-white">Academic Background</h3>
                   </div>
-                )}
-                <div className="pt-4 border-t">
-                  <p className="text-sm font-medium mb-3">Enrollment History</p>
-                  <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground">
-                    <p>Enrolled since {formatDate(student.created_at)}</p>
+                  <div className="p-5 space-y-4 bg-gradient-to-br from-blue-50/50 to-white dark:from-slate-800/50 dark:to-slate-900">
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Current Level</p>
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{student.level}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">School</p>
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{student.school || 'MABDC'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Previous School</p>
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{student.previous_school || 'N/A'}</p>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </motion.div>
+
+                {/* Enrollment History Card - Green Gradient */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.2 }}
+                  className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 shadow-lg border-t-4"
+                  style={{ borderTopColor: '#22c55e' }}
+                >
+                  <div 
+                    className="px-5 py-3 flex items-center gap-2"
+                    style={{ background: 'linear-gradient(135deg, #22c55e 0%, #4ade80 100%)' }}
+                  >
+                    <Calendar className="h-4 w-4 text-white" />
+                    <h3 className="font-semibold text-white">Enrollment History</h3>
+                  </div>
+                  <div className="p-5 space-y-4 bg-gradient-to-br from-green-50/50 to-white dark:from-slate-800/50 dark:to-slate-900">
+                    <div>
+                      <p className="text-xs text-green-600 dark:text-green-400 font-medium">Enrollment Date</p>
+                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{formatDate(student.created_at)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-green-600 dark:text-green-400 font-medium">Status</p>
+                      <Badge className="bg-green-100 text-green-700 mt-1">Active Student</Badge>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            )}
           </TabsContent>
 
           {/* Subjects Tab */}
           <TabsContent value="subjects" className="mt-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-base">Enrolled Subjects</CardTitle>
-                <Badge variant="secondary">{enrolledSubjects.length} subjects</Badge>
-              </CardHeader>
-              <CardContent>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 shadow-lg border-t-4"
+              style={{ borderTopColor: '#8b5cf6' }}
+            >
+              <div 
+                className="px-5 py-3 flex items-center justify-between"
+                style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%)' }}
+              >
+                <div className="flex items-center gap-2">
+                  <GraduationCap className="h-4 w-4 text-white" />
+                  <h3 className="font-semibold text-white">Enrolled Subjects</h3>
+                </div>
+                <Badge className="bg-white/20 text-white border-0">{enrolledSubjects.length} subjects</Badge>
+              </div>
+              <div className="p-5 bg-gradient-to-br from-violet-50/50 to-white dark:from-slate-800/50 dark:to-slate-900">
                 {enrolledSubjects.length > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Code</TableHead>
-                        <TableHead>Subject Name</TableHead>
-                        <TableHead>Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {enrolledSubjects.map(subject => (
-                        <TableRow key={subject.id}>
-                          <TableCell>
-                            <Badge variant="outline">{subject.code}</Badge>
-                          </TableCell>
-                          <TableCell>{subject.name}</TableCell>
-                          <TableCell>
-                            <Badge className={subject.status === 'enrolled' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}>
-                              {subject.status}
-                            </Badge>
-                          </TableCell>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-violet-200 dark:border-slate-700">
+                          <TableHead className="text-violet-600 dark:text-violet-400">Code</TableHead>
+                          <TableHead className="text-violet-600 dark:text-violet-400">Subject Name</TableHead>
+                          <TableHead className="text-violet-600 dark:text-violet-400">Status</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {enrolledSubjects.map(subject => (
+                          <TableRow key={subject.id} className="border-violet-100 dark:border-slate-700">
+                            <TableCell>
+                              <Badge className="bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-300">{subject.code}</Badge>
+                            </TableCell>
+                            <TableCell className="font-medium text-slate-800 dark:text-slate-200">{subject.name}</TableCell>
+                            <TableCell>
+                              <Badge className={subject.status === 'enrolled' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}>
+                                {subject.status}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 ) : (
-                  <p className="text-center text-muted-foreground py-8">No subjects enrolled</p>
+                  <p className="text-center text-violet-500 py-8">No subjects enrolled</p>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </motion.div>
           </TabsContent>
 
           {/* Grades Tab */}
           <TabsContent value="grades" className="mt-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-base">Grade Records</CardTitle>
-                <Badge variant="secondary">{grades.length} records</Badge>
-              </CardHeader>
-              <CardContent>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 shadow-lg border-t-4"
+              style={{ borderTopColor: '#ec4899' }}
+            >
+              <div 
+                className="px-5 py-3 flex items-center justify-between"
+                style={{ background: 'linear-gradient(135deg, #ec4899 0%, #f472b6 100%)' }}
+              >
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-white" />
+                  <h3 className="font-semibold text-white">Grade Records</h3>
+                </div>
+                <Badge className="bg-white/20 text-white border-0">{grades.length} records</Badge>
+              </div>
+              <div className="p-5 bg-gradient-to-br from-pink-50/50 to-white dark:from-slate-800/50 dark:to-slate-900">
                 {grades.length > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Subject</TableHead>
-                        <TableHead>Year</TableHead>
-                        <TableHead className="text-center">Q1</TableHead>
-                        <TableHead className="text-center">Q2</TableHead>
-                        <TableHead className="text-center">Q3</TableHead>
-                        <TableHead className="text-center">Q4</TableHead>
-                        <TableHead className="text-center">Final</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {grades.map(grade => (
-                        <TableRow key={grade.id}>
-                          <TableCell>
-                            <div>
-                              <Badge variant="outline">{grade.subject_code}</Badge>
-                              <p className="text-xs text-muted-foreground mt-1">{grade.subject_name}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell>{grade.academic_year}</TableCell>
-                          <TableCell className={`text-center font-medium ${getGradeColor(grade.q1_grade)}`}>
-                            {grade.q1_grade ?? '-'}
-                          </TableCell>
-                          <TableCell className={`text-center font-medium ${getGradeColor(grade.q2_grade)}`}>
-                            {grade.q2_grade ?? '-'}
-                          </TableCell>
-                          <TableCell className={`text-center font-medium ${getGradeColor(grade.q3_grade)}`}>
-                            {grade.q3_grade ?? '-'}
-                          </TableCell>
-                          <TableCell className={`text-center font-medium ${getGradeColor(grade.q4_grade)}`}>
-                            {grade.q4_grade ?? '-'}
-                          </TableCell>
-                          <TableCell className={`text-center font-bold ${getGradeColor(grade.final_grade)}`}>
-                            {grade.final_grade ?? '-'}
-                          </TableCell>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-pink-200 dark:border-slate-700">
+                          <TableHead className="text-pink-600 dark:text-pink-400">Subject</TableHead>
+                          <TableHead className="text-pink-600 dark:text-pink-400">Year</TableHead>
+                          <TableHead className="text-center text-pink-600 dark:text-pink-400">Q1</TableHead>
+                          <TableHead className="text-center text-pink-600 dark:text-pink-400">Q2</TableHead>
+                          <TableHead className="text-center text-pink-600 dark:text-pink-400">Q3</TableHead>
+                          <TableHead className="text-center text-pink-600 dark:text-pink-400">Q4</TableHead>
+                          <TableHead className="text-center text-pink-600 dark:text-pink-400">Final</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {grades.map(grade => (
+                          <TableRow key={grade.id} className="border-pink-100 dark:border-slate-700">
+                            <TableCell>
+                              <div>
+                                <Badge className="bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300">{grade.subject_code}</Badge>
+                                <p className="text-xs text-slate-500 mt-1">{grade.subject_name}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-slate-700 dark:text-slate-300">{grade.academic_year}</TableCell>
+                            <TableCell className={`text-center font-medium ${getGradeColor(grade.q1_grade)}`}>
+                              {grade.q1_grade ?? '-'}
+                            </TableCell>
+                            <TableCell className={`text-center font-medium ${getGradeColor(grade.q2_grade)}`}>
+                              {grade.q2_grade ?? '-'}
+                            </TableCell>
+                            <TableCell className={`text-center font-medium ${getGradeColor(grade.q3_grade)}`}>
+                              {grade.q3_grade ?? '-'}
+                            </TableCell>
+                            <TableCell className={`text-center font-medium ${getGradeColor(grade.q4_grade)}`}>
+                              {grade.q4_grade ?? '-'}
+                            </TableCell>
+                            <TableCell className={`text-center font-bold ${getGradeColor(grade.final_grade)}`}>
+                              {grade.final_grade ?? '-'}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 ) : (
-                  <p className="text-center text-muted-foreground py-8">No grade records found</p>
+                  <p className="text-center text-pink-500 py-8">No grade records found</p>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </motion.div>
           </TabsContent>
 
           {/* Documents Tab */}
           <TabsContent value="documents" className="mt-6">
-            <Card>
-              <CardContent className="pt-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 shadow-lg border-t-4"
+              style={{ borderTopColor: '#14b8a6' }}
+            >
+              <div 
+                className="px-5 py-3 flex items-center gap-2"
+                style={{ background: 'linear-gradient(135deg, #14b8a6 0%, #2dd4bf 100%)' }}
+              >
+                <FolderOpen className="h-4 w-4 text-white" />
+                <h3 className="font-semibold text-white">Student Documents</h3>
+              </div>
+              <div className="p-5 bg-gradient-to-br from-teal-50/50 to-white dark:from-slate-800/50 dark:to-slate-900">
                 <DocumentsManager studentId={student.id} />
-              </CardContent>
-            </Card>
+              </div>
+            </motion.div>
           </TabsContent>
 
           {/* Anecdotal/Behavior Tab */}
           <TabsContent value="anecdotal" className="mt-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-base">Anecdotal Records / Behavior Incidents</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">Track and manage student behavior incidents</p>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 shadow-lg border-t-4"
+              style={{ borderTopColor: '#f97316' }}
+            >
+              <div 
+                className="px-5 py-3 flex items-center justify-between"
+                style={{ background: 'linear-gradient(135deg, #f97316 0%, #fb923c 100%)' }}
+              >
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-white" />
+                  <div>
+                    <h3 className="font-semibold text-white">Anecdotal Records / Behavior Incidents</h3>
+                    <p className="text-xs text-white/70">Track and manage student behavior incidents</p>
+                  </div>
                 </div>
-                <Button onClick={() => handleOpenIncidentModal()} className="gap-2">
+                <Button onClick={() => handleOpenIncidentModal()} className="bg-white/20 hover:bg-white/30 text-white border-0 gap-2">
                   <Plus className="h-4 w-4" />
                   Add Incident
                 </Button>
-              </CardHeader>
-              <CardContent>
+              </div>
+              <div className="p-5 bg-gradient-to-br from-orange-50/50 to-white dark:from-slate-800/50 dark:to-slate-900">
                 {incidents.length > 0 ? (
                   <div className="space-y-4">
                     {incidents.map(incident => {
@@ -1088,30 +1194,30 @@ const StudentProfile = () => {
                           key={incident.id}
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
+                          className="border border-orange-200 dark:border-slate-700 rounded-lg p-4 hover:bg-orange-50/50 dark:hover:bg-slate-800/50 transition-colors"
                         >
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-2">
                                 <Badge className={categoryInfo.color}>{categoryInfo.label}</Badge>
                                 {getStatusBadge(incident.status)}
-                                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                <span className="text-xs text-orange-600 dark:text-orange-400 flex items-center gap-1">
                                   <Calendar className="h-3 w-3" />
                                   {formatDate(incident.incident_date)}
                                 </span>
                               </div>
-                              <h4 className="font-medium text-foreground">{incident.title}</h4>
+                              <h4 className="font-medium text-slate-800 dark:text-slate-200">{incident.title}</h4>
                               {incident.description && (
-                                <p className="text-sm text-muted-foreground mt-1">{incident.description}</p>
+                                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{incident.description}</p>
                               )}
                               {incident.action_taken && (
-                                <div className="mt-2 pt-2 border-t">
-                                  <p className="text-xs font-medium text-muted-foreground">Action Taken:</p>
-                                  <p className="text-sm text-foreground">{incident.action_taken}</p>
+                                <div className="mt-2 pt-2 border-t border-orange-200 dark:border-slate-700">
+                                  <p className="text-xs font-medium text-orange-600 dark:text-orange-400">Action Taken:</p>
+                                  <p className="text-sm text-slate-700 dark:text-slate-300">{incident.action_taken}</p>
                                 </div>
                               )}
                               {incident.reported_by && (
-                                <p className="text-xs text-muted-foreground mt-2">
+                                <p className="text-xs text-orange-500 dark:text-orange-400 mt-2">
                                   Reported by: {incident.reported_by}
                                 </p>
                               )}
@@ -1120,7 +1226,7 @@ const StudentProfile = () => {
                               <Button 
                                 variant="ghost" 
                                 size="icon" 
-                                className="h-8 w-8"
+                                className="h-8 w-8 hover:bg-orange-100 dark:hover:bg-slate-700"
                                 onClick={() => handleOpenIncidentModal(incident)}
                               >
                                 <Pencil className="h-4 w-4" />
@@ -1128,7 +1234,7 @@ const StudentProfile = () => {
                               <Button 
                                 variant="ghost" 
                                 size="icon" 
-                                className="h-8 w-8 text-destructive"
+                                className="h-8 w-8 text-destructive hover:bg-red-100 dark:hover:bg-red-900/30"
                                 onClick={() => {
                                   setSelectedIncident(incident);
                                   setIsDeleteIncidentOpen(true);
@@ -1144,13 +1250,13 @@ const StudentProfile = () => {
                   </div>
                 ) : (
                   <div className="text-center py-12">
-                    <AlertTriangle className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
-                    <p className="text-muted-foreground">No incidents recorded</p>
-                    <p className="text-sm text-muted-foreground mt-1">Click "Add Incident" to record a new incident</p>
+                    <AlertTriangle className="h-12 w-12 text-orange-300 mx-auto mb-4" />
+                    <p className="text-orange-600 dark:text-orange-400">No incidents recorded</p>
+                    <p className="text-sm text-orange-500/70 mt-1">Click "Add Incident" to record a new incident</p>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </motion.div>
           </TabsContent>
         </Tabs>
       </div>
