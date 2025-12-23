@@ -78,20 +78,25 @@ export const EnrollmentManagement = () => {
     const stats: EnrollmentStat[] = [];
     
     for (const level of GRADE_LEVELS) {
-      // Get student count for this grade level filtered by school
-      const { count: studentCount } = await supabase
-        .from('students')
-        .select('*', { count: 'exact', head: true })
-        .eq('level', level)
-        .eq('school', selectedSchool);
+      // Get students enrolled in the selected academic year for this grade level
+      const { data: enrolledStudents } = await supabase
+        .from('student_subjects')
+        .select('student_id, students!inner(id, level, school)')
+        .eq('academic_year_id', selectedYear)
+        .eq('students.level', level)
+        .eq('students.school', selectedSchool);
+
+      // Get unique student count
+      const uniqueStudentIds = new Set(enrolledStudents?.map(e => e.student_id) || []);
+      const studentCount = uniqueStudentIds.size;
 
       // Get subject count for this grade level
       const subjectCount = subjects.filter(s => s.grade_levels.includes(level)).length;
 
-      if ((studentCount || 0) > 0 || subjectCount > 0) {
+      if (studentCount > 0 || subjectCount > 0) {
         stats.push({
           grade_level: level,
-          student_count: studentCount || 0,
+          student_count: studentCount,
           subject_count: subjectCount,
         });
       }
@@ -106,52 +111,55 @@ export const EnrollmentManagement = () => {
     setLoadingLevel(gradeLevel);
     
     try {
-      // Get students for this grade level filtered by school
-      const { data: students } = await supabase
-        .from('students')
-        .select('id, student_name, lrn')
-        .eq('level', gradeLevel)
-        .eq('school', selectedSchool)
-        .order('student_name');
+      // Get students enrolled in the selected academic year for this grade level
+      const { data: enrollmentData } = await supabase
+        .from('student_subjects')
+        .select(`
+          student_id,
+          status,
+          students!inner(id, student_name, lrn, level, school),
+          subjects:subject_id (id, code, name)
+        `)
+        .eq('academic_year_id', selectedYear)
+        .eq('students.level', gradeLevel)
+        .eq('students.school', selectedSchool);
 
-      if (!students) {
+      if (!enrollmentData || enrollmentData.length === 0) {
         setDetailedEnrollments(prev => ({ ...prev, [gradeLevel]: [] }));
+        setLoadingLevel(null);
         return;
       }
 
-      const enrollments: StudentEnrollment[] = [];
-
-      for (const student of students) {
-        // Get enrolled subjects for this student
-        const { data: enrolledSubjects } = await supabase
-          .from('student_subjects')
-          .select(`
-            status,
-            subjects:subject_id (
-              id,
-              code,
-              name
-            )
-          `)
-          .eq('student_id', student.id)
-          .eq('academic_year_id', selectedYear);
-
-        const subjectsList = (enrolledSubjects || [])
-          .filter((e: any) => e.subjects)
-          .map((e: any) => ({
-            id: e.subjects.id,
-            code: e.subjects.code,
-            name: e.subjects.name,
-            status: e.status || 'enrolled',
-          }));
-
-        enrollments.push({
-          id: student.id,
-          student_name: student.student_name,
-          lrn: student.lrn,
-          subjects: subjectsList,
-        });
+      // Group by student
+      const studentMap = new Map<string, StudentEnrollment>();
+      
+      for (const record of enrollmentData) {
+        const student = record.students as any;
+        const subject = record.subjects as any;
+        
+        if (!studentMap.has(student.id)) {
+          studentMap.set(student.id, {
+            id: student.id,
+            student_name: student.student_name,
+            lrn: student.lrn,
+            subjects: [],
+          });
+        }
+        
+        if (subject) {
+          studentMap.get(student.id)!.subjects.push({
+            id: subject.id,
+            code: subject.code,
+            name: subject.name,
+            status: record.status || 'enrolled',
+          });
+        }
       }
+
+      // Sort by student name
+      const enrollments = Array.from(studentMap.values()).sort((a, b) => 
+        a.student_name.localeCompare(b.student_name)
+      );
 
       setDetailedEnrollments(prev => ({ ...prev, [gradeLevel]: enrollments }));
     } catch (error) {
@@ -185,6 +193,9 @@ export const EnrollmentManagement = () => {
 
   useEffect(() => {
     if (selectedYear && subjects.length > 0) {
+      // Clear expanded levels and detailed enrollments when year changes
+      setExpandedLevels(new Set());
+      setDetailedEnrollments({});
       fetchEnrollmentStats();
     }
   }, [selectedYear, subjects, selectedSchool]);
