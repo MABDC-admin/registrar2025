@@ -79,10 +79,12 @@ export const AcademicYearManagement = () => {
     try {
       // If setting as current, unset others first
       if (formData.is_current) {
-        await supabase
+        const { error: unsetError } = await supabase
           .from('academic_years')
           .update({ is_current: false })
           .eq('is_current', true);
+
+        if (unsetError) throw unsetError;
       }
 
       if (editingYear) {
@@ -124,20 +126,24 @@ export const AcademicYearManagement = () => {
 
   const handleSetCurrent = async (year: AcademicYear) => {
     try {
-      await supabase
+      const { error: unsetError } = await supabase
         .from('academic_years')
         .update({ is_current: false })
         .eq('is_current', true);
 
-      await supabase
+      if (unsetError) throw unsetError;
+
+      const { error: setError } = await supabase
         .from('academic_years')
         .update({ is_current: true })
         .eq('id', year.id);
 
+      if (setError) throw setError;
+
       toast.success(`${year.name} set as current academic year`);
       fetchYears();
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(error.message || 'Failed to set current academic year');
     }
   };
 
