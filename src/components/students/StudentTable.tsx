@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useState, useMemo, useEffect, Fragment } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, 
@@ -13,8 +13,7 @@ import {
   LayoutGrid,
   List,
   GraduationCap,
-  Rows3,
-  Loader2
+  Rows3
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +28,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationEllipsis,
+} from '@/components/ui/pagination';
 
 interface StudentTableProps {
   students: Student[];
@@ -42,7 +50,7 @@ type SortField = 'student_name' | 'level' | 'age' | 'gender';
 type SortDirection = 'asc' | 'desc';
 type ViewMode = 'cards' | 'table' | 'compact';
 
-const ITEMS_PER_LOAD = 30;
+const ITEMS_PER_PAGE = 18;
 
 const SCHOOLS = [
   { id: 'all', name: 'All Schools', acronym: 'ALL', dbValue: '' },
@@ -65,10 +73,7 @@ export const StudentTable = ({
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
-  const [displayCount, setDisplayCount] = useState(ITEMS_PER_LOAD);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  
-  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Get unique levels and genders for filters
   const levels = useMemo(() => {
@@ -111,41 +116,15 @@ export const StudentTable = ({
       });
   }, [students, search, schoolFilter, levelFilter, genderFilter, sortField, sortDirection]);
 
-  // Reset display count when filters change
+  // Reset page when filters change
   useEffect(() => {
-    setDisplayCount(ITEMS_PER_LOAD);
+    setCurrentPage(1);
   }, [search, schoolFilter, levelFilter, genderFilter, sortField, sortDirection]);
 
-  // Infinite scroll with intersection observer
-  const displayedStudents = filteredStudents.slice(0, displayCount);
-  const hasMore = displayCount < filteredStudents.length;
-
-  const loadMore = useCallback(() => {
-    if (hasMore && !isLoadingMore) {
-      setIsLoadingMore(true);
-      setTimeout(() => {
-        setDisplayCount(prev => Math.min(prev + ITEMS_PER_LOAD, filteredStudents.length));
-        setIsLoadingMore(false);
-      }, 200);
-    }
-  }, [hasMore, isLoadingMore, filteredStudents.length]);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          loadMore();
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    if (loadMoreRef.current) {
-      observer.observe(loadMoreRef.current);
-    }
-
-    return () => observer.disconnect();
-  }, [loadMore]);
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredStudents.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const displayedStudents = filteredStudents.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -341,7 +320,11 @@ export const StudentTable = ({
 
         {/* Results Count */}
         <div className="text-sm text-muted-foreground">
-          Showing {displayedStudents.length} of {filteredStudents.length} students
+          {viewMode === 'cards' && totalPages > 1 ? (
+            <>Page {currentPage} of {totalPages} ({filteredStudents.length} students)</>
+          ) : (
+            <>Showing {displayedStudents.length} of {filteredStudents.length} students</>
+          )}
         </div>
       </div>
 
@@ -349,28 +332,84 @@ export const StudentTable = ({
       <div className="p-4 lg:p-6">
         {viewMode === 'cards' ? (
           /* Card View */
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
-            {isLoading ? (
-              Array.from({ length: 12 }).map((_, i) => (
-                <div key={i} className="bg-secondary/50 rounded-xl h-48 animate-pulse" />
-              ))
-            ) : displayedStudents.length === 0 ? (
-              <div className="col-span-full py-12 text-center text-muted-foreground">
-                No students found. {hasActiveFilters && 'Try adjusting your filters.'}
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+              {isLoading ? (
+                Array.from({ length: 12 }).map((_, i) => (
+                  <div key={i} className="bg-secondary/50 rounded-xl h-48 animate-pulse" />
+                ))
+              ) : displayedStudents.length === 0 ? (
+                <div className="col-span-full py-12 text-center text-muted-foreground">
+                  No students found. {hasActiveFilters && 'Try adjusting your filters.'}
+                </div>
+              ) : (
+                displayedStudents.map((student, index) => (
+                  <StudentCard
+                    key={student.id}
+                    student={student}
+                    onView={onView}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                    index={index}
+                  />
+                ))
+              )}
+            </div>
+
+            {/* Pagination for Card View */}
+            {totalPages > 1 && (
+              <div className="mt-6 flex justify-center">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious 
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        className={cn(
+                          "cursor-pointer",
+                          currentPage === 1 && "pointer-events-none opacity-50"
+                        )}
+                      />
+                    </PaginationItem>
+                    
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(page => {
+                        if (page === 1 || page === totalPages) return true;
+                        if (Math.abs(page - currentPage) <= 1) return true;
+                        return false;
+                      })
+                      .map((page, idx, arr) => (
+                        <Fragment key={page}>
+                          {idx > 0 && page - arr[idx - 1] > 1 && (
+                            <PaginationItem>
+                              <PaginationEllipsis />
+                            </PaginationItem>
+                          )}
+                          <PaginationItem>
+                            <PaginationLink
+                              onClick={() => setCurrentPage(page)}
+                              isActive={currentPage === page}
+                              className="cursor-pointer"
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        </Fragment>
+                      ))}
+                    
+                    <PaginationItem>
+                      <PaginationNext 
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        className={cn(
+                          "cursor-pointer",
+                          currentPage === totalPages && "pointer-events-none opacity-50"
+                        )}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
               </div>
-            ) : (
-              displayedStudents.map((student, index) => (
-                <StudentCard
-                  key={student.id}
-                  student={student}
-                  onView={onView}
-                  onEdit={onEdit}
-                  onDelete={onDelete}
-                  index={index}
-                />
-              ))
             )}
-          </div>
+          </>
         ) : viewMode === 'compact' ? (
           /* Compact List View */
           <div className="space-y-1">
@@ -573,22 +612,6 @@ export const StudentTable = ({
           </div>
         )}
 
-        {/* Infinite Scroll Loader */}
-        {hasMore && !isLoading && (
-          <div 
-            ref={loadMoreRef} 
-            className="flex items-center justify-center py-8"
-          >
-            {isLoadingMore ? (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm">Loading more...</span>
-              </div>
-            ) : (
-              <span className="text-sm text-muted-foreground">Scroll for more</span>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );
