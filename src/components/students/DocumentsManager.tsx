@@ -54,7 +54,7 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { convertPdfToImages, PdfConversionProgress } from '@/utils/pdfToImages';
+import { extractPdfPagesAsImages, isPdfFile, PdfConversionProgress } from '@/utils/pdfToImages';
 
 interface DocumentsManagerProps {
   studentId: string;
@@ -247,15 +247,15 @@ export const DocumentsManager = ({ studentId }: DocumentsManagerProps) => {
 
     for (const pf of validFiles) {
       try {
-        const isPdf = pf.file.type === 'application/pdf';
+        const isPdf = isPdfFile(pf.file);
 
         if (isPdf) {
           // Handle PDF: Convert to images and upload each page
           toast.info('Converting PDF pages to images...', { id: 'pdf-conversion' });
           
           try {
-            // Convert PDF pages to images
-            const pageImages = await convertPdfToImages(pf.file, 1.5, (progress) => {
+            // Convert PDF pages to JPEG images (2x scale, 92% quality)
+            const pageImages = await extractPdfPagesAsImages(pf.file, 50, (progress) => {
               setPdfConversionProgress(progress);
             });
             
@@ -276,8 +276,8 @@ export const DocumentsManager = ({ studentId }: DocumentsManagerProps) => {
               // Upload each page as an image
               for (let i = 0; i < pageImages.length; i++) {
                 const pageImage = pageImages[i];
-                const pageFileName = `${pf.name.trim()}_page_${pageImage.pageNumber}.png`;
-                const pageFile = new window.File([pageImage.blob], pageFileName, { type: 'image/png' });
+                const pageFileName = `${pf.name.trim()}_page_${pageImage.pageNumber}.jpg`;
+                const pageFile = new window.File([pageImage.blob], pageFileName, { type: 'image/jpeg' });
                 
                 const pageResult = await uploadDocument.mutateAsync({
                   studentId,
