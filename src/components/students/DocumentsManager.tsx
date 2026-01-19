@@ -96,12 +96,26 @@ export const DocumentsManager = ({ studentId }: DocumentsManagerProps) => {
   const uploadDocument = useUploadDocument();
   const deleteDocument = useDeleteDocument();
 
-  // Cast documents to extended type and filter out PDF pages (show parent docs only)
+  // Cast documents to extended type
   const extendedDocuments = documents as ExtendedDocument[];
-  const mainDocuments = extendedDocuments.filter(doc => !doc.is_pdf_page);
+  
+  // Separate parent PDFs and their pages
+  const parentPdfs = extendedDocuments.filter(doc => isPDF(doc.document_type) && !doc.is_pdf_page && doc.page_count && doc.page_count > 0);
   const pdfPages = extendedDocuments.filter(doc => doc.is_pdf_page);
+  const nonPdfDocs = extendedDocuments.filter(doc => !isPDF(doc.document_type) || doc.is_pdf_page);
+  
+  // For PDFs with pages, show pages instead of parent; for others show as-is
+  const parentIdsWithPages = new Set(pdfPages.map(p => p.parent_document_id).filter(Boolean));
+  const displayDocuments = extendedDocuments.filter(doc => {
+    // Show PDF pages
+    if (doc.is_pdf_page) return true;
+    // Hide parent PDFs that have been split into pages
+    if (isPDF(doc.document_type) && parentIdsWithPages.has(doc.id)) return false;
+    // Show everything else (images, unprocessed PDFs, etc.)
+    return true;
+  });
 
-  // Group PDF pages by parent document
+  // Group PDF pages by parent document for reference
   const pagesByParent = pdfPages.reduce((acc, page) => {
     const parentId = page.parent_document_id;
     if (parentId) {
@@ -113,7 +127,7 @@ export const DocumentsManager = ({ studentId }: DocumentsManagerProps) => {
   }, {} as Record<string, ExtendedDocument[]>);
 
   // Filter documents by search query
-  const filteredDocuments = mainDocuments.filter(doc => {
+  const filteredDocuments = displayDocuments.filter(doc => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
     return (
@@ -340,6 +354,23 @@ export const DocumentsManager = ({ studentId }: DocumentsManagerProps) => {
       );
     }
     if (isPDF(doc.document_type)) {
+      // Check if this is a PDF page
+      if (doc.is_pdf_page) {
+        return (
+          <div className="w-full h-full bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 flex flex-col items-center justify-center relative">
+            <FileText className="h-8 w-8 text-orange-500" />
+            <span className="text-xs font-medium text-orange-600 mt-1">Page {doc.page_number}</span>
+            {doc.analysis_status === 'completed' && (
+              <CheckCircle className="absolute top-2 right-2 h-4 w-4 text-green-500" />
+            )}
+            {doc.analysis_status === 'processing' && (
+              <Loader2 className="absolute top-2 right-2 h-4 w-4 text-blue-500 animate-spin" />
+            )}
+          </div>
+        );
+      }
+      
+      // Parent PDF that hasn't been processed yet
       const pages = pagesByParent[doc.id] || [];
       const pageCount = doc.page_count || pages.length;
       
