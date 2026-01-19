@@ -1,7 +1,8 @@
-import * as pdfjs from 'pdfjs-dist';
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 
-// Configure worker - using CDN for compatibility
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+// Configure worker - fixed version for stability
+pdfjsLib.GlobalWorkerOptions.workerSrc = 
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs';
 
 export interface PageImage {
   pageNumber: number;
@@ -15,78 +16,27 @@ export interface PdfConversionProgress {
 }
 
 /**
- * Converts a PDF file to an array of PNG images (one per page)
- * Uses client-side rendering with pdf.js and canvas
+ * Helper: Check if file is a PDF
  */
-export async function convertPdfToImages(
-  file: File, 
-  scale: number = 1.5,
-  onProgress?: (progress: PdfConversionProgress) => void
-): Promise<PageImage[]> {
-  const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
-  const pageImages: PageImage[] = [];
-  const totalPages = Math.min(pdf.numPages, 50); // Limit to 50 pages max
-
-  for (let i = 1; i <= totalPages; i++) {
-    onProgress?.({ currentPage: i, totalPages });
-    
-    const page = await pdf.getPage(i);
-    const viewport = page.getViewport({ scale });
-    
-    // Create canvas
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d')!;
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-
-    // Render page to canvas
-    await page.render({ 
-      canvasContext: context, 
-      viewport,
-      canvas
-    }).promise;
-
-    // Convert to blob
-    const blob = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob(
-        (b) => {
-          if (b) resolve(b);
-          else reject(new Error('Failed to create blob'));
-        }, 
-        'image/png', 
-        0.92
-      );
-    });
-
-    pageImages.push({
-      pageNumber: i,
-      blob,
-      dataUrl: canvas.toDataURL('image/png')
-    });
-
-    // Clean up
-    canvas.remove();
-  }
-
-  return pageImages;
-}
+export const isPdfFile = (file: File): boolean => {
+  return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+};
 
 /**
- * Creates a thumbnail from a PDF page (smaller scale for preview)
+ * Helper: Create object URL for blob preview
  */
-export async function createPdfThumbnail(
-  file: File,
-  pageNumber: number = 1,
-  scale: number = 0.5
-): Promise<string> {
-  const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
-  
-  if (pageNumber > pdf.numPages) {
-    throw new Error(`Page ${pageNumber} does not exist in PDF`);
-  }
+export const createBlobPreviewUrl = (blob: Blob): string => {
+  return URL.createObjectURL(blob);
+};
 
+/**
+ * Renders a single PDF page to a JPEG blob
+ */
+async function renderPageToBlob(
+  pdf: any, 
+  pageNumber: number,
+  scale: number = 2
+): Promise<Blob> {
   const page = await pdf.getPage(pageNumber);
   const viewport = page.getViewport({ scale });
   
@@ -97,12 +47,70 @@ export async function createPdfThumbnail(
 
   await page.render({ 
     canvasContext: context, 
-    viewport,
-    canvas
+    viewport 
   }).promise;
 
-  const dataUrl = canvas.toDataURL('image/png', 0.8);
-  canvas.remove();
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        canvas.remove();
+        if (blob) resolve(blob);
+        else reject(new Error('Failed to create blob'));
+      }, 
+      'image/jpeg', 
+      0.92
+    );
+  });
+}
+
+/**
+ * Extracts all PDF pages as JPEG images
+ * Uses legacy build for better browser compatibility
+ */
+export async function extractPdfPagesAsImages(
+  file: File, 
+  maxPages: number = 50,
+  onProgress?: (progress: PdfConversionProgress) => void
+): Promise<PageImage[]> {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await (pdfjsLib as any).getDocument({ data: arrayBuffer }).promise;
+  const pageImages: PageImage[] = [];
+  const totalPages = Math.min(pdf.numPages, maxPages);
+
+  for (let i = 1; i <= totalPages; i++) {
+    onProgress?.({ currentPage: i, totalPages });
+    
+    const blob = await renderPageToBlob(pdf, i);
+    const dataUrl = createBlobPreviewUrl(blob);
+
+    pageImages.push({
+      pageNumber: i,
+      blob,
+      dataUrl
+    });
+  }
+
+  return pageImages;
+}
+
+// Keep backward compatibility alias
+export const convertPdfToImages = extractPdfPagesAsImages;
+
+/**
+ * Creates a thumbnail from a PDF page (smaller scale for preview)
+ */
+export async function createPdfThumbnail(
+  file: File,
+  pageNumber: number = 1,
+  scale: number = 1
+): Promise<string> {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await (pdfjsLib as any).getDocument({ data: arrayBuffer }).promise;
   
-  return dataUrl;
+  if (pageNumber > pdf.numPages) {
+    throw new Error(`Page ${pageNumber} does not exist`);
+  }
+
+  const blob = await renderPageToBlob(pdf, pageNumber, scale);
+  return createBlobPreviewUrl(blob);
 }
