@@ -21,6 +21,7 @@ export type Database = {
           id: string
           is_current: boolean | null
           name: string
+          school_id: string
           start_date: string
         }
         Insert: {
@@ -29,6 +30,7 @@ export type Database = {
           id?: string
           is_current?: boolean | null
           name: string
+          school_id: string
           start_date: string
         }
         Update: {
@@ -37,9 +39,72 @@ export type Database = {
           id?: string
           is_current?: boolean | null
           name?: string
+          school_id?: string
           start_date?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "academic_years_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      data_exports: {
+        Row: {
+          academic_year_id: string | null
+          export_type: string
+          exported_at: string | null
+          file_name: string | null
+          file_size_bytes: number | null
+          id: string
+          record_count: number | null
+          school_id: string | null
+          table_name: string
+          user_id: string
+        }
+        Insert: {
+          academic_year_id?: string | null
+          export_type: string
+          exported_at?: string | null
+          file_name?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          record_count?: number | null
+          school_id?: string | null
+          table_name: string
+          user_id: string
+        }
+        Update: {
+          academic_year_id?: string | null
+          export_type?: string
+          exported_at?: string | null
+          file_name?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          record_count?: number | null
+          school_id?: string | null
+          table_name?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_exports_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_exports_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -67,6 +132,92 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      raw_scores: {
+        Row: {
+          academic_year_id: string
+          created_at: string | null
+          id: string
+          initial_grade: number | null
+          pt_max_scores: number[] | null
+          pt_scores: number[] | null
+          qa_max: number | null
+          qa_score: number | null
+          quarter: number
+          school_id: string
+          student_id: string
+          subject_id: string
+          transmuted_grade: number | null
+          updated_at: string | null
+          ww_max_scores: number[] | null
+          ww_scores: number[] | null
+        }
+        Insert: {
+          academic_year_id: string
+          created_at?: string | null
+          id?: string
+          initial_grade?: number | null
+          pt_max_scores?: number[] | null
+          pt_scores?: number[] | null
+          qa_max?: number | null
+          qa_score?: number | null
+          quarter: number
+          school_id: string
+          student_id: string
+          subject_id: string
+          transmuted_grade?: number | null
+          updated_at?: string | null
+          ww_max_scores?: number[] | null
+          ww_scores?: number[] | null
+        }
+        Update: {
+          academic_year_id?: string
+          created_at?: string | null
+          id?: string
+          initial_grade?: number | null
+          pt_max_scores?: number[] | null
+          pt_scores?: number[] | null
+          qa_max?: number | null
+          qa_score?: number | null
+          quarter?: number
+          school_id?: string
+          student_id?: string
+          subject_id?: string
+          transmuted_grade?: number | null
+          updated_at?: string | null
+          ww_max_scores?: number[] | null
+          ww_scores?: number[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "raw_scores_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "raw_scores_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "raw_scores_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "raw_scores_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       report_templates: {
         Row: {
@@ -100,6 +251,110 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      role_permissions: {
+        Row: {
+          can_delete: boolean | null
+          can_edit: boolean | null
+          can_view: boolean | null
+          created_at: string | null
+          id: string
+          resource_key: string
+          role: string
+          school_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          can_delete?: boolean | null
+          can_edit?: boolean | null
+          can_view?: boolean | null
+          created_at?: string | null
+          id?: string
+          resource_key: string
+          role: string
+          school_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          can_delete?: boolean | null
+          can_edit?: boolean | null
+          can_view?: boolean | null
+          created_at?: string | null
+          id?: string
+          resource_key?: string
+          role?: string
+          school_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_permissions_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      school_access_logs: {
+        Row: {
+          academic_year_id: string | null
+          action: string
+          created_at: string | null
+          error_message: string | null
+          id: string
+          ip_address: unknown
+          record_id: string | null
+          school_id: string | null
+          success: boolean | null
+          table_name: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          academic_year_id?: string | null
+          action: string
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          ip_address?: unknown
+          record_id?: string | null
+          school_id?: string | null
+          success?: boolean | null
+          table_name: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          academic_year_id?: string | null
+          action?: string
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          ip_address?: unknown
+          record_id?: string | null
+          school_id?: string | null
+          success?: boolean | null
+          table_name?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "school_access_logs_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "school_access_logs_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       school_events: {
         Row: {
@@ -187,6 +442,110 @@ export type Database = {
           theme_id?: string | null
           updated_at?: string
           website?: string | null
+        }
+        Relationships: []
+      }
+      school_switch_log: {
+        Row: {
+          from_academic_year_id: string | null
+          from_school_id: string | null
+          id: string
+          ip_address: unknown
+          session_id: string | null
+          switched_at: string | null
+          to_academic_year_id: string | null
+          to_school_id: string | null
+          user_id: string
+        }
+        Insert: {
+          from_academic_year_id?: string | null
+          from_school_id?: string | null
+          id?: string
+          ip_address?: unknown
+          session_id?: string | null
+          switched_at?: string | null
+          to_academic_year_id?: string | null
+          to_school_id?: string | null
+          user_id: string
+        }
+        Update: {
+          from_academic_year_id?: string | null
+          from_school_id?: string | null
+          id?: string
+          ip_address?: unknown
+          session_id?: string | null
+          switched_at?: string | null
+          to_academic_year_id?: string | null
+          to_school_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "school_switch_log_from_academic_year_id_fkey"
+            columns: ["from_academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "school_switch_log_from_school_id_fkey"
+            columns: ["from_school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "school_switch_log_to_academic_year_id_fkey"
+            columns: ["to_academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "school_switch_log_to_school_id_fkey"
+            columns: ["to_school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      schools: {
+        Row: {
+          address: string | null
+          code: string
+          contact_number: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          principal_name: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          code: string
+          contact_number?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          principal_name?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          code?: string
+          contact_number?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          principal_name?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -285,7 +644,7 @@ export type Database = {
       }
       student_grades: {
         Row: {
-          academic_year_id: string | null
+          academic_year_id: string
           created_at: string
           final_grade: number | null
           id: string
@@ -294,12 +653,13 @@ export type Database = {
           q3_grade: number | null
           q4_grade: number | null
           remarks: string | null
+          school_id: string
           student_id: string
           subject_id: string
           updated_at: string
         }
         Insert: {
-          academic_year_id?: string | null
+          academic_year_id: string
           created_at?: string
           final_grade?: number | null
           id?: string
@@ -308,12 +668,13 @@ export type Database = {
           q3_grade?: number | null
           q4_grade?: number | null
           remarks?: string | null
+          school_id: string
           student_id: string
           subject_id: string
           updated_at?: string
         }
         Update: {
-          academic_year_id?: string | null
+          academic_year_id?: string
           created_at?: string
           final_grade?: number | null
           id?: string
@@ -322,6 +683,7 @@ export type Database = {
           q3_grade?: number | null
           q4_grade?: number | null
           remarks?: string | null
+          school_id?: string
           student_id?: string
           subject_id?: string
           updated_at?: string
@@ -332,6 +694,13 @@ export type Database = {
             columns: ["academic_year_id"]
             isOneToOne: false
             referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_grades_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
             referencedColumns: ["id"]
           },
           {
@@ -406,6 +775,7 @@ export type Database = {
           enrolled_at: string | null
           grade: number | null
           id: string
+          school_id: string
           status: string | null
           student_id: string
           subject_id: string
@@ -415,6 +785,7 @@ export type Database = {
           enrolled_at?: string | null
           grade?: number | null
           id?: string
+          school_id: string
           status?: string | null
           student_id: string
           subject_id: string
@@ -424,6 +795,7 @@ export type Database = {
           enrolled_at?: string | null
           grade?: number | null
           id?: string
+          school_id?: string
           status?: string | null
           student_id?: string
           subject_id?: string
@@ -434,6 +806,13 @@ export type Database = {
             columns: ["academic_year_id"]
             isOneToOne: false
             referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_subjects_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
             referencedColumns: ["id"]
           },
           {
@@ -454,6 +833,7 @@ export type Database = {
       }
       students: {
         Row: {
+          academic_year_id: string
           age: number | null
           birth_date: string | null
           created_at: string
@@ -469,11 +849,13 @@ export type Database = {
           photo_url: string | null
           previous_school: string | null
           school: string | null
+          school_id: string
           student_name: string
           uae_address: string | null
           updated_at: string
         }
         Insert: {
+          academic_year_id: string
           age?: number | null
           birth_date?: string | null
           created_at?: string
@@ -489,11 +871,13 @@ export type Database = {
           photo_url?: string | null
           previous_school?: string | null
           school?: string | null
+          school_id: string
           student_name: string
           uae_address?: string | null
           updated_at?: string
         }
         Update: {
+          academic_year_id?: string
           age?: number | null
           birth_date?: string | null
           created_at?: string
@@ -509,11 +893,27 @@ export type Database = {
           photo_url?: string | null
           previous_school?: string | null
           school?: string | null
+          school_id?: string
           student_name?: string
           uae_address?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "students_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "students_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       subjects: {
         Row: {
@@ -664,20 +1064,103 @@ export type Database = {
         }
         Relationships: []
       }
+      user_school_access: {
+        Row: {
+          granted_at: string | null
+          granted_by: string | null
+          id: string
+          is_active: boolean | null
+          role: string
+          school_id: string
+          user_id: string
+        }
+        Insert: {
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          role: string
+          school_id: string
+          user_id: string
+        }
+        Update: {
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          role?: string
+          school_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_school_access_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
-      [_ in never]: never
+      school_access_stats: {
+        Row: {
+          access_count: number | null
+          access_date: string | null
+          action: string | null
+          school_name: string | null
+          table_name: string | null
+          unique_users: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      get_user_schools: {
+        Args: { p_user_id: string }
+        Returns: {
+          school_code: string
+          school_id: string
+          school_name: string
+          user_role: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      log_school_access: {
+        Args: {
+          p_academic_year_id: string
+          p_action: string
+          p_error_message?: string
+          p_record_id?: string
+          p_school_id: string
+          p_success?: boolean
+          p_table_name: string
+          p_user_id: string
+        }
+        Returns: string
+      }
+      manage_permissions_manually: {
+        Args: {
+          target_role: string
+          target_school_id: string
+          target_user_id: string
+        }
+        Returns: string
+      }
+      title_case: { Args: { input_text: string }; Returns: string }
+      user_has_school_access: {
+        Args: { p_school_id: string; p_user_id: string }
         Returns: boolean
       }
     }

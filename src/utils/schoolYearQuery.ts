@@ -6,8 +6,8 @@
  * ensuring complete data isolation between schools.
  */
 
-import { supabase } from '@/lib/supabase';
-import { useSchool } from '@/contexts/SchoolContext';
+import { supabase } from '@/integrations/supabase/client';
+
 
 /**
  * Error thrown when school or academic year context is missing
@@ -25,7 +25,7 @@ export class SchoolContextError extends Error {
 export function validateSchoolContext(
     schoolId: string | null,
     academicYearId: string | null
-): asserts schoolId is string, academicYearId is string {
+): void {
     if (!schoolId) {
         throw new SchoolContextError('School context is required but not set');
     }
@@ -75,9 +75,9 @@ export class SchoolYearQueryBuilder<T> {
      * Select query with automatic school-year filtering
      */
     select(columns: string = '*') {
-        return supabase
-            .from(this.tableName)
-            .select(columns)
+        return (supabase
+            .from(this.tableName as any)
+            .select(columns) as any)
             .eq('school_id', this.schoolId)
             .eq('academic_year_id', this.academicYearId);
     }
@@ -93,13 +93,13 @@ export class SchoolYearQueryBuilder<T> {
                 ...baseFilter,
                 ...item,
             }));
-            return supabase.from(this.tableName).insert(dataWithContext);
+            return (supabase.from(this.tableName as any) as any).insert(dataWithContext);
         } else {
             const dataWithContext = {
                 ...baseFilter,
                 ...data,
             };
-            return supabase.from(this.tableName).insert(dataWithContext);
+            return (supabase.from(this.tableName as any) as any).insert(dataWithContext);
         }
     }
 
@@ -107,9 +107,9 @@ export class SchoolYearQueryBuilder<T> {
      * Update with automatic school-year filtering
      */
     update(data: Partial<T>) {
-        return supabase
-            .from(this.tableName)
-            .update(data)
+        return (supabase
+            .from(this.tableName as any)
+            .update(data) as any)
             .eq('school_id', this.schoolId)
             .eq('academic_year_id', this.academicYearId);
     }
@@ -118,9 +118,9 @@ export class SchoolYearQueryBuilder<T> {
      * Delete with automatic school-year filtering
      */
     delete() {
-        return supabase
-            .from(this.tableName)
-            .delete()
+        return (supabase
+            .from(this.tableName as any)
+            .delete() as any)
             .eq('school_id', this.schoolId)
             .eq('academic_year_id', this.academicYearId);
     }
@@ -136,24 +136,28 @@ export class SchoolYearQueryBuilder<T> {
                 ...baseFilter,
                 ...item,
             }));
-            return supabase.from(this.tableName).upsert(dataWithContext);
+            return (supabase.from(this.tableName as any) as any).upsert(dataWithContext);
         } else {
             const dataWithContext = {
                 ...baseFilter,
                 ...data,
             };
-            return supabase.from(this.tableName).upsert(dataWithContext);
+            return (supabase.from(this.tableName as any) as any).upsert(dataWithContext);
         }
     }
 }
 
 /**
  * Hook to get a query builder with current school context
+ * Note: This requires school_id and academic_year_id to be passed directly
+ * since SchoolContext uses school codes (MABDC, STFXSA) not UUIDs
  */
-export function useSchoolYearQuery<T = any>(tableName: string) {
-    const { selectedSchool, currentAcademicYear } = useSchool();
-
-    if (!selectedSchool?.id || !currentAcademicYear?.id) {
+export function useSchoolYearQuery<T = any>(
+    tableName: string,
+    schoolId: string,
+    academicYearId: string
+) {
+    if (!schoolId || !academicYearId) {
         throw new SchoolContextError(
             'School and academic year must be selected to perform database operations'
         );
@@ -161,8 +165,8 @@ export function useSchoolYearQuery<T = any>(tableName: string) {
 
     return new SchoolYearQueryBuilder<T>(
         tableName,
-        selectedSchool.id,
-        currentAcademicYear.id
+        schoolId,
+        academicYearId
     );
 }
 
@@ -187,8 +191,8 @@ export async function verifyRecordOwnership(
     schoolId: string,
     academicYearId: string
 ): Promise<boolean> {
-    const { data, error } = await supabase
-        .from(tableName)
+    const { data, error } = await (supabase
+        .from(tableName as any) as any)
         .select('id')
         .eq('id', recordId)
         .eq('school_id', schoolId)

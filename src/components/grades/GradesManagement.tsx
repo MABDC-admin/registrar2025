@@ -336,8 +336,8 @@ export const GradesManagement = () => {
 
     setIsSaving(true);
     try {
-      const { error } = await supabase
-        .from('student_grades')
+      const { error } = await (supabase
+        .from('student_grades') as any)
         .upsert(gradesToSave, {
           onConflict: 'student_id,subject_id,academic_year_id',
           ignoreDuplicates: false
@@ -403,8 +403,8 @@ export const GradesManagement = () => {
         if (error) throw error;
         toast.success('Grade updated successfully');
       } else {
-        const { error } = await supabase
-          .from('student_grades')
+        const { error } = await (supabase
+          .from('student_grades') as any)
           .insert(gradeData);
         if (error) throw error;
         toast.success('Grade added successfully');
@@ -535,8 +535,8 @@ export const GradesManagement = () => {
         remarks: row.remarks || null
       }));
 
-      const { error } = await supabase
-        .from('student_grades')
+      const { error } = await (supabase
+        .from('student_grades') as any)
         .upsert(gradesToInsert, {
           onConflict: 'student_id,subject_id,academic_year_id',
           ignoreDuplicates: false

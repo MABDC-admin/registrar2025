@@ -130,12 +130,13 @@ export const StudentSubjectsManager = ({ studentId, gradeLevel }: StudentSubject
         if (!selectedSubjectId || !selectedYearId) return;
         setIsProcessing(true);
         try {
-            const { error } = await supabase
-                .from('student_subjects')
+            const { error } = await (supabase
+                .from('student_subjects') as any)
                 .insert({
                     student_id: studentId,
                     subject_id: selectedSubjectId,
                     academic_year_id: selectedYearId,
+                    school_id: '00000000-0000-0000-0000-000000000000', // Placeholder
                     status: 'enrolled'
                 });
 

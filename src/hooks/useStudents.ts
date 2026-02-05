@@ -55,8 +55,8 @@ export const useCreateStudent = () => {
 
   return useMutation({
     mutationFn: async (student: StudentFormData) => {
-      const { data, error } = await supabase
-        .from('students')
+      const { data, error } = await (supabase
+        .from('students') as any)
         .insert([student])
         .select()
         .single();
@@ -126,8 +126,8 @@ export const useBulkCreateStudents = () => {
 
   return useMutation({
     mutationFn: async (students: StudentFormData[]) => {
-      const { data, error } = await supabase
-        .from('students')
+      const { data, error } = await (supabase
+        .from('students') as any)
         .insert(students)
         .select();
 
