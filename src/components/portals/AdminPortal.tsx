@@ -49,10 +49,13 @@ export const AdminPortal = ({ onNavigate }: AdminPortalProps) => {
   const totalTeachers = teachersData || 0;
   const levels = [...new Set(students.map(s => s.level))].length;
 
+  const isApple = layoutStyle === 'apple';
+
   return (
     <div className={cn(
       "space-y-6",
-      isClassic && "dashboard-classic-blue dashboard-page-bg"
+      isClassic && "dashboard-classic-blue dashboard-page-bg",
+      isApple && "dashboard-apple apple-page-bg"
     )}>
       {/* Header */}
       <DashboardHeader />
@@ -77,7 +80,8 @@ export const AdminPortal = ({ onNavigate }: AdminPortalProps) => {
           {/* Calendar and Events Row */}
           <div className={cn(
             "grid grid-cols-1",
-            isClassic && "classic-card p-4"
+            isClassic && "classic-card p-4",
+            isApple && "apple-card p-4"
           )}>
             <DashboardCalendar />
           </div>
@@ -85,10 +89,16 @@ export const AdminPortal = ({ onNavigate }: AdminPortalProps) => {
 
         {/* Right Column */}
         <div className="space-y-4">
-          <div className={cn(isClassic && "classic-card p-4")}>
+          <div className={cn(
+            isClassic && "classic-card p-4",
+            isApple && "apple-card p-4"
+          )}>
             <StudentBirthdays />
           </div>
-          <div className={cn(isClassic && "classic-card p-4")}>
+          <div className={cn(
+            isClassic && "classic-card p-4",
+            isApple && "apple-card p-4"
+          )}>
             <StudentOverview students={students} />
           </div>
         </div>

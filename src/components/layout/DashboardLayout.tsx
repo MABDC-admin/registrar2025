@@ -34,6 +34,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSchool, SCHOOL_THEMES, SchoolType } from '@/contexts/SchoolContext';
 import { useAcademicYear } from '@/contexts/AcademicYearContext';
+import { useDashboardLayout } from '@/contexts/DashboardLayoutContext';
 import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
@@ -65,6 +66,23 @@ import {
   CanvaIcon3D,
   NotebookIcon3D
 } from '@/components/icons/ThreeDIcons';
+import {
+  AppleHomeIcon,
+  AppleStudentIcon,
+  AppleTeacherIcon,
+  AppleGradesIcon,
+  AppleSubjectsIcon,
+  AppleScheduleIcon,
+  AppleEventsIcon,
+  AppleEnrollmentIcon,
+  AppleReportsIcon,
+  AppleImportIcon,
+  AppleAdminIcon,
+  AppleProfileIcon,
+  AppleLibraryIcon,
+  AppleCanvaIcon,
+  AppleNotebookIcon
+} from '@/components/icons/AppleStyleIcons';
 
 interface NavItem {
   id: string;
@@ -78,19 +96,48 @@ interface DashboardLayoutProps {
   onTabChange: (tab: string) => void;
 }
 
-// Icon mapping for serialization - updated to include 3D icons or generic placeholders
-const iconMap: Record<string, any> = {
-  Home: HomeIcon3D,
-  BarChart3: ReportsIcon3D,
-  Users: StudentIcon3D,
-  BookOpen: TeacherIcon3D,
-  Library: SubjectsIcon3D,
-  Calendar: ScheduleIcon3D,
-  GraduationCap: EnrollmentIcon3D,
-  Upload: ImportIcon3D,
-  UserCircle: ProfileIcon3D,
-  FileSpreadsheet: EnterGradeIcon3D,
-  FileText: ReportsIcon3D
+// Icon mapping for 3D icons
+const icon3DMap: Record<string, any> = {
+  portal: HomeIcon3D,
+  students: StudentIcon3D,
+  teachers: TeacherIcon3D,
+  grades: EnterGradeIcon3D,
+  subjects: SubjectsIcon3D,
+  'academic-years': ScheduleIcon3D,
+  events: EventsIcon3D,
+  'subject-enrollment': EnrollmentIcon3D,
+  library: LibraryIcon3D,
+  canva: CanvaIcon3D,
+  notebook: NotebookIcon3D,
+  reports: ReportsIcon3D,
+  enrollment: EnrollmentIcon3D,
+  import: ImportIcon3D,
+  profile: ProfileIcon3D,
+  classes: TeacherIcon3D,
+  children: StudentIcon3D,
+  admin: AdminIcon3D,
+};
+
+// Icon mapping for Apple style icons
+const iconAppleMap: Record<string, any> = {
+  portal: AppleHomeIcon,
+  students: AppleStudentIcon,
+  teachers: AppleTeacherIcon,
+  grades: AppleGradesIcon,
+  subjects: AppleSubjectsIcon,
+  'academic-years': AppleScheduleIcon,
+  events: AppleEventsIcon,
+  'subject-enrollment': AppleEnrollmentIcon,
+  library: AppleLibraryIcon,
+  canva: AppleCanvaIcon,
+  notebook: AppleNotebookIcon,
+  reports: AppleReportsIcon,
+  enrollment: AppleEnrollmentIcon,
+  import: AppleImportIcon,
+  profile: AppleProfileIcon,
+  classes: AppleTeacherIcon,
+  children: AppleStudentIcon,
+  admin: AppleAdminIcon,
 };
 
 const getNavItemsForRole = (role: string | null): NavItem[] => {
@@ -155,6 +202,11 @@ const getNavItemsForRole = (role: string | null): NavItem[] => {
   }
 };
 
+// Helper to get the correct icon based on theme
+const getIconForItem = (itemId: string, isApple: boolean) => {
+  return isApple ? (iconAppleMap[itemId] || iconAppleMap.portal) : (icon3DMap[itemId] || icon3DMap.portal);
+};
+
 const adminItem = { id: 'admin', icon: AdminIcon3D, label: 'Admin' };
 
 const roleColors: Record<string, string> = {
@@ -184,6 +236,10 @@ export const DashboardLayout = ({ children, activeTab, onTabChange }: DashboardL
   const { academicYears, selectedYearId, selectedYear, setSelectedYearId, isLoading: isLoadingYears } = useAcademicYear();
   const { data: schoolSettings } = useSchoolSettings(selectedSchool);
   const { theme, currentTheme, selectTheme } = useColorTheme();
+  const { layoutStyle } = useDashboardLayout();
+
+  // Check if Apple theme is active
+  const isAppleTheme = layoutStyle === 'apple';
 
   // Admin and Registrar can switch schools
   const canSwitch = role === 'admin' || role === 'registrar';
@@ -334,14 +390,16 @@ export const DashboardLayout = ({ children, activeTab, onTabChange }: DashboardL
 
       {/* Sidebar */}
       <aside className={cn(
-        "fixed left-0 top-0 z-50 h-full border-r border-border transform transition-all duration-300 flex flex-col theme-transition",
+        "fixed left-0 top-0 z-50 h-full border-r transform transition-all duration-300 flex flex-col theme-transition",
         sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
         isCollapsed ? "w-[70px]" : "w-64",
-        currentTheme === 'pastel'
-          ? "bg-white/40 dark:bg-black/20 backdrop-blur-md border-r-white/20 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)]"
-          : currentTheme !== 'default'
-            ? `bg-gradient-to-b ${effectiveTheme.sidebarBg} ${effectiveTheme.sidebarText}`
-            : "bg-gradient-to-b from-success to-success/90 text-white"
+        isAppleTheme
+          ? "apple-sidebar border-r-black/5 text-gray-800"
+          : currentTheme === 'pastel'
+            ? "bg-white/40 dark:bg-black/20 backdrop-blur-md border-r-white/20 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)]"
+            : currentTheme !== 'default'
+              ? `bg-gradient-to-b ${effectiveTheme.sidebarBg} ${effectiveTheme.sidebarText} border-border`
+              : "bg-gradient-to-b from-success to-success/90 text-white border-border"
       )}>
         <div className={cn("p-4 flex items-center justify-between", isCollapsed && "justify-center")}>
           <motion.div
@@ -495,7 +553,9 @@ export const DashboardLayout = ({ children, activeTab, onTabChange }: DashboardL
                 initial="hidden"
                 animate="visible"
               >
-                {navItems.map((item) => (
+                {navItems.map((item) => {
+                  const IconComponent = getIconForItem(item.id, isAppleTheme);
+                  return (
                   <Reorder.Item
                     key={item.id}
                     value={item}
@@ -507,7 +567,7 @@ export const DashboardLayout = ({ children, activeTab, onTabChange }: DashboardL
                     variants={itemVariants}
                   >
                     <motion.button
-                      whileHover={{ x: 5, scale: 1.02 }}
+                      whileHover={isAppleTheme ? { scale: 1.01 } : { x: 5, scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => {
                         if (!isDragging) {
@@ -516,16 +576,26 @@ export const DashboardLayout = ({ children, activeTab, onTabChange }: DashboardL
                         }
                       }}
                       className={cn(
-                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-all duration-200 relative overflow-hidden",
+                        "w-full flex items-center gap-3 px-3 py-2.5 font-medium transition-all duration-200 relative overflow-hidden",
                         !isMenuLocked ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
-                        activeTab === item.id
-                          ? `${effectiveTheme.menuActiveBg} ${effectiveTheme.menuActiveText} shadow-md`
-                          : `text-inherit/80 ${effectiveTheme.menuHoverBg} hover:bg-yellow-400/20 hover:text-yellow-700 dark:hover:text-yellow-300 transition-colors`,
+                        isAppleTheme
+                          ? cn(
+                              "rounded-xl",
+                              activeTab === item.id
+                                ? "bg-[#007AFF] text-white shadow-sm"
+                                : "text-gray-700 hover:bg-black/5"
+                            )
+                          : cn(
+                              "rounded-lg",
+                              activeTab === item.id
+                                ? `${effectiveTheme.menuActiveBg} ${effectiveTheme.menuActiveText} shadow-md`
+                                : `text-inherit/80 ${effectiveTheme.menuHoverBg} hover:bg-yellow-400/20 hover:text-yellow-700 dark:hover:text-yellow-300 transition-colors`
+                            ),
                         isCollapsed && "justify-center px-2"
                       )}
                       title={isCollapsed ? item.label : undefined}
                     >
-                      {activeTab === item.id && (
+                      {activeTab === item.id && !isAppleTheme && (
                         <motion.div
                           layoutId="activeTabBackground"
                           className="absolute inset-0 bg-white/20 dark:bg-black/20"
@@ -537,11 +607,15 @@ export const DashboardLayout = ({ children, activeTab, onTabChange }: DashboardL
                       {!isMenuLocked && (
                         <GripVertical className={cn("h-4 w-4 opacity-40 flex-shrink-0 z-10", isCollapsed && "hidden")} />
                       )}
-                      <item.icon className="h-5 w-5 flex-shrink-0 z-10" />
-                      {!isCollapsed && <span className="truncate z-10">{item.label}</span>}
+                      <IconComponent className={cn(
+                        "h-5 w-5 flex-shrink-0 z-10",
+                        isAppleTheme && activeTab !== item.id && "text-gray-500"
+                      )} />
+                      {!isCollapsed && <span className={cn("truncate z-10", isAppleTheme && "text-[13px]")}>{item.label}</span>}
                     </motion.button>
                   </Reorder.Item>
-                ))}
+                  );
+                })}
               </Reorder.Group>
             </div>
           ) : (
@@ -551,26 +625,38 @@ export const DashboardLayout = ({ children, activeTab, onTabChange }: DashboardL
               initial="hidden"
               animate="visible"
             >
-              {navItems.map((item) => (
+              {navItems.map((item) => {
+                const IconComponent = getIconForItem(item.id, isAppleTheme);
+                return (
                 <motion.button
                   key={item.id}
                   variants={itemVariants}
-                  whileHover={{ x: 5, scale: 1.02 }}
+                  whileHover={isAppleTheme ? { scale: 1.01 } : { x: 5, scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => {
                     onTabChange(item.id);
                     setSidebarOpen(false);
                   }}
                   className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-all duration-200 relative overflow-hidden",
-                    activeTab === item.id
-                      ? `${effectiveTheme.menuActiveBg} ${effectiveTheme.menuActiveText} shadow-md`
-                      : `text-inherit/80 ${effectiveTheme.menuHoverBg} hover:bg-yellow-400/20 hover:text-yellow-700 dark:hover:text-yellow-300 transition-colors`,
+                    "w-full flex items-center gap-3 px-3 py-2.5 font-medium transition-all duration-200 relative overflow-hidden",
+                    isAppleTheme
+                      ? cn(
+                          "rounded-xl",
+                          activeTab === item.id
+                            ? "bg-[#007AFF] text-white shadow-sm"
+                            : "text-gray-700 hover:bg-black/5"
+                        )
+                      : cn(
+                          "rounded-lg",
+                          activeTab === item.id
+                            ? `${effectiveTheme.menuActiveBg} ${effectiveTheme.menuActiveText} shadow-md`
+                            : `text-inherit/80 ${effectiveTheme.menuHoverBg} hover:bg-yellow-400/20 hover:text-yellow-700 dark:hover:text-yellow-300 transition-colors`
+                        ),
                     isCollapsed && "justify-center px-2"
                   )}
                   title={isCollapsed ? item.label : undefined}
                 >
-                  {activeTab === item.id && (
+                  {activeTab === item.id && !isAppleTheme && (
                     <motion.div
                       layoutId="activeTabBackground"
                       className="absolute inset-0 bg-white/20 dark:bg-black/20"
@@ -579,10 +665,14 @@ export const DashboardLayout = ({ children, activeTab, onTabChange }: DashboardL
                     />
                   )}
 
-                  <item.icon className="h-5 w-5 flex-shrink-0 z-10" />
-                  {!isCollapsed && <span className="truncate z-10">{item.label}</span>}
+                  <IconComponent className={cn(
+                    "h-5 w-5 flex-shrink-0 z-10",
+                    isAppleTheme && activeTab !== item.id && "text-gray-500"
+                  )} />
+                  {!isCollapsed && <span className={cn("truncate z-10", isAppleTheme && "text-[13px]")}>{item.label}</span>}
                 </motion.button>
-              ))}
+                );
+              })}
             </motion.nav>
           )
         }
@@ -590,25 +680,37 @@ export const DashboardLayout = ({ children, activeTab, onTabChange }: DashboardL
         {/* Bottom Section - Admin */}
         <div className="px-3 pb-6 space-y-2">
           {/* Admin Button - Only show for admin role */}
-          {role === 'admin' && (
+          {role === 'admin' && (() => {
+            const AdminIconComponent = getIconForItem('admin', isAppleTheme);
+            return (
             <motion.button
               variants={itemVariants}
               initial="hidden"
               animate="visible"
-              whileHover={{ x: 5, scale: 1.02 }}
+              whileHover={isAppleTheme ? { scale: 1.01 } : { x: 5, scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => {
                 onTabChange(adminItem.id);
                 setSidebarOpen(false);
               }}
               className={cn(
-                "w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-200 relative overflow-hidden",
-                activeTab === adminItem.id
-                  ? "bg-destructive text-destructive-foreground shadow-md"
-                  : "text-inherit/80 hover:bg-white/10 hover:text-red-300"
+                "w-full flex items-center gap-3 px-4 py-3 font-medium transition-all duration-200 relative overflow-hidden",
+                isAppleTheme
+                  ? cn(
+                      "rounded-xl",
+                      activeTab === adminItem.id
+                        ? "bg-[#FF3B30] text-white shadow-sm"
+                        : "text-[#FF3B30] hover:bg-[#FF3B30]/10"
+                    )
+                  : cn(
+                      "rounded-lg",
+                      activeTab === adminItem.id
+                        ? "bg-destructive text-destructive-foreground shadow-md"
+                        : "text-inherit/80 hover:bg-white/10 hover:text-red-300"
+                    )
               )}
             >
-              {activeTab === adminItem.id && (
+              {activeTab === adminItem.id && !isAppleTheme && (
                 <motion.div
                   layoutId="activeTabBackground"
                   className="absolute inset-0 bg-white/20 dark:bg-black/20"
@@ -616,10 +718,11 @@ export const DashboardLayout = ({ children, activeTab, onTabChange }: DashboardL
                   transition={{ type: "spring", stiffness: 350, damping: 30 }}
                 />
               )}
-              <adminItem.icon className="h-5 w-5 z-10" />
-              <span className="z-10">{adminItem.label}</span>
+              <AdminIconComponent className="h-5 w-5 z-10" />
+              <span className={cn("z-10", isAppleTheme && "text-[13px]")}>{adminItem.label}</span>
             </motion.button>
-          )}
+            );
+          })()}
         </div>
       </aside>
 

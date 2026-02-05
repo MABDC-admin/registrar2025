@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-export type LayoutStyle = 'modern' | 'classicBlue';
+export type LayoutStyle = 'modern' | 'classicBlue' | 'apple';
 
 export interface ClassicBlueTheme {
   pageBackground: {
@@ -45,11 +45,35 @@ export interface ClassicBlueTheme {
   };
 }
 
+export interface AppleTheme {
+  pageBackground: string;
+  cards: {
+    backgroundColor: string;
+    borderRadius: string;
+    boxShadow: string;
+    border: string;
+  };
+  sidebar: {
+    backgroundColor: string;
+    backdropBlur: string;
+    textColor: string;
+  };
+  accent: string;
+  accentLight: string;
+  statsColors: {
+    green: string;
+    blue: string;
+    orange: string;
+    red: string;
+  };
+}
+
 interface DashboardLayoutContextType {
   layoutStyle: LayoutStyle;
   setLayoutStyle: (style: LayoutStyle) => void;
   classicTheme: ClassicBlueTheme | null;
   setClassicTheme: (theme: ClassicBlueTheme) => void;
+  appleTheme: AppleTheme | null;
   isLoading: boolean;
 }
 
@@ -96,6 +120,29 @@ const defaultClassicTheme: ClassicBlueTheme = {
   }
 };
 
+const defaultAppleTheme: AppleTheme = {
+  pageBackground: "linear-gradient(180deg, #F5F5F7 0%, #FFFFFF 100%)",
+  cards: {
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    borderRadius: "20px",
+    boxShadow: "0 2px 12px rgba(0, 0, 0, 0.04)",
+    border: "1px solid rgba(0, 0, 0, 0.06)"
+  },
+  sidebar: {
+    backgroundColor: "rgba(255, 255, 255, 0.72)",
+    backdropBlur: "20px",
+    textColor: "#1d1d1f"
+  },
+  accent: "#007AFF",
+  accentLight: "rgba(0, 122, 255, 0.1)",
+  statsColors: {
+    green: "#34C759",
+    blue: "#007AFF",
+    orange: "#FF9500",
+    red: "#FF3B30"
+  }
+};
+
 const DashboardLayoutContext = createContext<DashboardLayoutContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'dashboard-layout-style';
@@ -119,6 +166,7 @@ export const DashboardLayoutProvider = ({ children }: { children: ReactNode }) =
     return defaultClassicTheme;
   });
 
+  const [appleTheme] = useState<AppleTheme>(defaultAppleTheme);
   const [isLoading, setIsLoading] = useState(false);
 
   const setLayoutStyle = (style: LayoutStyle) => {
@@ -131,7 +179,7 @@ export const DashboardLayoutProvider = ({ children }: { children: ReactNode }) =
     localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(theme));
   };
 
-  // Apply CSS variables when classic theme is active
+  // Apply CSS variables when theme is active
   useEffect(() => {
     const root = document.documentElement;
     
@@ -148,7 +196,23 @@ export const DashboardLayoutProvider = ({ children }: { children: ReactNode }) =
       root.style.setProperty('--classic-stat-yellow', classicTheme.statsCards.classes.backgroundColor);
       root.style.setProperty('--classic-stat-red', classicTheme.statsCards.library.backgroundColor);
     }
-  }, [layoutStyle, classicTheme]);
+    
+    if (layoutStyle === 'apple' && appleTheme) {
+      root.style.setProperty('--apple-page-bg', appleTheme.pageBackground);
+      root.style.setProperty('--apple-card-bg', appleTheme.cards.backgroundColor);
+      root.style.setProperty('--apple-card-radius', appleTheme.cards.borderRadius);
+      root.style.setProperty('--apple-card-shadow', appleTheme.cards.boxShadow);
+      root.style.setProperty('--apple-card-border', appleTheme.cards.border);
+      root.style.setProperty('--apple-sidebar-bg', appleTheme.sidebar.backgroundColor);
+      root.style.setProperty('--apple-sidebar-blur', appleTheme.sidebar.backdropBlur);
+      root.style.setProperty('--apple-accent', appleTheme.accent);
+      root.style.setProperty('--apple-accent-light', appleTheme.accentLight);
+      root.style.setProperty('--apple-stat-green', appleTheme.statsColors.green);
+      root.style.setProperty('--apple-stat-blue', appleTheme.statsColors.blue);
+      root.style.setProperty('--apple-stat-orange', appleTheme.statsColors.orange);
+      root.style.setProperty('--apple-stat-red', appleTheme.statsColors.red);
+    }
+  }, [layoutStyle, classicTheme, appleTheme]);
 
   return (
     <DashboardLayoutContext.Provider value={{ 
@@ -156,6 +220,7 @@ export const DashboardLayoutProvider = ({ children }: { children: ReactNode }) =
       setLayoutStyle, 
       classicTheme, 
       setClassicTheme,
+      appleTheme,
       isLoading 
     }}>
       {children}
