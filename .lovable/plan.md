@@ -1,215 +1,191 @@
 
-# Comprehensive Admin Dashboard Enhancement Plan
+# Library Integration Plan
 
 ## Overview
-This plan implements four key features:
-1. Add school logo next to school name in dashboard header
-2. Remove "MABDC"/"STFXSA" abbreviations above the school switcher
-3. Create a dedicated Logs page for login activity tracking
-4. Implement role-based permission assignment pages
+Integrate the Flipbooks project (from another Lovable project) into this system by:
+1. Replacing the Attendance widget with a Library widget
+2. Creating a Library page with flipbook content filtered by grade level
+3. Implementing role-based access (students see grade-appropriate content, staff see all)
 
 ---
 
-## Part 1: Dashboard Header Enhancement
+## Part 1: Replace Attendance Widget with Library Widget
 
-### 1.1 Add School Logo to Header
-**File:** `src/components/dashboard/DashboardHeader.tsx`
+### File: `src/components/dashboard/DashboardStatsRow.tsx`
 
-- Import `useSchoolSettings` hook to access the school's `logo_url`
-- Add a logo image container next to the school name
-- Display the school logo from `schoolSettings?.logo_url` if available
-- Show a fallback icon (GraduationCap) if no logo exists
+**Current State:** 4th widget shows "Attendance" with a percentage  
+**New State:** 4th widget shows "Library" with a link/count
 
-### 1.2 Remove Abbreviations from School Switcher
-**File:** `src/components/layout/DashboardLayout.tsx`
+**Changes:**
+- Replace the Attendance stat with a Library stat
+- Add a click handler to navigate to the Library page
+- Update the icon to a book/library icon
 
-- Modify the school switcher dropdown button (line 375) to show full school name instead of abbreviation
-- Update dropdown menu items to show full names: "M.A Brain Development Center" and "St. Francis Xavier Smart Academy Inc"
-- Keep the color indicators for visual distinction
+### File: `src/components/icons/ThreeDIcons.tsx`
+- Add a new `LibraryIcon3D` component for the widget
+
+### File: `src/components/portals/AdminPortal.tsx`
+- Update DashboardStatsRow props (remove attendanceRate, add libraryAction)
 
 ---
 
-## Part 2: Activity Logs Page
+## Part 2: Database Schema for Flipbooks
 
-### 2.1 Create New Component
-**New File:** `src/components/admin/ActivityLogs.tsx`
+Since the Flipbooks project is in a separate Lovable account, we have two integration options:
 
-This page will display:
-- **Login activity table** with columns:
-  - Timestamp
-  - User email/name
-  - Action (login/logout)
-  - IP address
-  - Status (success/failure)
-  
-- **Features:**
-  - Date range filter
-  - Action type filter (login/logout/all)
-  - Search by user
-  - Export to CSV functionality
-  - Pagination for large datasets
+### Option A: External Link Integration (Simpler)
+- Store flipbook metadata (title, grade level, external URL) in this system
+- Link opens the external Flipbooks project in a new tab
+- Content is managed in the Flipbooks project
 
-### 2.2 Data Source
-The existing `school_access_logs` table already captures access events. We will:
-- Create a new table `auth_activity_logs` to specifically track login/logout events
-- Populate it using a trigger on auth events or by fetching from Lovable Cloud's auth logs
+### Option B: Full Data Import (More Complex)
+- Copy flipbook data into this system's database
+- Store PDFs in this system's storage
+- Requires ongoing sync between projects
 
-### 2.3 Database Changes
+**Recommended: Option A** - External Link Integration
+
+### Database Table: `flipbooks`
 ```sql
--- Create auth activity logs table
-CREATE TABLE public.auth_activity_logs (
+CREATE TABLE public.flipbooks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-  user_email TEXT,
-  user_name TEXT,
-  action TEXT NOT NULL, -- 'login', 'logout', 'failed_login'
-  ip_address TEXT,
-  user_agent TEXT,
-  status TEXT DEFAULT 'success',
-  error_message TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  title TEXT NOT NULL,
+  description TEXT,
+  cover_image_url TEXT,
+  flipbook_url TEXT NOT NULL, -- External URL to the flipbook
+  grade_levels TEXT[] NOT NULL, -- Array of grade levels (e.g., ['Grade 1', 'Grade 2'])
+  school TEXT, -- 'MABDC', 'STFXSA', or NULL for both
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Enable RLS
-ALTER TABLE public.auth_activity_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.flipbooks ENABLE ROW LEVEL SECURITY;
 
--- Admin-only access policy
-CREATE POLICY "Admins can view all auth logs"
-  ON public.auth_activity_logs
-  FOR SELECT
+-- Policy: Anyone authenticated can view active flipbooks
+CREATE POLICY "Users can view flipbooks"
+  ON public.flipbooks FOR SELECT
+  TO authenticated
+  USING (is_active = true);
+
+-- Policy: Admins can manage flipbooks
+CREATE POLICY "Admins can manage flipbooks"
+  ON public.flipbooks FOR ALL
   TO authenticated
   USING (public.has_role(auth.uid(), 'admin'));
 ```
 
-### 2.4 Integration
-- Add "Activity Logs" navigation item for admin role in `DashboardLayout.tsx`
-- Add tab handling in `Index.tsx` for the logs page
-
 ---
 
-## Part 3: Role-Based Permission Management
+## Part 3: Library Page Component
 
-### 3.1 Create Permission Management Component
-**New File:** `src/components/admin/PermissionManagement.tsx`
+### New File: `src/components/library/LibraryPage.tsx`
 
-This module provides:
+**Features:**
+- Grid display of flipbook covers/cards
+- Grade level filter dropdown
+- Search by title
+- Click to open flipbook in new tab (or embedded iframe)
 
-**User List with Role Display:**
-- Table showing all users with their current roles
-- Filter by role type
-- Search by name/email
+**Role-Based Filtering Logic:**
+```typescript
+// Students: Filter by their grade level only
+if (role === 'student' && student?.level) {
+  query = query.contains('grade_levels', [student.level]);
+}
 
-**Role Assignment Panel:**
-- Select user from list
-- View current role and permissions
-- Assign new role from dropdown (admin, registrar, teacher, student, parent)
-- School access assignment for multi-school users
-
-**Permission Grid:**
-- Visual display of what each role can access
-- Read-only reference for administrators
-
-### 3.2 Create Role Assignment Dialog
-**New File:** `src/components/admin/RoleAssignmentDialog.tsx`
-
-- Modal dialog for changing user roles
-- Confirmation step before role changes
-- Audit logging of role changes
-
-### 3.3 Create School Access Management
-**New File:** `src/components/admin/SchoolAccessManager.tsx`
-
-- Manage which schools each user can access
-- Grant/revoke school access
-- View access history
-
-### 3.4 Database Changes
-```sql
--- Add role change audit logging
-CREATE TABLE public.role_change_logs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id),
-  changed_by UUID NOT NULL REFERENCES auth.users(id),
-  old_role app_role,
-  new_role app_role NOT NULL,
-  reason TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Enable RLS
-ALTER TABLE public.role_change_logs ENABLE ROW LEVEL SECURITY;
-
--- Admin-only access
-CREATE POLICY "Admins can manage role logs"
-  ON public.role_change_logs
-  FOR ALL
-  TO authenticated
-  USING (public.has_role(auth.uid(), 'admin'));
+// Teachers, Registrars, Admins: See all flipbooks
+// No additional filter needed
 ```
 
-### 3.5 Update Admin Panel Tabs
-**File:** `src/components/admin/AdminPanel.tsx`
+**UI Layout:**
+```
++------------------------------------------+
+|  Library                    [Filter: All ▼] |
+|  Browse ebooks for your grade level         |
++------------------------------------------+
+|  +--------+  +--------+  +--------+      |
+|  |  📚    |  |  📚    |  |  📚    |      |
+|  | Cover  |  | Cover  |  | Cover  |      |
+|  | Grade 1|  | Grade 2|  | Grade 3|      |
+|  +--------+  +--------+  +--------+      |
++------------------------------------------+
+```
 
-- Add new tabs: "Permissions" and "Logs"
-- Integrate the new components
-
----
-
-## Part 4: Navigation Updates
-
-### 4.1 Update Dashboard Layout Navigation
-**File:** `src/components/layout/DashboardLayout.tsx`
-
-Add new navigation items for admin role:
-- "Activity Logs" - links to logs page
-- "Permissions" - links to permission management
-
-### 4.2 Update Index.tsx
-**File:** `src/pages/Index.tsx`
-
-Add route handling for:
-- `logs` tab - renders `ActivityLogs` component
-- `permissions` tab - renders `PermissionManagement` component
+### New File: `src/components/library/FlipbookCard.tsx`
+- Card component showing cover, title, grade level badges
+- Click opens the flipbook URL
 
 ---
 
-## Implementation Order
+## Part 4: Navigation Integration
 
-1. **Phase 1 - Header Updates** (Quick wins)
-   - Add logo to dashboard header
-   - Update school switcher text
+### File: `src/components/layout/DashboardLayout.tsx`
 
-2. **Phase 2 - Database Setup**
-   - Create `auth_activity_logs` table
-   - Create `role_change_logs` table
-   - Set up RLS policies
+Add "Library" navigation item for all roles:
+```typescript
+// In getNavItemsForRole function
+{ id: 'library', icon: BookOpen, label: 'Library' }
+```
 
-3. **Phase 3 - Activity Logs Page**
-   - Create `ActivityLogs.tsx` component
-   - Add navigation and routing
+### File: `src/pages/Index.tsx`
 
-4. **Phase 4 - Permission Management**
-   - Create `PermissionManagement.tsx`
-   - Create `RoleAssignmentDialog.tsx`
-   - Create `SchoolAccessManager.tsx`
-   - Update AdminPanel tabs
+Add route handling for Library:
+```typescript
+{activeTab === 'library' && <LibraryPage />}
+```
 
 ---
 
-## Technical Details
+## Part 5: Widget Click Action
 
-### Files to Create
-- `src/components/admin/ActivityLogs.tsx`
-- `src/components/admin/PermissionManagement.tsx`
-- `src/components/admin/RoleAssignmentDialog.tsx`
-- `src/components/admin/SchoolAccessManager.tsx`
+### File: `src/components/dashboard/DashboardStatsRow.tsx`
 
-### Files to Modify
-- `src/components/dashboard/DashboardHeader.tsx` - Add logo
-- `src/components/layout/DashboardLayout.tsx` - Update school switcher text, add nav items
-- `src/components/admin/AdminPanel.tsx` - Add new tabs
-- `src/pages/Index.tsx` - Add route handlers
+Make the Library widget clickable:
+```typescript
+<motion.div
+  onClick={() => onNavigate?.('library')}
+  className="cursor-pointer hover:scale-105 transition-transform"
+  // ... existing props
+>
+```
 
-### Database Migrations
-- Create `auth_activity_logs` table with RLS
-- Create `role_change_logs` table with RLS
+---
+
+## Files to Create
+- `src/components/library/LibraryPage.tsx`
+- `src/components/library/FlipbookCard.tsx`
+
+## Files to Modify
+- `src/components/dashboard/DashboardStatsRow.tsx` - Replace Attendance with Library
+- `src/components/icons/ThreeDIcons.tsx` - Add LibraryIcon3D
+- `src/components/portals/AdminPortal.tsx` - Update props
+- `src/components/portals/RegistrarPortal.tsx` - Add Library widget
+- `src/components/layout/DashboardLayout.tsx` - Add Library nav item
+- `src/pages/Index.tsx` - Add Library tab handler
+
+## Database Migration
+- Create `flipbooks` table with RLS policies
+
+---
+
+## Integration with External Flipbooks Project
+
+To populate the Library, you will need to:
+1. **Manually add flipbook entries** via an admin interface (to be created)
+2. **Or provide the external flipbook URLs** for me to add to the database
+
+The flipbook URL should be the public link from your Flipbooks project (similar to Heyzine's shared links).
+
+---
+
+## Summary
+
+| Role | Library Access |
+|------|---------------|
+| Student | Only flipbooks matching their grade level |
+| Teacher | All flipbooks |
+| Registrar | All flipbooks |
+| Admin | All flipbooks + can manage/add flipbooks |
+| Parent | Flipbooks matching their children's grade levels |
