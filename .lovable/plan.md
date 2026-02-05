@@ -1,146 +1,73 @@
 
-# Fix Canva OAuth Re-login Issue
+# Fix Canva OAuth Scope Format
 
-## Problem Analysis
+## Problem
 
-After successfully authorizing with Canva, the user is redirected back to the app but sees the login page or gets logged out. This happens because:
+The `invalid_scope` error occurs because the scopes in the code don't match the format/names configured in the Canva Developer Portal.
 
-1. **OAuth callback is in the wrong component**: The callback handling code is in `CanvaStudio.tsx`, but after Canva redirects back to `/`, the `CanvaStudio` component is not mounted (the Index page defaults to `activeTab='portal'`)
+Looking at your Developer Portal screenshot, I see scopes like:
+- `canva:design:content` (with Read/Write checkboxes)
+- `canva:design:meta` (with Read checkbox)
 
-2. **Session lost during redirect**: When the browser navigates away to Canva and back, Supabase needs to rehydrate the session. If the callback handler tries to check the session before it's fully rehydrated, it returns `null`
-
-3. **Callback code never executes**: Since `CanvaStudio` isn't rendered on the initial page load, the `useEffect` that handles the OAuth callback never runs
-
----
-
-## Solution
-
-Move the OAuth callback handling to a higher level (Index page or a dedicated callback handler) so it executes regardless of which tab is active.
-
----
-
-## Technical Changes
-
-### 1. Handle OAuth callback in Index.tsx
-
-Add logic to detect Canva OAuth callback parameters (`code` and `state`) and process them at the page level:
-
-```typescript
-// In Index.tsx useEffect
-useEffect(() => {
-  const urlParams = new URLSearchParams(window.location.search);
-  const code = urlParams.get('code');
-  const state = urlParams.get('state');
-  
-  if (code && state) {
-    // Handle Canva OAuth callback
-    handleCanvaCallback(code, state);
-  }
-}, []);
+But the code currently requests:
+```
+design:content:read design:meta:read
 ```
 
-### 2. Create a callback handler function
+## What You Need To Do (In Canva Developer Portal)
 
-```typescript
-const handleCanvaCallback = async (code: string, state: string) => {
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      // Wait for session to rehydrate
-      toast.info('Completing Canva connection...');
-      return;
-    }
+### Step 1: Enable the Required Scopes
 
-    const response = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/canva-auth?action=callback&code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      }
-    );
+In your Canva Developer Console, go to the **Scopes** section and enable:
 
-    const result = await response.json();
-    
-    if (response.ok && result.success) {
-      toast.success('Successfully connected to Canva!');
-      setActiveTab('canva'); // Navigate to Canva Studio
-    }
-    
-    // Clean URL
-    window.history.replaceState({}, document.title, window.location.pathname);
-  } catch (error) {
-    toast.error('Failed to complete Canva connection');
-    window.history.replaceState({}, document.title, window.location.pathname);
-  }
-};
+| Scope | Permission |
+|-------|------------|
+| `canva:design:content` | Check **Read** |
+| `canva:design:meta` | Check **Read** |
+
+### Step 2: Save Your Changes
+
+Click Save/Update after enabling the scopes.
+
+### Step 3: Verify Redirect URL
+
+Make sure your redirect URL is set to:
 ```
-
-### 3. Wait for session before processing callback
-
-Use the auth loading state to ensure the session is ready:
-
-```typescript
-useEffect(() => {
-  if (loading) return; // Wait for auth to complete
-  
-  const urlParams = new URLSearchParams(window.location.search);
-  const code = urlParams.get('code');
-  const state = urlParams.get('state');
-  
-  if (code && state && user) {
-    handleCanvaCallback(code, state);
-  }
-}, [loading, user]);
-```
-
-### 4. Remove duplicate callback handling from CanvaStudio
-
-The callback logic in `CanvaStudio.tsx` can be simplified since Index.tsx will handle it.
-
----
-
-## Files to Modify
-
-| File | Changes |
-|------|---------|
-| `src/pages/Index.tsx` | Add OAuth callback detection and handling |
-| `src/components/canva/CanvaStudio.tsx` | Remove redundant callback code, keep only status check |
-
----
-
-## Flow After Fix
-
-```text
-1. User clicks "Connect with Canva"
-   │
-   ▼
-2. Redirected to Canva for authorization
-   │
-   ▼
-3. Canva redirects back to: /?code=xxx&state=yyy
-   │
-   ▼
-4. Index.tsx mounts, Auth context rehydrates session
-   │
-   ▼
-5. useEffect detects ?code & ?state params
-   │
-   ▼
-6. Calls edge function to exchange code for tokens
-   │
-   ▼
-7. On success: clears URL, switches to canva tab, shows toast
-   │
-   ▼
-8. CanvaStudio loads and sees connected status
+https://registrar2025.lovable.app
 ```
 
 ---
 
-## Implementation Summary
+## Code Change
 
-1. Move OAuth callback handling from CanvaStudio to Index page
-2. Wait for auth loading to complete before processing callback
-3. Auto-navigate to Canva tab after successful connection
-4. Clean up URL parameters after processing
+After you enable the scopes in the Developer Portal, I'll update the edge function to use the exact scope names that Canva expects.
+
+Based on Canva's documentation example:
+```
+scope=asset:read%20asset:write%20design:meta:read%20folder:read
+```
+
+The scopes should use this format: `design:content:read design:meta:read`
+
+However, your Developer Portal shows a different naming convention (`canva:design:content`). This suggests the scope format may need to be:
+```
+canva:design:content:read canva:design:meta:read
+```
+
+### File to Update
+
+| File | Change |
+|------|--------|
+| `supabase/functions/canva-auth/index.ts` | Update line 111 to match the exact scope format from your Developer Portal |
+
+---
+
+## Recommended Next Steps
+
+1. In your Canva Developer Portal, look for a **"Scopes"** or **"API Scopes"** section
+2. Check what the exact scope names are (they might be listed when you hover or click)
+3. Enable the Read checkboxes for `design:content` and `design:meta`
+4. Save and let me know the exact scope names shown
+5. I'll update the code to match
+
+Alternatively, if your Developer Portal has an **"Authorization URL generator"** tool (mentioned in the docs), use it - it will show you the correct scope format for your app.
