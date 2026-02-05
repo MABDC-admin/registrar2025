@@ -21,6 +21,9 @@ export interface NotebookCell {
   output: string | null;
   position: number;
   model: string | null;
+  pdf_filename: string | null;
+  pdf_page_count: number | null;
+  pdf_extracted_text: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -50,6 +53,9 @@ export interface UpdateCellData {
   output?: string;
   cell_type?: 'markdown' | 'llm';
   model?: string;
+  pdf_filename?: string;
+  pdf_page_count?: number;
+  pdf_extracted_text?: string;
 }
 
 // Fetch all notebooks for the current user

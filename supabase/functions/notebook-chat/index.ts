@@ -15,6 +15,8 @@ interface RequestBody {
   messages: Message[];
   systemPrompt?: string;
   model?: string;
+  pdfText?: string;
+  pdfFilename?: string;
 }
 
 Deno.serve(async (req) => {
@@ -64,7 +66,7 @@ Deno.serve(async (req) => {
 
     // Parse request body
     const body: RequestBody = await req.json();
-    const { messages, systemPrompt, model = "google/gemini-3-flash-preview" } = body;
+    const { messages, systemPrompt, model = "google/gemini-3-flash-preview", pdfText, pdfFilename } = body;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return new Response(
@@ -83,14 +85,43 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Prepare messages with optional system prompt
+    // Prepare messages with optional system prompt and PDF context
     const formattedMessages: Message[] = [];
-    if (systemPrompt) {
-      formattedMessages.push({ role: "system", content: systemPrompt });
-    }
-    formattedMessages.push(...messages);
+    
+    // Add system prompt for PDF analysis if PDF is provided
+    if (pdfText) {
+      const pdfSystemPrompt = systemPrompt || 
+        `You are a helpful AI assistant analyzing a document. The user has uploaded a PDF file${pdfFilename ? ` named "${pdfFilename}"` : ''}. 
+        
+Analyze the document content carefully and respond to the user's questions or requests based on this document. 
+Provide clear, well-structured responses. Use markdown formatting for better readability.
+When summarizing, include key points, main ideas, and important details from the document.`;
+      
+      formattedMessages.push({ role: "system", content: pdfSystemPrompt });
+      
+      // Add the PDF content as context before the user's message
+      const lastUserMessage = messages[messages.length - 1];
+      const otherMessages = messages.slice(0, -1);
+      
+      formattedMessages.push(...otherMessages);
+      
+      // Combine PDF text with user's prompt
+      const userPromptWithPdf = `[DOCUMENT START]
+${pdfText}
+[DOCUMENT END]
 
-    console.log(`Sending ${formattedMessages.length} messages to ${model}`);
+User's request: ${lastUserMessage.content}`;
+      
+      formattedMessages.push({ role: "user", content: userPromptWithPdf });
+    } else {
+      // No PDF, just use regular messages
+      if (systemPrompt) {
+        formattedMessages.push({ role: "system", content: systemPrompt });
+      }
+      formattedMessages.push(...messages);
+    }
+
+    console.log(`Sending ${formattedMessages.length} messages to ${model}${pdfText ? ' (with PDF context)' : ''}`);
 
     // Call Lovable AI Gateway with streaming
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
