@@ -1,248 +1,269 @@
 
-
-# AI Presentation Generator with Web Design Inspiration
+# Dashboard UI Theme Switcher with AI Image Analysis
 
 ## Overview
 
-This feature adds a new "Presentation" cell type to the Notebook LLM page that allows users to:
-1. Enter a topic prompt
-2. AI researches and generates a beautiful presentation with content and design suggestions
-3. Download the presentation as PPT (PowerPoint) or PDF
+This plan uses **Gemini 3 Pro** to analyze the uploaded reference image and extract precise design specifications (colors, shadows, gradients, border-radius values, etc.) to create a pixel-perfect "Classic Blue" theme that users can switch to. All dashboard elements remain identical in functionality - only the visual styling changes.
 
-The AI will leverage web search (via Firecrawl connector) to gather design inspiration and best practices, then generate a structured presentation with modern design recommendations.
+---
 
-## User Experience
+## Architecture
 
 ```text
-+--------------------------------------------------------------------+
-| Cell - Presentation Generator                        [Run] [Del]   |
-| +----------------------------------------------------------------+ |
-| | Topic: "Artificial Intelligence in Education"                  | |
-| |                                                                | |
-| | Number of slides: [8] ▼                                        | |
-| | Style: [Modern Minimal] ▼                                      | |
-| +----------------------------------------------------------------+ |
-| Output:                              [Download PPT] [Download PDF] |
-| +----------------------------------------------------------------+ |
-| | ## Slide 1: Title                                              | |
-| | # AI in Education                                              | |
-| | *Transforming Learning for the Future*                         | |
-| |                                                                | |
-| | ## Slide 2: Introduction                                       | |
-| | - What is AI in education?                                     | |
-| | - Current adoption rates                                       | |
-| | - Key benefits overview                                        | |
-| |                                                                | |
-| | ## Slide 3: ...                                                | |
-| +----------------------------------------------------------------+ |
-+--------------------------------------------------------------------+
+┌─────────────────────────────────────────────────────────────────┐
+│                      User Interface                              │
+├─────────────────────────────────────────────────────────────────┤
+│  [Header]  School Name    [Theme Color] [UI Layout] [Avatar]    │
+│                              🎨           📐                     │
+│            existing         existing    NEW SWITCHER             │
+├─────────────────────────────────────────────────────────────────┤
+│  Dashboard Layout Context                                        │
+│  └── layoutStyle: 'modern' | 'classicBlue'                      │
+│  └── Persisted to localStorage                                   │
+├─────────────────────────────────────────────────────────────────┤
+│  Component Variants (via className props)                        │
+│  └── All existing components receive variant styling             │
+│  └── NO structural changes - same data, same hooks               │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-## Technical Architecture
-
-### Component Flow
-
-```text
-User enters topic
-        ↓
-[Optional] Firecrawl searches for design inspiration
-        ↓
-AI generates presentation content + structure
-        ↓
-Display slides in markdown preview
-        ↓
-Export to PPT (pptxgenjs) or PDF (jsPDF)
-```
-
-## Files to Create
-
-| File | Purpose |
-|------|---------|
-| `src/components/notebook/PresentationCell.tsx` | New cell type for presentation generation |
-| `src/utils/presentationExport.ts` | Export utilities for PPT and PDF formats |
-| `supabase/functions/generate-presentation/index.ts` | Edge function for AI presentation generation |
-
-## Files to Modify
-
-| File | Changes |
-|------|---------|
-| `src/components/notebook/NotebookCell.tsx` | Add "presentation" cell type option |
-| `src/components/notebook/NotebookEditor.tsx` | Add presentation cell handling and add button |
-| `src/hooks/useNotebooks.ts` | Add "presentation" to cell_type union |
-| `package.json` | Add pptxgenjs dependency |
-
-## Database Changes
-
-Update the `notebook_cells` table to allow the new cell type:
-- Update `cell_type` column to include 'presentation' value
-- Add columns for presentation settings:
-  - `presentation_slide_count` (integer, nullable) - Number of slides
-  - `presentation_style` (text, nullable) - Design style preset
-
-```sql
-ALTER TABLE notebook_cells 
-ADD COLUMN presentation_slide_count integer DEFAULT 8,
-ADD COLUMN presentation_style text DEFAULT 'modern';
-```
-
-## New Dependency
-
-Install `pptxgenjs` for PowerPoint generation:
-```json
-"pptxgenjs": "^3.12.0"
-```
-
-## Component Details
-
-### PresentationCell.tsx
-
-A specialized cell for presentation generation:
-- Topic input field (required)
-- Number of slides selector (4, 6, 8, 10, 12)
-- Style preset dropdown:
-  - Modern Minimal
-  - Corporate Professional
-  - Creative Colorful
-  - Academic
-  - Dark Mode
-- Run button to generate
-- Preview of generated slides in markdown
-- Download buttons for PPT and PDF
-
-### presentationExport.ts
-
-Export utilities supporting two formats:
-
-**PPT Export (using pptxgenjs):**
-- Parse AI-generated markdown into slide objects
-- Apply selected style theme (colors, fonts)
-- Create title slides, content slides, bullet points
-- Handle images if AI suggests them
-- Generate and download .pptx file
-
-**PDF Export (using jsPDF):**
-- Convert presentation to slide-by-slide PDF
-- Each page = one slide
-- Apply styling matching the theme
-- Landscape orientation for presentation format
-
-### generate-presentation Edge Function
-
-New Supabase edge function that:
-1. Receives topic, slide count, and style
-2. Optionally uses Firecrawl to search for:
-   - Design inspiration for the topic
-   - Best practices for presentation structure
-   - Relevant statistics/facts
-3. Constructs a detailed prompt for the AI
-4. Streams back structured presentation content
-5. Returns markdown with clear slide separators
-
-## Implementation Details
-
-### AI Prompt Structure
-
-The edge function will construct a prompt like:
-
-```text
-Create a professional {slideCount}-slide presentation about "{topic}".
-
-Style: {style} - Use a {style description} design approach.
-
-{If Firecrawl results available}
-Based on these design inspirations and facts:
-{web search results}
-{/If}
-
-Structure each slide with:
-## Slide N: [Slide Title]
-[Content with bullet points, key messages, speaker notes]
-
-Include:
-- Title slide with subtitle
-- Introduction/overview
-- Main content slides
-- Statistics or data points where relevant
-- Conclusion with key takeaways
-- Call to action or next steps (if applicable)
-
-Design recommendations for each slide:
-- Suggested visuals or icons
-- Color accents
-- Layout suggestions
-```
-
-### Slide Parsing Logic
-
-Parse the AI output to extract:
-```typescript
-interface Slide {
-  number: number;
-  title: string;
-  content: string[];
-  speakerNotes?: string;
-  designHints?: {
-    layout: 'title' | 'content' | 'twoColumn' | 'image';
-    suggestedImage?: string;
-    accentColor?: string;
-  };
-}
-```
-
-### Style Themes
-
-Each style preset maps to specific design parameters:
-
-| Style | Primary Color | Font | Background |
-|-------|--------------|------|------------|
-| Modern Minimal | #2563EB | Inter | White |
-| Corporate Professional | #1E3A5F | Arial | Light Gray |
-| Creative Colorful | #8B5CF6 | Poppins | Gradient |
-| Academic | #1F2937 | Georgia | Ivory |
-| Dark Mode | #60A5FA | System | #0F172A |
+---
 
 ## Implementation Steps
 
-### Phase 1: Backend Setup
-1. Create `generate-presentation` edge function
-2. Implement AI prompt construction
-3. Add streaming response handling
-4. Test with sample topics
+### Step 1: Create Edge Function for AI Image Analysis
 
-### Phase 2: Frontend - Cell Component
-1. Install pptxgenjs dependency
-2. Create `PresentationCell.tsx` component
-3. Add topic input, slide count, style selector
-4. Wire up to edge function with streaming
+Create `supabase/functions/analyze-ui-design/index.ts` that uses **Gemini 3 Pro** to analyze the uploaded image and extract:
 
-### Phase 3: Export Functionality
-1. Create `presentationExport.ts` utility
-2. Implement PPT generation with pptxgenjs
-3. Implement PDF export with jsPDF
-4. Add download buttons to cell output
+| Design Token | Description |
+|--------------|-------------|
+| `pageBackground` | Gradient direction, colors (hex), blur/texture |
+| `cardBackground` | Glassmorphism values (bg opacity, blur, shadow) |
+| `statsCards` | Individual colors for each stat card (green, blue, yellow, red) |
+| `calendarHeader` | Gradient colors for calendar widget header |
+| `borderRadius` | Corner radius values (px/rem) |
+| `shadows` | Box-shadow specifications |
+| `typography` | Font weights, sizes for headers/labels |
 
-### Phase 4: Integration
-1. Update `NotebookCell.tsx` to render presentation cell
-2. Update `NotebookEditor.tsx` with presentation button
-3. Update types in `useNotebooks.ts`
-4. Run database migration for new columns
-5. End-to-end testing
+The AI will return a structured JSON with exact CSS values.
 
-## Optional Enhancement: Firecrawl Integration
+### Step 2: Create Dashboard Layout Context
 
-If the Firecrawl connector is available, the system can:
-1. Search for design inspiration related to the topic
-2. Gather relevant statistics and facts
-3. Find trending presentation layouts
-4. Include this context in the AI prompt
+Create `src/contexts/DashboardLayoutContext.tsx`:
 
-This is optional - the feature works without Firecrawl, but produces richer results when available.
+```typescript
+interface DashboardLayoutContextType {
+  layoutStyle: 'modern' | 'classicBlue';
+  setLayoutStyle: (style: 'modern' | 'classicBlue') => void;
+  classicTheme: ClassicBlueTheme | null; // AI-extracted theme
+}
+```
 
-## Technical Notes
+- Persists selection to `localStorage`
+- Stores AI-extracted theme values for the Classic Blue design
 
-- **pptxgenjs**: Popular library with TypeScript support, generates real .pptx files
-- **Streaming**: Same SSE pattern as existing notebook-chat function
-- **File size**: Generated presentations are typically 50KB-500KB
-- **Context**: Uses google/gemini-3-flash-preview for speed
-- **No new API keys required**: Uses existing LOVABLE_API_KEY
+### Step 3: Add UI Layout Switcher Component
 
+Create `src/components/dashboard/DashboardLayoutSwitcher.tsx`:
+
+- Appears as a grid/layout icon next to the existing ColorThemeSelector
+- Opens a popover with two visual options: "Modern" and "Classic Blue"
+- Shows mini-preview thumbnails of each layout style
+- Triggers theme switch on selection
+
+### Step 4: Define Classic Blue Theme CSS Variables
+
+Add to `src/index.css`:
+
+```css
+.dashboard-classic-blue {
+  --classic-page-bg: linear-gradient(135deg, #4F46E5 0%, #2563EB 50%, #0EA5E9 100%);
+  --classic-card-bg: rgba(255, 255, 255, 0.9);
+  --classic-card-blur: 12px;
+  --classic-card-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  --classic-card-radius: 1.5rem;
+  
+  /* Stats card colors from reference */
+  --classic-stat-green: #22C55E;
+  --classic-stat-blue: #3B82F6;
+  --classic-stat-yellow: #EAB308;
+  --classic-stat-red: #EF4444;
+  
+  /* Calendar header gradient */
+  --classic-calendar-header: linear-gradient(135deg, #3B82F6, #1D4ED8);
+}
+```
+
+### Step 5: Update Dashboard Components with Variant Support
+
+Modify these components to accept a `variant` prop:
+
+| Component | Classic Blue Changes |
+|-----------|---------------------|
+| `DashboardStatsRow.tsx` | Use `--classic-stat-*` colors, enhanced shadows |
+| `QuickActions.tsx` | White glassmorphism cards with colored icons |
+| `BottomActions.tsx` | Third card uses classic blue accent |
+| `DashboardCalendar.tsx` | Blue gradient header instead of purple |
+| `StudentBirthdays.tsx` | White card with glassmorphism |
+| `StudentOverview.tsx` | White card with stronger shadow |
+| `DashboardHeader.tsx` | Add layout switcher button |
+
+Example pattern for variant styling:
+
+```typescript
+// In DashboardStatsRow.tsx
+const statCardClass = cn(
+  "rounded-xl p-4 text-white flex items-center justify-between",
+  variant === 'classicBlue' 
+    ? "shadow-lg rounded-2xl" // Enhanced for classic
+    : "shadow-md"             // Current modern style
+);
+```
+
+### Step 6: Update AdminPortal with Conditional Styling
+
+Modify `src/components/portals/AdminPortal.tsx`:
+
+```typescript
+const { layoutStyle } = useDashboardLayout();
+
+return (
+  <div className={cn(
+    "space-y-6",
+    layoutStyle === 'classicBlue' && "dashboard-classic-blue"
+  )}>
+    {/* Same components, different styling via CSS class */}
+    <DashboardHeader />
+    <DashboardStatsRow variant={layoutStyle} ... />
+    <QuickActions variant={layoutStyle} ... />
+    {/* ... rest of components */}
+  </div>
+);
+```
+
+### Step 7: Add Provider to App.tsx
+
+Wrap the app with `DashboardLayoutProvider`:
+
+```typescript
+<DashboardLayoutProvider>
+  <ColorThemeProvider>
+    {/* existing providers */}
+  </ColorThemeProvider>
+</DashboardLayoutProvider>
+```
+
+---
+
+## File Changes Summary
+
+| File | Action | Description |
+|------|--------|-------------|
+| `supabase/functions/analyze-ui-design/index.ts` | Create | Gemini Pro image analysis for design extraction |
+| `src/contexts/DashboardLayoutContext.tsx` | Create | Layout style state management |
+| `src/components/dashboard/DashboardLayoutSwitcher.tsx` | Create | UI toggle component |
+| `src/index.css` | Modify | Add `.dashboard-classic-blue` CSS class |
+| `src/components/dashboard/DashboardHeader.tsx` | Modify | Add layout switcher button |
+| `src/components/dashboard/DashboardStatsRow.tsx` | Modify | Add `variant` prop support |
+| `src/components/dashboard/QuickActions.tsx` | Modify | Add `variant` prop support |
+| `src/components/dashboard/BottomActions.tsx` | Modify | Add `variant` prop support |
+| `src/components/dashboard/DashboardCalendar.tsx` | Modify | Add `variant` prop for header color |
+| `src/components/dashboard/StudentBirthdays.tsx` | Modify | Add `variant` prop support |
+| `src/components/dashboard/StudentOverview.tsx` | Modify | Add `variant` prop support |
+| `src/components/portals/AdminPortal.tsx` | Modify | Apply layout class and pass variant |
+| `src/App.tsx` | Modify | Add DashboardLayoutProvider |
+| `supabase/config.toml` | Modify | Register new edge function |
+
+---
+
+## AI Image Analysis Prompt
+
+The edge function will send this prompt to Gemini 3 Pro:
+
+```text
+Analyze this dashboard UI design image and extract EXACT design specifications as JSON:
+
+{
+  "pageBackground": {
+    "type": "gradient",
+    "direction": "135deg",
+    "colors": ["#hex1", "#hex2", "#hex3"]
+  },
+  "cards": {
+    "backgroundColor": "rgba(255,255,255,0.9)",
+    "backdropBlur": "12px",
+    "borderRadius": "24px",
+    "boxShadow": "0 8px 32px rgba(0,0,0,0.12)"
+  },
+  "statsCards": {
+    "students": { "color": "#hex", "iconBg": "rgba()" },
+    "teachers": { "color": "#hex", "iconBg": "rgba()" },
+    "classes": { "color": "#hex", "iconBg": "rgba()" },
+    "library": { "color": "#hex", "iconBg": "rgba()" }
+  },
+  "calendarHeader": {
+    "gradient": "linear-gradient(135deg, #hex1, #hex2)"
+  },
+  "typography": {
+    "headerWeight": 700,
+    "statNumberSize": "2rem"
+  }
+}
+```
+
+---
+
+## Visual Comparison
+
+```text
+MODERN (Current)                    CLASSIC BLUE (New)
+┌──────────────────────┐            ┌──────────────────────┐
+│ ▒▒▒ Gradient BG ▒▒▒  │            │ 🔵 Blue Gradient BG  │
+│                      │            │                      │
+│ ┌────┐┌────┐┌────┐   │            │ ┌────┐┌────┐┌────┐   │
+│ │ 🟢 ││ 🔵 ││ 🟡 │   │ ──SAME──▶ │ │ 🟢 ││ 🔵 ││ 🟡 │   │
+│ └────┘└────┘└────┘   │   DATA    │ └────┘└────┘└────┘   │
+│                      │            │                      │
+│ ┌─────────────────┐  │            │ ┌─────────────────┐  │
+│ │ Calendar (purple)│  │            │ │ Calendar (blue) │  │
+│ └─────────────────┘  │            │ └─────────────────┘  │
+│                      │            │                      │
+│ Normal shadows       │            │ Stronger shadows     │
+│ Current card style   │            │ Glassmorphism cards  │
+└──────────────────────┘            └──────────────────────┘
+```
+
+---
+
+## Technical Details
+
+### Edge Function Flow
+
+1. User uploads image → stored temporarily or passed as base64
+2. Edge function calls Gemini 3 Pro with image + extraction prompt
+3. AI returns structured JSON with design tokens
+4. Frontend stores tokens in context
+5. CSS variables updated dynamically based on tokens
+
+### Theme Persistence
+
+- Layout choice saved to `localStorage` as `dashboard-layout-style`
+- AI-extracted theme cached to avoid re-analysis
+- Falls back to default Classic Blue values if AI fails
+
+### No Data Changes
+
+- All hooks (`useStudents`, `useQuery`, etc.) remain unchanged
+- All component logic stays identical
+- Only `className` props receive conditional values
+- Existing ColorThemeContext continues to work for sidebar colors
+
+---
+
+## Benefits
+
+1. **AI-Powered Accuracy**: Gemini Pro extracts exact colors/values from the reference image
+2. **Zero Data Impact**: Same functionality, different visuals
+3. **Extensible**: Can add more UI themes later using same pattern
+4. **User Preference**: Choice persisted across sessions
+5. **Performance**: CSS-only changes, no component re-renders for theme switch
