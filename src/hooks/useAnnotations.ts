@@ -1,10 +1,18 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 
-export type AnnotationType = 'none' | 'pencil' | 'highlighter' | 'text' | 'rect' | 'circle' | 'arrow' | 'eraser';
+export type AnnotationType = 'none' | 'pencil' | 'highlighter' | 'text' | 'rect' | 'circle' | 'arrow' | 'eraser' | 'sticker';
 
 export interface Point {
   x: number;
   y: number;
+}
+
+export interface StickerData {
+  type: 'emoji' | 'icon';
+  value: string;
+  x: number;
+  y: number;
+  size: number;
 }
 
 export interface Annotation {
@@ -16,6 +24,7 @@ export interface Annotation {
   text?: string;
   color: string;
   strokeWidth: number;
+  sticker?: StickerData;
 }
 
 export interface PageAnnotations {
@@ -42,6 +51,8 @@ export function useAnnotations() {
   const [shapeEnd, setShapeEnd] = useState<Point | null>(null);
   const [history, setHistory] = useState<PageAnnotations[]>([{}]);
   const [historyIndex, setHistoryIndex] = useState(0);
+  const [pendingSticker, setPendingSticker] = useState<{ type: 'emoji' | 'icon'; value: string } | null>(null);
+  const [loadedImages, setLoadedImages] = useState<Map<string, HTMLImageElement>>(new Map());
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -163,6 +174,44 @@ export function useAnnotations() {
     setShapeEnd(null);
   }, [isDrawing, annotationMode, annotationColor, currentPath, shapeStart, shapeEnd, getStrokeWidth, saveToHistory]);
 
+  const placeSticker = useCallback((e: React.MouseEvent<HTMLCanvasElement>, pageNumber: number, zoom: number) => {
+    if (annotationMode !== 'sticker' || !pendingSticker) return;
+    
+    const point = getCanvasCoordinates(e, zoom);
+    const stickerSize = 48; // Default sticker size
+    
+    const newAnnotation: Annotation = {
+      id: crypto.randomUUID(),
+      type: 'sticker',
+      color: annotationColor,
+      strokeWidth: 0,
+      sticker: {
+        type: pendingSticker.type,
+        value: pendingSticker.value,
+        x: point.x - stickerSize / 2,
+        y: point.y - stickerSize / 2,
+        size: stickerSize,
+      },
+    };
+
+    // Preload icon image if needed
+    if (pendingSticker.type === 'icon') {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = pendingSticker.value;
+      img.onload = () => {
+        setLoadedImages(prev => new Map(prev).set(pendingSticker.value, img));
+      };
+    }
+
+    setAnnotations(prev => {
+      const pageAnns = prev[pageNumber] || [];
+      const newAnnotations = { ...prev, [pageNumber]: [...pageAnns, newAnnotation] };
+      saveToHistory(newAnnotations);
+      return newAnnotations;
+    });
+  }, [annotationMode, pendingSticker, annotationColor, getCanvasCoordinates, saveToHistory]);
+
   const eraseAtPoint = useCallback((e: React.MouseEvent<HTMLCanvasElement>, pageNumber: number, zoom: number) => {
     if (annotationMode !== 'eraser') return;
     
@@ -172,6 +221,12 @@ export function useAnnotations() {
     setAnnotations(prev => {
       const pageAnns = prev[pageNumber] || [];
       const filtered = pageAnns.filter(ann => {
+        // Handle sticker erasure
+        if (ann.sticker) {
+          const centerX = ann.sticker.x + ann.sticker.size / 2;
+          const centerY = ann.sticker.y + ann.sticker.size / 2;
+          return Math.sqrt(Math.pow(centerX - point.x, 2) + Math.pow(centerY - point.y, 2)) >= ann.sticker.size / 2;
+        }
         if (ann.points) {
           return !ann.points.some(p => 
             Math.sqrt(Math.pow(p.x - point.x, 2) + Math.pow(p.y - point.y, 2)) < eraseRadius
@@ -219,6 +274,31 @@ export function useAnnotations() {
         ctx.globalAlpha = 0.3;
       } else {
         ctx.globalAlpha = 1;
+      }
+
+      // Draw stickers
+      if (ann.sticker) {
+        ctx.globalAlpha = 1;
+        if (ann.sticker.type === 'emoji') {
+          ctx.font = `${ann.sticker.size}px serif`;
+          ctx.textBaseline = 'top';
+          ctx.fillText(ann.sticker.value, ann.sticker.x, ann.sticker.y);
+        } else if (ann.sticker.type === 'icon') {
+          const cachedImg = loadedImages.get(ann.sticker.value);
+          if (cachedImg && cachedImg.complete) {
+            ctx.drawImage(cachedImg, ann.sticker.x, ann.sticker.y, ann.sticker.size, ann.sticker.size);
+          } else {
+            // Load image if not cached
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.src = ann.sticker.value;
+            img.onload = () => {
+              setLoadedImages(prev => new Map(prev).set(ann.sticker!.value, img));
+              renderAnnotations(pageNumber, zoom);
+            };
+          }
+        }
+        return;
       }
 
       if (ann.points && ann.points.length > 1) {
@@ -282,7 +362,7 @@ export function useAnnotations() {
     }
 
     ctx.restore();
-  }, [annotations, isDrawing, currentPath, shapeStart, shapeEnd, annotationColor, annotationMode, getStrokeWidth]);
+  }, [annotations, isDrawing, currentPath, shapeStart, shapeEnd, annotationColor, annotationMode, getStrokeWidth, loadedImages]);
 
   return {
     annotationMode,
@@ -297,6 +377,9 @@ export function useAnnotations() {
     draw,
     stopDrawing,
     eraseAtPoint,
+    placeSticker,
+    pendingSticker,
+    setPendingSticker,
     renderAnnotations,
     undo,
     redo,

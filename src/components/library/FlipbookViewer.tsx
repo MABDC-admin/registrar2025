@@ -60,6 +60,9 @@ export const FlipbookViewer = ({
     draw,
     stopDrawing,
     eraseAtPoint,
+    placeSticker,
+    pendingSticker,
+    setPendingSticker,
     renderAnnotations,
     undo,
     redo,
@@ -196,7 +199,10 @@ export const FlipbookViewer = ({
   };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (annotationMode === 'eraser') {
+    if (annotationMode === 'sticker') {
+      placeSticker(e, currentPage, zoom);
+      renderAnnotations(currentPage, zoom);
+    } else if (annotationMode === 'eraser') {
       eraseAtPoint(e, currentPage, zoom);
     } else {
       startDrawing(e, zoom);
@@ -286,6 +292,8 @@ export const FlipbookViewer = ({
         onClear={() => clearAnnotations(currentPage)}
         canUndo={canUndo}
         canRedo={canRedo}
+        onStickerSelect={(sticker) => setPendingSticker(sticker)}
+        pendingSticker={pendingSticker}
       />
 
       {/* Main content */}
@@ -351,7 +359,7 @@ export const FlipbookViewer = ({
                 ref={canvasRef}
                 className={cn(
                   'absolute inset-0 w-full h-full',
-                  annotationMode !== 'none' ? 'cursor-crosshair' : 'pointer-events-none'
+                  annotationMode !== 'none' ? (annotationMode === 'sticker' ? 'cursor-copy' : 'cursor-crosshair') : 'pointer-events-none'
                 )}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}

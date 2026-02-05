@@ -9,11 +9,14 @@ import {
   Undo2,
   Redo2,
   Trash2,
+  Smile,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AnnotationType, ANNOTATION_COLORS } from '@/hooks/useAnnotations';
+import { StickerPicker, StickerData } from './StickerPicker';
 import { cn } from '@/lib/utils';
 
 interface AnnotationToolbarProps {
@@ -26,6 +29,8 @@ interface AnnotationToolbarProps {
   onClear: () => void;
   canUndo: boolean;
   canRedo: boolean;
+  onStickerSelect?: (sticker: StickerData) => void;
+  pendingSticker?: { type: 'emoji' | 'icon'; value: string } | null;
 }
 
 const tools = [
@@ -47,7 +52,13 @@ export function AnnotationToolbar({
   onClear,
   canUndo,
   canRedo,
+  onStickerSelect,
+  pendingSticker,
 }: AnnotationToolbarProps) {
+  const handleStickerSelect = (sticker: StickerData) => {
+    onStickerSelect?.(sticker);
+    onModeChange('sticker');
+  };
   return (
     <div className="hidden lg:flex items-center justify-between px-4 py-2 border-b bg-card gap-4">
       <div className="flex items-center gap-4">
@@ -77,6 +88,37 @@ export function AnnotationToolbar({
             ))}
           </ToggleGroup>
         </TooltipProvider>
+
+        {/* Sticker Tool */}
+        <div className="border-l pl-4">
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <Popover>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={mode === 'sticker' ? 'secondary' : 'ghost'}
+                      size="icon"
+                      className={cn('h-8 w-8', mode === 'sticker' && 'bg-secondary')}
+                    >
+                      {pendingSticker?.type === 'emoji' ? (
+                        <span className="text-lg">{pendingSticker.value}</span>
+                      ) : (
+                        <Smile className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p>Stickers & Emojis</p>
+                </TooltipContent>
+                <PopoverContent className="w-[350px] p-0" align="start">
+                  <StickerPicker onSelect={handleStickerSelect} />
+                </PopoverContent>
+              </Popover>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
 
         {/* Color Picker */}
         <div className="flex items-center gap-1 border-l pl-4">
