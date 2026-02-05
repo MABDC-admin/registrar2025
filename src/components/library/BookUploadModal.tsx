@@ -42,7 +42,7 @@ const SUBJECTS = [
 ];
 
 const SCHOOLS = [
-  { value: '', label: 'Both Schools' },
+  { value: 'both', label: 'Both Schools' },
   { value: 'MABDC', label: 'M.A Brain Development Center' },
   { value: 'STFXSA', label: 'St. Francis Xavier Smart Academy' },
 ];
@@ -55,7 +55,7 @@ export const BookUploadModal = ({
   const [title, setTitle] = useState('');
   const [gradeLevel, setGradeLevel] = useState<string>('');
   const [subject, setSubject] = useState<string>('');
-  const [school, setSchool] = useState<string>('');
+  const [school, setSchool] = useState<string>('both');
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -103,7 +103,7 @@ export const BookUploadModal = ({
           title,
           grade_level: parseInt(gradeLevel),
           subject: subject || null,
-          school: school || null,
+          school: school === 'both' ? null : school,
           status: 'processing',
           page_count: 0,
         })
@@ -154,7 +154,7 @@ export const BookUploadModal = ({
       setTitle('');
       setGradeLevel('');
       setSubject('');
-      setSchool('');
+      setSchool('both');
       setFile(null);
       reset();
       onOpenChange(false);
