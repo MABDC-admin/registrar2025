@@ -1,185 +1,248 @@
 
 
-# PDF Upload, Summarization & PDF Export for Notebook LLM
+# AI Presentation Generator with Web Design Inspiration
 
 ## Overview
 
-This feature adds two key capabilities to the Notebook LLM page:
-1. **PDF Upload & Processing**: Users can upload a PDF file, which gets text-extracted and sent to the AI along with their prompt
-2. **PDF Download**: After the AI generates output, users can download the result as a formatted PDF document
+This feature adds a new "Presentation" cell type to the Notebook LLM page that allows users to:
+1. Enter a topic prompt
+2. AI researches and generates a beautiful presentation with content and design suggestions
+3. Download the presentation as PPT (PowerPoint) or PDF
 
-## User Flow
+The AI will leverage web search (via Firecrawl connector) to gather design inspiration and best practices, then generate a structured presentation with modern design recommendations.
+
+## User Experience
 
 ```text
-+------------------------------------------------------------+
-| Cell - LLM Prompt                             [Run] [Del]  |
-| +--------------------------------------------------------+ |
-| | Prompt: "Summarize this document"                      | |
-| +--------------------------------------------------------+ |
-| | [Upload PDF] or drag & drop                            | |
-| | [document.pdf - 15 pages] [Remove]                     | |
-| +--------------------------------------------------------+ |
-| Output:                                     [Download PDF] | 
-| +--------------------------------------------------------+ |
-| | ## Document Summary                                    | |
-| | This document covers...                                | |
-| +--------------------------------------------------------+ |
-+------------------------------------------------------------+
++--------------------------------------------------------------------+
+| Cell - Presentation Generator                        [Run] [Del]   |
+| +----------------------------------------------------------------+ |
+| | Topic: "Artificial Intelligence in Education"                  | |
+| |                                                                | |
+| | Number of slides: [8] ▼                                        | |
+| | Style: [Modern Minimal] ▼                                      | |
+| +----------------------------------------------------------------+ |
+| Output:                              [Download PPT] [Download PDF] |
+| +----------------------------------------------------------------+ |
+| | ## Slide 1: Title                                              | |
+| | # AI in Education                                              | |
+| | *Transforming Learning for the Future*                         | |
+| |                                                                | |
+| | ## Slide 2: Introduction                                       | |
+| | - What is AI in education?                                     | |
+| | - Current adoption rates                                       | |
+| | - Key benefits overview                                        | |
+| |                                                                | |
+| | ## Slide 3: ...                                                | |
+| +----------------------------------------------------------------+ |
++--------------------------------------------------------------------+
+```
+
+## Technical Architecture
+
+### Component Flow
+
+```text
+User enters topic
+        ↓
+[Optional] Firecrawl searches for design inspiration
+        ↓
+AI generates presentation content + structure
+        ↓
+Display slides in markdown preview
+        ↓
+Export to PPT (pptxgenjs) or PDF (jsPDF)
 ```
 
 ## Files to Create
 
 | File | Purpose |
 |------|---------|
-| `src/components/notebook/PdfUploadZone.tsx` | Drag-and-drop PDF upload with extraction |
-| `src/utils/extractPdfText.ts` | PDF text extraction utility using pdfjs-dist |
-| `src/utils/notebookPdfExport.ts` | Generate downloadable PDF from AI output |
+| `src/components/notebook/PresentationCell.tsx` | New cell type for presentation generation |
+| `src/utils/presentationExport.ts` | Export utilities for PPT and PDF formats |
+| `supabase/functions/generate-presentation/index.ts` | Edge function for AI presentation generation |
 
 ## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/components/notebook/NotebookCell.tsx` | Add PDF upload zone and download button |
-| `src/components/notebook/NotebookEditor.tsx` | Pass PDF text when running cells |
-| `src/components/notebook/CellOutput.tsx` | Add download PDF button to output |
-| `src/hooks/useNotebooks.ts` | Add PDF-related fields to interfaces |
-| `supabase/functions/notebook-chat/index.ts` | Handle PDF text context in prompts |
+| `src/components/notebook/NotebookCell.tsx` | Add "presentation" cell type option |
+| `src/components/notebook/NotebookEditor.tsx` | Add presentation cell handling and add button |
+| `src/hooks/useNotebooks.ts` | Add "presentation" to cell_type union |
+| `package.json` | Add pptxgenjs dependency |
 
-## Database Migration
+## Database Changes
 
-Add columns to `notebook_cells` table for storing PDF metadata:
+Update the `notebook_cells` table to allow the new cell type:
+- Update `cell_type` column to include 'presentation' value
+- Add columns for presentation settings:
+  - `presentation_slide_count` (integer, nullable) - Number of slides
+  - `presentation_style` (text, nullable) - Design style preset
 
 ```sql
 ALTER TABLE notebook_cells 
-ADD COLUMN pdf_filename text,
-ADD COLUMN pdf_page_count integer,
-ADD COLUMN pdf_extracted_text text;
+ADD COLUMN presentation_slide_count integer DEFAULT 8,
+ADD COLUMN presentation_style text DEFAULT 'modern';
+```
+
+## New Dependency
+
+Install `pptxgenjs` for PowerPoint generation:
+```json
+"pptxgenjs": "^3.12.0"
 ```
 
 ## Component Details
 
-### PdfUploadZone.tsx
+### PresentationCell.tsx
 
-A dedicated component for handling PDF uploads:
-- Drag-and-drop zone with visual feedback
-- File input for browsing
-- Progress indicator during text extraction
-- Display filename and page count when loaded
-- "Remove" button to clear uploaded PDF
-- Uses existing `pdfjs-dist` library (already installed)
+A specialized cell for presentation generation:
+- Topic input field (required)
+- Number of slides selector (4, 6, 8, 10, 12)
+- Style preset dropdown:
+  - Modern Minimal
+  - Corporate Professional
+  - Creative Colorful
+  - Academic
+  - Dark Mode
+- Run button to generate
+- Preview of generated slides in markdown
+- Download buttons for PPT and PDF
 
-### extractPdfText.ts
+### presentationExport.ts
 
-Utility function to extract text from PDF files:
-- Load PDF using pdfjs-dist
-- Extract text from each page (up to 50 pages)
-- Concatenate with page markers (e.g., "--- Page 1 ---")
-- Truncate to ~100,000 characters for context limits
-- Return extracted text and page count
+Export utilities supporting two formats:
 
-### notebookPdfExport.ts
+**PPT Export (using pptxgenjs):**
+- Parse AI-generated markdown into slide objects
+- Apply selected style theme (colors, fonts)
+- Create title slides, content slides, bullet points
+- Handle images if AI suggests them
+- Generate and download .pptx file
 
-Utility to generate a formatted PDF from AI output:
-- Uses existing jsPDF library (already installed)
-- Parse markdown content and convert to PDF format
-- Include notebook title as header
-- Format headings, paragraphs, lists, and code blocks
-- Add timestamp and page numbers
-- Trigger download with appropriate filename
+**PDF Export (using jsPDF):**
+- Convert presentation to slide-by-slide PDF
+- Each page = one slide
+- Apply styling matching the theme
+- Landscape orientation for presentation format
 
-### NotebookCell.tsx Updates
+### generate-presentation Edge Function
 
-Add PDF upload zone and download functionality:
-- Add `PdfUploadZone` component below the prompt textarea
-- Track PDF state: filename, page count, extracted text
-- Pass PDF data to parent component when running
-- Show "Download PDF" button in output header when output exists
-- Disable download during streaming
+New Supabase edge function that:
+1. Receives topic, slide count, and style
+2. Optionally uses Firecrawl to search for:
+   - Design inspiration for the topic
+   - Best practices for presentation structure
+   - Relevant statistics/facts
+3. Constructs a detailed prompt for the AI
+4. Streams back structured presentation content
+5. Returns markdown with clear slide separators
 
-### CellOutput.tsx Updates
+## Implementation Details
 
-Add download button prop and rendering:
-- Accept optional `onDownload` callback prop
-- Show download button in output header area
-- Button disabled while streaming
+### AI Prompt Structure
 
-### NotebookEditor.tsx Updates
+The edge function will construct a prompt like:
 
-Handle PDF in the run flow:
-- Receive PDF text from cell component
-- Include PDF text in the request body to edge function
-- Save PDF metadata after successful extraction
+```text
+Create a professional {slideCount}-slide presentation about "{topic}".
 
-### Edge Function Update
+Style: {style} - Use a {style description} design approach.
 
-Modify `notebook-chat/index.ts` to handle PDF context:
-- Accept optional `pdfText` parameter in request body
-- When PDF text is provided, construct context-aware prompt:
-  ```
-  System: "You are analyzing a document provided by the user."
-  
-  User: "[DOCUMENT START]
-  {extracted PDF text}
-  [DOCUMENT END]
-  
-  User's request: {original prompt}"
-  ```
-- Use appropriate model for longer context if needed
+{If Firecrawl results available}
+Based on these design inspirations and facts:
+{web search results}
+{/If}
+
+Structure each slide with:
+## Slide N: [Slide Title]
+[Content with bullet points, key messages, speaker notes]
+
+Include:
+- Title slide with subtitle
+- Introduction/overview
+- Main content slides
+- Statistics or data points where relevant
+- Conclusion with key takeaways
+- Call to action or next steps (if applicable)
+
+Design recommendations for each slide:
+- Suggested visuals or icons
+- Color accents
+- Layout suggestions
+```
+
+### Slide Parsing Logic
+
+Parse the AI output to extract:
+```typescript
+interface Slide {
+  number: number;
+  title: string;
+  content: string[];
+  speakerNotes?: string;
+  designHints?: {
+    layout: 'title' | 'content' | 'twoColumn' | 'image';
+    suggestedImage?: string;
+    accentColor?: string;
+  };
+}
+```
+
+### Style Themes
+
+Each style preset maps to specific design parameters:
+
+| Style | Primary Color | Font | Background |
+|-------|--------------|------|------------|
+| Modern Minimal | #2563EB | Inter | White |
+| Corporate Professional | #1E3A5F | Arial | Light Gray |
+| Creative Colorful | #8B5CF6 | Poppins | Gradient |
+| Academic | #1F2937 | Georgia | Ivory |
+| Dark Mode | #60A5FA | System | #0F172A |
 
 ## Implementation Steps
 
-### Phase 1: Database & Backend
-1. Run migration to add PDF columns to `notebook_cells`
-2. Update edge function to accept and process PDF text
+### Phase 1: Backend Setup
+1. Create `generate-presentation` edge function
+2. Implement AI prompt construction
+3. Add streaming response handling
+4. Test with sample topics
 
-### Phase 2: PDF Text Extraction
-1. Create `extractPdfText.ts` utility
-2. Create `PdfUploadZone.tsx` component
+### Phase 2: Frontend - Cell Component
+1. Install pptxgenjs dependency
+2. Create `PresentationCell.tsx` component
+3. Add topic input, slide count, style selector
+4. Wire up to edge function with streaming
 
-### Phase 3: PDF Download
-1. Create `notebookPdfExport.ts` utility
-2. Update `CellOutput.tsx` with download button
+### Phase 3: Export Functionality
+1. Create `presentationExport.ts` utility
+2. Implement PPT generation with pptxgenjs
+3. Implement PDF export with jsPDF
+4. Add download buttons to cell output
 
 ### Phase 4: Integration
-1. Update `NotebookCell.tsx` to include upload zone and download
-2. Update `NotebookEditor.tsx` to handle PDF in run flow
-3. Update `useNotebooks.ts` types for PDF fields
-4. Test end-to-end flow
+1. Update `NotebookCell.tsx` to render presentation cell
+2. Update `NotebookEditor.tsx` with presentation button
+3. Update types in `useNotebooks.ts`
+4. Run database migration for new columns
+5. End-to-end testing
 
-## PDF Text Extraction Flow
+## Optional Enhancement: Firecrawl Integration
 
-```text
-1. User drops/selects PDF file in upload zone
-2. Show loading spinner with "Extracting text..."
-3. Use pdfjs-dist to load the PDF document
-4. Extract text from each page (limit to 50 pages)
-5. Concatenate with page separators
-6. Truncate if exceeds 100,000 characters
-7. Store in component state (pdf_extracted_text)
-8. Display filename and page count
-9. User clicks "Run" to process
-10. Send prompt + PDF text to edge function
-11. Stream response back to output
-12. Show "Download PDF" button when complete
-```
+If the Firecrawl connector is available, the system can:
+1. Search for design inspiration related to the topic
+2. Gather relevant statistics and facts
+3. Find trending presentation layouts
+4. Include this context in the AI prompt
 
-## PDF Export Format
-
-The exported PDF will include:
-- **Header**: Notebook title, generation date
-- **Content**: Formatted markdown output
-  - Headings with appropriate font sizes
-  - Paragraphs with proper spacing
-  - Bullet points and numbered lists
-  - Code blocks in monospace font
-  - Tables with borders
-- **Footer**: Page numbers
+This is optional - the feature works without Firecrawl, but produces richer results when available.
 
 ## Technical Notes
 
-- **Dependencies**: Uses existing `jspdf` and `pdfjs-dist` libraries (no new installs needed)
-- **File size limit**: 20MB maximum for uploaded PDFs
-- **Text limit**: 100,000 characters max to stay within LLM context limits
-- **Page limit**: Extract from first 50 pages only
-- **Error handling**: Show clear error messages for unsupported/corrupted PDFs
+- **pptxgenjs**: Popular library with TypeScript support, generates real .pptx files
+- **Streaming**: Same SSE pattern as existing notebook-chat function
+- **File size**: Generated presentations are typically 50KB-500KB
+- **Context**: Uses google/gemini-3-flash-preview for speed
+- **No new API keys required**: Uses existing LOVABLE_API_KEY
 
