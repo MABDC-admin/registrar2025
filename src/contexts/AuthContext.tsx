@@ -94,8 +94,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setRole(null);
+    try {
+      // Clear local state first to ensure UI updates immediately
+      setUser(null);
+      setSession(null);
+      setRole(null);
+      
+      // Then sign out from Supabase (ignore errors if session already expired)
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch (error) {
+      // Even if signOut fails (e.g., session not found), we've already cleared local state
+      console.warn('Sign out warning:', error);
+    }
   };
 
   const hasRole = (checkRole: AppRole) => role === checkRole;
