@@ -52,6 +52,45 @@ export type Database = {
           },
         ]
       }
+      auth_activity_logs: {
+        Row: {
+          action: string
+          created_at: string | null
+          error_message: string | null
+          id: string
+          ip_address: string | null
+          status: string | null
+          user_agent: string | null
+          user_email: string | null
+          user_id: string | null
+          user_name: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          ip_address?: string | null
+          status?: string | null
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+          user_name?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          ip_address?: string | null
+          status?: string | null
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+          user_name?: string | null
+        }
+        Relationships: []
+      }
       data_exports: {
         Row: {
           academic_year_id: string | null
@@ -249,6 +288,36 @@ export type Database = {
           school?: string | null
           type?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      role_change_logs: {
+        Row: {
+          changed_by: string
+          created_at: string | null
+          id: string
+          new_role: string
+          old_role: string | null
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          changed_by: string
+          created_at?: string | null
+          id?: string
+          new_role: string
+          old_role?: string | null
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          changed_by?: string
+          created_at?: string | null
+          id?: string
+          new_role?: string
+          old_role?: string | null
+          reason?: string | null
+          user_id?: string
         }
         Relationships: []
       }

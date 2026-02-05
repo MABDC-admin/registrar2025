@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Trash2, AlertTriangle, Loader2, Database, RefreshCcw, Users, Settings, Building2 } from 'lucide-react';
+import { Trash2, AlertTriangle, Loader2, Database, RefreshCcw, Users, Settings, Building2, Activity, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,6 +8,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { UserManagement } from './UserManagement';
 import { SchoolSettings } from './SchoolSettings';
+import { ActivityLogs } from './ActivityLogs';
+import { PermissionManagement } from './PermissionManagement';
 
 export const AdminPanel = () => {
   const [isResetting, setIsResetting] = useState(false);
@@ -53,23 +55,39 @@ export const AdminPanel = () => {
       </div>
 
       <Tabs defaultValue="users" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 lg:w-[500px]">
+        <TabsList className="grid w-full grid-cols-5 lg:w-[700px]">
           <TabsTrigger value="users" className="gap-2">
             <Users className="h-4 w-4" />
-            Users
+            <span className="hidden sm:inline">Users</span>
+          </TabsTrigger>
+          <TabsTrigger value="permissions" className="gap-2">
+            <Shield className="h-4 w-4" />
+            <span className="hidden sm:inline">Permissions</span>
+          </TabsTrigger>
+          <TabsTrigger value="logs" className="gap-2">
+            <Activity className="h-4 w-4" />
+            <span className="hidden sm:inline">Logs</span>
           </TabsTrigger>
           <TabsTrigger value="school" className="gap-2">
             <Building2 className="h-4 w-4" />
-            School Info
+            <span className="hidden sm:inline">School</span>
           </TabsTrigger>
           <TabsTrigger value="system" className="gap-2">
             <Settings className="h-4 w-4" />
-            System
+            <span className="hidden sm:inline">System</span>
           </TabsTrigger>
         </TabsList>
         
         <TabsContent value="users" className="mt-6">
           <UserManagement />
+        </TabsContent>
+
+        <TabsContent value="permissions" className="mt-6">
+          <PermissionManagement />
+        </TabsContent>
+
+        <TabsContent value="logs" className="mt-6">
+          <ActivityLogs />
         </TabsContent>
 
         <TabsContent value="school" className="mt-6">

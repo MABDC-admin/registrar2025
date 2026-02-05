@@ -1,4 +1,4 @@
-import { LogOut } from 'lucide-react';
+import { LogOut, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,17 +13,36 @@ import {
 import { useColorTheme } from '@/hooks/useColorTheme';
 import { ColorThemeSelector } from '@/components/ColorThemeSelector';
 import { useSchool } from '@/contexts/SchoolContext';
+import { useSchoolSettings } from '@/hooks/useSchoolSettings';
+import { cn } from '@/lib/utils';
 
 export const DashboardHeader = () => {
   const { user, signOut } = useAuth();
   const { currentTheme, selectTheme } = useColorTheme();
-  const { schoolTheme } = useSchool();
+  const { schoolTheme, selectedSchool } = useSchool();
+  const { data: schoolSettings } = useSchoolSettings(selectedSchool);
 
   return (
     <div className="flex items-center justify-between mb-6">
-      <h1 className="text-2xl lg:text-3xl font-bold">
-        <span className="text-foreground">{schoolTheme.fullName}</span>
-      </h1>
+      <div className="flex items-center gap-3">
+        {/* School Logo */}
+        <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl overflow-hidden bg-white shadow-sm flex items-center justify-center flex-shrink-0">
+          {schoolSettings?.logo_url ? (
+            <img 
+              src={schoolSettings.logo_url} 
+              alt={`${schoolTheme.fullName} logo`} 
+              className="w-full h-full object-contain p-1" 
+            />
+          ) : (
+            <div className={cn("w-full h-full flex items-center justify-center bg-gradient-to-br", schoolTheme.sidebarBg)}>
+              <GraduationCap className="h-6 w-6 text-white" />
+            </div>
+          )}
+        </div>
+        <h1 className="text-xl lg:text-2xl font-bold text-foreground">
+          {schoolTheme.fullName}
+        </h1>
+      </div>
 
       <div className="flex items-center gap-4">
         <ColorThemeSelector currentTheme={currentTheme} onSelectTheme={selectTheme} />
