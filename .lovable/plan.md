@@ -1,177 +1,201 @@
 
-# AI-Powered Book Cover Title Detection Plan
+# Enhance FlipbookViewer: Bigger Sidebar + Annotation Tools
 
 ## Overview
-Add AI functionality to automatically:
-1. **Extract the book title** from the cover page using OCR/vision
-2. **Display the first page as cover thumbnail** (already implemented - just needs preview in modal)
-
-The system will render the first PDF page, send it to Lovable AI (Gemini) for title extraction, and auto-fill the title field.
+Two enhancements for the desktop FlipbookViewer:
+1. **Bigger sidebar** - Increase width from 160px to 220px with larger thumbnails and a wider, more visible scrollbar
+2. **Annotation tools** - Add a toolbar with drawing/annotation capabilities (pencil, highlighter, text, shapes, eraser)
 
 ---
 
-## Implementation Approach
+## 1. Bigger Desktop Sidebar
 
-### Flow Diagram
+### Changes
+- Increase sidebar width from `160px` to `220px`
+- Make thumbnails larger for better visibility
+- Add custom scrollbar styling (wider track ~12px, more visible thumb)
+- Increase thumbnail padding and spacing
 
+### Before/After
+
+| Current | New |
+|---------|-----|
+| Width: 160px | Width: 220px |
+| Thumbnail padding: p-2 | Thumbnail padding: p-3 |
+| Scrollbar: default (~8px) | Scrollbar: 12px with visible thumb |
+
+---
+
+## 2. Annotation Tools Toolbar
+
+### Features
+| Tool | Icon | Function |
+|------|------|----------|
+| Pencil | `Pencil` | Freehand drawing |
+| Highlighter | `Highlighter` | Semi-transparent highlight |
+| Text | `Type` | Add text annotations |
+| Rectangle | `Square` | Draw rectangles |
+| Circle | `Circle` | Draw circles/ellipses |
+| Arrow | `MoveRight` | Draw arrows |
+| Eraser | `Eraser` | Remove annotations |
+| Undo | `Undo2` | Undo last action |
+| Redo | `Redo2` | Redo action |
+| Clear | `Trash2` | Clear all annotations on page |
+| Color Picker | Color dots | Select annotation color |
+
+### UI Layout
 ```text
-User selects PDF file
-       |
-       v
-+----------------------+
-| Render first page    |  Using existing pdfjs-dist
-| to canvas (client)   |
-+----------------------+
-       |
-       v
-+----------------------+
-| Display thumbnail    |  Show cover preview in modal
-| preview in modal     |
-+----------------------+
-       |
-       v
-+----------------------+
-| Convert to base64    |  For AI analysis
-| and call AI endpoint |
-+----------------------+
-       |
-       v
-+----------------------+
-| analyze-book-cover   |  New edge function
-| edge function        |
-+----------------------+
-       |
-       v
-+----------------------+
-| Extract title via    |  Using google/gemini-2.5-flash
-| Lovable AI Gateway   |
-+----------------------+
-       |
-       v
-+----------------------+
-| Auto-fill title      |  Update title input field
-| in upload modal      |
-+----------------------+
++----------------------------------------------------------+
+| [Book Title]                    [Page] [Zoom] [FS] [X]   |
++----------------------------------------------------------+
+| Sidebar  |  [Pencil][Highlight][Text][Rect][Circle][...] | <- Annotation toolbar
+| (220px)  |  +----------------------------------------+   |
+|          |  |                                        |   |
+| [Thumb]  |  |       Page Image                       |   |
+| [Thumb]  |  |       + Canvas Overlay                 |   |
+| [Thumb]  |  |       (for drawing)                    |   |
+|          |  |                                        |   |
+|          |  +----------------------------------------+   |
+|          |           [<]              [>]                |
++----------------------------------------------------------+
 ```
 
----
+### Technical Implementation
 
-## New Files to Create
+**Canvas Overlay Approach:**
+- Add a `<canvas>` element positioned absolutely over the page image
+- Canvas matches the image dimensions and scales with zoom
+- Use Canvas 2D API for drawing operations
+- Store annotations per page in component state
 
-### 1. `supabase/functions/analyze-book-cover/index.ts`
-Edge function to analyze book cover and extract title:
-- Receives base64 image of the first page
-- Uses Lovable AI Gateway with `google/gemini-2.5-flash` (vision-capable)
-- Returns extracted title, detected subject (optional), and grade level hints
-- Handles rate limits (429) and payment errors (402)
+**State Structure:**
+```tsx
+interface Annotation {
+  id: string;
+  type: 'pencil' | 'highlighter' | 'text' | 'rect' | 'circle' | 'arrow';
+  points?: { x: number; y: number }[];  // For pencil/highlighter
+  start?: { x: number; y: number };     // For shapes
+  end?: { x: number; y: number };       // For shapes
+  text?: string;                        // For text annotations
+  color: string;
+  strokeWidth: number;
+}
+
+interface PageAnnotations {
+  [pageNumber: number]: Annotation[];
+}
+```
+
+**New State Variables:**
+```tsx
+const [annotationMode, setAnnotationMode] = useState<'none' | 'pencil' | 'highlighter' | 'text' | 'rect' | 'circle' | 'arrow' | 'eraser'>('none');
+const [annotationColor, setAnnotationColor] = useState('#FF0000');
+const [annotations, setAnnotations] = useState<PageAnnotations>({});
+const [isDrawing, setIsDrawing] = useState(false);
+const [currentPath, setCurrentPath] = useState<{ x: number; y: number }[]>([]);
+const [history, setHistory] = useState<PageAnnotations[]>([]);
+const [historyIndex, setHistoryIndex] = useState(-1);
+const canvasRef = useRef<HTMLCanvasElement>(null);
+```
+
+**Drawing Logic:**
+- `onMouseDown` - Start drawing, record starting point
+- `onMouseMove` - Continue path if drawing
+- `onMouseUp` - Finish annotation, save to state
+- Render all annotations for current page on canvas
 
 ---
 
 ## Files to Modify
 
-### 1. `src/hooks/usePdfToImages.ts`
-Add a helper function to render just the first page for preview:
-- `renderFirstPagePreview(pdfFile: File): Promise<{ blob: Blob, dataUrl: string }>`
-- Returns both blob (for AI analysis) and dataUrl (for thumbnail preview)
-
-### 2. `src/components/library/BookUploadModal.tsx`
-Enhance with AI title detection:
-- Add state for cover preview (`coverPreview: string | null`)
-- Add state for AI analysis (`isAnalyzing: boolean`)
-- When PDF is selected:
-  1. Render first page as thumbnail preview
-  2. Show preview in the upload area
-  3. Call `analyze-book-cover` edge function
-  4. Auto-fill title field with AI-detected title
-- Add "Analyzing cover..." loading indicator
-- Add visual feedback when AI successfully detects title
-
-### 3. `supabase/config.toml`
-Add the new edge function configuration
-
----
-
-## Technical Details
-
-| Aspect | Implementation |
-|--------|---------------|
-| AI Model | `google/gemini-2.5-flash` (vision-capable, fast) |
-| API Key | `LOVABLE_API_KEY` (already configured) |
-| Image Format | PNG base64 from canvas render |
-| Scale Factor | 1.5x for AI analysis (balance quality/size) |
-| Fallback | If AI fails, keep filename-based title |
-
----
-
-## Edge Function: `analyze-book-cover`
-
-**Request:**
-```json
-{
-  "imageBase64": "data:image/png;base64,...",
-  "filename": "Math_Grade5.pdf"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "title": "Mathematics Grade 5",
-  "subject": "Mathematics",
-  "gradeLevel": 5,
-  "confidence": 0.92
-}
-```
-
-**AI Prompt:**
-```
-Analyze this book cover image and extract:
-1. The exact book title (as written on the cover)
-2. The subject (Mathematics, Science, English, Filipino, etc.)
-3. The grade level if visible (1-12)
-
-Respond in JSON format only.
-```
-
----
-
-## UI Changes in BookUploadModal
-
-```text
-+----------------------------------+
-|  Upload New Book                 |
-+----------------------------------+
-|  [Cover Preview]                 |  <- NEW: Shows first page
-|  +-------------------+           |
-|  | [Book Cover       |           |
-|  |  Thumbnail]       |           |
-|  +-------------------+           |
-|  🔄 Analyzing cover...           |  <- NEW: AI analysis status
-|                                  |
-|  Title * [Auto-filled Title___]  |  <- Auto-filled by AI
-|  Grade Level * [Detected___]     |  <- Optional: Pre-select
-|  Subject [Detected_________]     |  <- Optional: Pre-select
-|  ...                             |
-+----------------------------------+
-```
-
----
-
-## Files Summary
-
 | Action | File |
 |--------|------|
-| Create | `supabase/functions/analyze-book-cover/index.ts` |
-| Modify | `src/hooks/usePdfToImages.ts` |
-| Modify | `src/components/library/BookUploadModal.tsx` |
-| Modify | `supabase/config.toml` |
+| Modify | `src/components/library/FlipbookViewer.tsx` |
 
 ---
 
-## Error Handling
+## Detailed Changes to FlipbookViewer.tsx
 
-- **AI Rate Limit (429)**: Show toast "Please wait, analyzing..." and retry after delay
-- **AI Credits Exhausted (402)**: Show toast, fall back to filename-based title
-- **Network Error**: Show toast, keep filename as fallback
-- **No Title Detected**: Keep the filename-based title (current behavior)
+### 1. New Imports
+```tsx
+import {
+  Pencil,
+  Highlighter,
+  Type,
+  Square,
+  Circle,
+  MoveRight,
+  Eraser,
+  Undo2,
+  Redo2,
+  Trash2,
+} from 'lucide-react';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+```
+
+### 2. New State Variables
+- `annotationMode` - Current active tool
+- `annotationColor` - Selected color
+- `annotations` - Per-page annotation data
+- `isDrawing` - Mouse/touch state
+- `currentPath` - Current stroke being drawn
+- `history` / `historyIndex` - For undo/redo
+- `canvasRef` - Reference to drawing canvas
+
+### 3. Sidebar Changes
+- Update width from 160 to 220 in motion.div animate
+- Add custom scrollbar class with wider track
+- Increase padding from p-2 to p-3
+
+### 4. Add Annotation Toolbar (Desktop Only)
+- Position below header, above the main content area
+- Show tool buttons as a ToggleGroup
+- Include color picker (preset color dots)
+- Add undo/redo/clear buttons on the right
+
+### 5. Canvas Overlay
+- Add `<canvas>` element positioned over the page image
+- Handle mouse events for drawing
+- Re-render canvas when annotations or page changes
+- Scale canvas properly with zoom
+
+### 6. Drawing Functions
+- `startDrawing()` - Begin stroke
+- `draw()` - Continue stroke
+- `stopDrawing()` - Finish and save annotation
+- `renderAnnotations()` - Draw all annotations to canvas
+- `undo()` / `redo()` - History navigation
+- `clearAnnotations()` - Remove all from current page
+
+---
+
+## Color Options
+```tsx
+const colors = [
+  '#EF4444', // Red
+  '#F97316', // Orange
+  '#EAB308', // Yellow
+  '#22C55E', // Green
+  '#3B82F6', // Blue
+  '#8B5CF6', // Purple
+  '#000000', // Black
+];
+```
+
+---
+
+## Note on Persistence
+This implementation stores annotations in component state (session only). For persistent annotations, a future enhancement could save to the database in a `book_annotations` table.
+
+---
+
+## Summary
+
+| Enhancement | Details |
+|-------------|---------|
+| Sidebar width | 160px -> 220px |
+| Scrollbar | Wider (12px), more visible |
+| Annotation tools | Pencil, Highlighter, Text, Shapes, Eraser |
+| Color picker | 7 preset colors |
+| Undo/Redo | History-based |
+| Canvas overlay | Positioned over page image, scales with zoom |
