@@ -1,18 +1,22 @@
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { AdmitStudentIcon3D, AddTeacherIcon3D, ScheduleIcon3D, EnterGradeIcon3D } from '@/components/icons/ThreeDIcons';
+import { LayoutStyle } from '@/contexts/DashboardLayoutContext';
 
 interface QuickActionsProps {
   onNavigate: (tab: string) => void;
+  variant?: LayoutStyle;
 }
 
-export const QuickActions = ({ onNavigate }: QuickActionsProps) => {
+export const QuickActions = ({ onNavigate, variant = 'modern' }: QuickActionsProps) => {
+  const isClassic = variant === 'classicBlue';
+  
   const actions = [
     {
       icon: AdmitStudentIcon3D,
       label: 'Admit Student',
       onClick: () => onNavigate('enrollment'),
-      bgClass: 'bg-card hover:bg-muted',
+      bgClass: isClassic ? 'classic-card' : 'bg-card hover:bg-muted',
       iconBg: 'bg-info/10',
       iconColor: 'text-info',
     },
@@ -20,7 +24,7 @@ export const QuickActions = ({ onNavigate }: QuickActionsProps) => {
       icon: AddTeacherIcon3D,
       label: 'Add Teacher',
       onClick: () => onNavigate('teachers'),
-      bgClass: 'bg-card hover:bg-muted',
+      bgClass: isClassic ? 'classic-card' : 'bg-card hover:bg-muted',
       iconBg: 'bg-success/10',
       iconColor: 'text-success',
     },
@@ -28,7 +32,7 @@ export const QuickActions = ({ onNavigate }: QuickActionsProps) => {
       icon: ScheduleIcon3D,
       label: 'Schedule',
       onClick: () => onNavigate('academic-years'),
-      bgClass: 'bg-card hover:bg-muted',
+      bgClass: isClassic ? 'classic-card' : 'bg-card hover:bg-muted',
       iconBg: 'bg-warning/10',
       iconColor: 'text-warning',
     },
@@ -36,7 +40,7 @@ export const QuickActions = ({ onNavigate }: QuickActionsProps) => {
       icon: EnterGradeIcon3D,
       label: 'Enter Grades',
       onClick: () => onNavigate('grades'),
-      bgClass: 'bg-card hover:bg-muted',
+      bgClass: isClassic ? 'classic-card' : 'bg-card hover:bg-muted',
       iconBg: 'bg-stat-purple/10',
       iconColor: 'text-stat-purple',
     },
@@ -64,7 +68,9 @@ export const QuickActions = ({ onNavigate }: QuickActionsProps) => {
             rotateX: -15,
             y: -8,
             scale: 1.02,
-            boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)"
+            boxShadow: isClassic 
+              ? "0 25px 30px -5px rgb(0 0 0 / 0.15), 0 10px 15px -6px rgb(0 0 0 / 0.15)"
+              : "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)"
           }}
           whileTap={{ scale: 0.98 }}
           onClick={action.onClick}
@@ -73,7 +79,8 @@ export const QuickActions = ({ onNavigate }: QuickActionsProps) => {
             perspective: "1000px"
           }}
           className={cn(
-            "rounded-xl p-4 flex flex-col items-center gap-2 transition-all border border-border",
+            "p-4 flex flex-col items-center gap-2 transition-all",
+            isClassic ? "rounded-2xl border-0" : "rounded-xl border border-border",
             action.bgClass
           )}
         >

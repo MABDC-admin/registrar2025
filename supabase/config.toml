@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.firecrawl-design-search]
 verify_jwt = false
+
+[functions.analyze-ui-design]
+verify_jwt = false

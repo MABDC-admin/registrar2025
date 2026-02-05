@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useColorTheme } from '@/hooks/useColorTheme';
 import { ColorThemeSelector } from '@/components/ColorThemeSelector';
+import { DashboardLayoutSwitcher } from '@/components/dashboard/DashboardLayoutSwitcher';
 import { useSchool } from '@/contexts/SchoolContext';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
 import { cn } from '@/lib/utils';
@@ -44,8 +45,9 @@ export const DashboardHeader = () => {
         </h1>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2">
         <ColorThemeSelector currentTheme={currentTheme} onSelectTheme={selectTheme} />
+        <DashboardLayoutSwitcher />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

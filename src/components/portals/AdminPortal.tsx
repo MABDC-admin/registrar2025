@@ -9,6 +9,8 @@ import { BottomActions } from '@/components/dashboard/BottomActions';
 import { useStudents } from '@/hooks/useStudents';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import { useDashboardLayout } from '@/contexts/DashboardLayoutContext';
+import { cn } from '@/lib/utils';
 
 interface AdminPortalProps {
   onNavigate: (tab: string) => void;
@@ -16,6 +18,8 @@ interface AdminPortalProps {
 
 export const AdminPortal = ({ onNavigate }: AdminPortalProps) => {
   const { data: students = [] } = useStudents();
+  const { layoutStyle } = useDashboardLayout();
+  const isClassic = layoutStyle === 'classicBlue';
 
   // Fetch teachers count
   const { data: teachersData } = useQuery({
@@ -46,7 +50,10 @@ export const AdminPortal = ({ onNavigate }: AdminPortalProps) => {
   const levels = [...new Set(students.map(s => s.level))].length;
 
   return (
-    <div className="space-y-6">
+    <div className={cn(
+      "space-y-6",
+      isClassic && "dashboard-classic-blue dashboard-page-bg"
+    )}>
       {/* Header */}
       <DashboardHeader />
 
@@ -57,30 +64,38 @@ export const AdminPortal = ({ onNavigate }: AdminPortalProps) => {
         totalClasses={levels}
         libraryCount={flipbooksCount}
         onLibraryClick={() => onNavigate('library')}
+        variant={layoutStyle}
       />
 
       {/* Quick Actions */}
-      <QuickActions onNavigate={onNavigate} />
+      <QuickActions onNavigate={onNavigate} variant={layoutStyle} />
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Left Column */}
         <div className="lg:col-span-2 space-y-4">
           {/* Calendar and Events Row */}
-          <div className="grid grid-cols-1">
+          <div className={cn(
+            "grid grid-cols-1",
+            isClassic && "classic-card p-4"
+          )}>
             <DashboardCalendar />
           </div>
         </div>
 
         {/* Right Column */}
         <div className="space-y-4">
-          <StudentBirthdays />
-          <StudentOverview students={students} />
+          <div className={cn(isClassic && "classic-card p-4")}>
+            <StudentBirthdays />
+          </div>
+          <div className={cn(isClassic && "classic-card p-4")}>
+            <StudentOverview students={students} />
+          </div>
         </div>
       </div>
 
       {/* Bottom Actions */}
-      <BottomActions onNavigate={onNavigate} />
+      <BottomActions onNavigate={onNavigate} variant={layoutStyle} />
     </div>
   );
 };
