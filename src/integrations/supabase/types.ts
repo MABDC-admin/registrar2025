@@ -339,6 +339,9 @@ export type Database = {
           model: string | null
           notebook_id: string
           output: string | null
+          pdf_extracted_text: string | null
+          pdf_filename: string | null
+          pdf_page_count: number | null
           position: number
           updated_at: string
         }
@@ -350,6 +353,9 @@ export type Database = {
           model?: string | null
           notebook_id: string
           output?: string | null
+          pdf_extracted_text?: string | null
+          pdf_filename?: string | null
+          pdf_page_count?: number | null
           position?: number
           updated_at?: string
         }
@@ -361,6 +367,9 @@ export type Database = {
           model?: string | null
           notebook_id?: string
           output?: string | null
+          pdf_extracted_text?: string | null
+          pdf_filename?: string | null
+          pdf_page_count?: number | null
           position?: number
           updated_at?: string
         }

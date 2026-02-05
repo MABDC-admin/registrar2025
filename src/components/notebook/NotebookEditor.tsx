@@ -113,7 +113,7 @@ export function NotebookEditor({ notebookId }: NotebookEditorProps) {
     reorderCells.mutate({ notebookId, cellIds });
   }, [cells, notebookId, reorderCells]);
 
-  const handleRunCell = useCallback(async (cellId: string) => {
+  const handleRunCell = useCallback(async (cellId: string, pdfText?: string, pdfFilename?: string) => {
     const cell = cells.find((c) => c.id === cellId);
     if (!cell || cell.cell_type !== 'llm' || !cell.content.trim()) return;
 
@@ -126,6 +126,17 @@ export function NotebookEditor({ notebookId }: NotebookEditorProps) {
         throw new Error('Not authenticated');
       }
 
+      const requestBody: Record<string, unknown> = {
+        messages: [{ role: 'user', content: cell.content }],
+        model: 'google/gemini-2.5-flash',
+      };
+
+      // Include PDF context if available
+      if (pdfText) {
+        requestBody.pdfText = pdfText;
+        requestBody.pdfFilename = pdfFilename;
+      }
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/notebook-chat`,
         {
@@ -134,10 +145,7 @@ export function NotebookEditor({ notebookId }: NotebookEditorProps) {
             'Authorization': `Bearer ${session.session.access_token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            messages: [{ role: 'user', content: cell.content }],
-            model: 'google/gemini-2.5-flash',
-          }),
+          body: JSON.stringify(requestBody),
         }
       );
 
@@ -179,10 +187,26 @@ export function NotebookEditor({ notebookId }: NotebookEditorProps) {
         }
       }
 
-      // Save the final output
-      await updateCell.mutateAsync({ id: cellId, output: fullOutput });
+      // Save the final output and PDF metadata
+      const updateData = { 
+        id: cellId, 
+        output: fullOutput,
+        ...(pdfText && {
+          pdf_filename: pdfFilename,
+          pdf_page_count: pdfText.split('--- Page ').length - 1,
+          pdf_extracted_text: pdfText,
+        })
+      };
+
+      await updateCell.mutateAsync(updateData);
       setCells((prev) =>
-        prev.map((c) => (c.id === cellId ? { ...c, output: fullOutput } : c))
+        prev.map((c) => (c.id === cellId ? { 
+          ...c, 
+          output: fullOutput,
+          pdf_filename: pdfFilename || c.pdf_filename,
+          pdf_page_count: pdfText ? pdfText.split('--- Page ').length - 1 : c.pdf_page_count,
+          pdf_extracted_text: pdfText || c.pdf_extracted_text,
+        } : c))
       );
     } catch (error) {
       console.error('Error running cell:', error);
@@ -244,7 +268,7 @@ export function NotebookEditor({ notebookId }: NotebookEditorProps) {
               onSave={(content) => handleCellSave(cell.id, content)}
               onTypeChange={(type) => handleCellTypeChange(cell.id, type)}
               onDelete={() => handleDeleteCell(cell.id)}
-              onRun={() => handleRunCell(cell.id)}
+              onRun={(pdfText, pdfFilename) => handleRunCell(cell.id, pdfText, pdfFilename)}
             />
           </Reorder.Item>
         ))}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Trash2, GripVertical, FileText, Bot, Loader2 } from 'lucide-react';
+import { Play, Trash2, GripVertical, FileText, Bot, Loader2, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
@@ -11,8 +11,17 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { CellOutput } from './CellOutput';
+import { PdfUploadZone } from './PdfUploadZone';
 import { NotebookCell as NotebookCellType } from '@/hooks/useNotebooks';
+import { ExtractedPdfResult } from '@/utils/extractPdfText';
+import { exportNotebookToPdf } from '@/utils/notebookPdfExport';
 import { cn } from '@/lib/utils';
+
+interface PdfInfo {
+  filename: string;
+  pageCount: number;
+  extractedText: string;
+}
 
 interface NotebookCellProps {
   cell: NotebookCellType;
@@ -22,7 +31,7 @@ interface NotebookCellProps {
   onSave: (content: string) => void;
   onTypeChange: (type: 'markdown' | 'llm') => void;
   onDelete: () => void;
-  onRun: () => void;
+  onRun: (pdfText?: string, pdfFilename?: string) => void;
 }
 
 export function NotebookCell({
@@ -37,11 +46,33 @@ export function NotebookCell({
 }: NotebookCellProps) {
   const [localContent, setLocalContent] = useState(cell.content);
   const [isFocused, setIsFocused] = useState(false);
+  const [pdfInfo, setPdfInfo] = useState<PdfInfo | null>(() => {
+    // Initialize from cell data if available
+    if (cell.pdf_filename && cell.pdf_page_count && cell.pdf_extracted_text) {
+      return {
+        filename: cell.pdf_filename,
+        pageCount: cell.pdf_page_count,
+        extractedText: cell.pdf_extracted_text,
+      };
+    }
+    return null;
+  });
 
   // Sync with external content changes
   useEffect(() => {
     setLocalContent(cell.content);
   }, [cell.content]);
+
+  // Sync PDF info from cell data
+  useEffect(() => {
+    if (cell.pdf_filename && cell.pdf_page_count && cell.pdf_extracted_text) {
+      setPdfInfo({
+        filename: cell.pdf_filename,
+        pageCount: cell.pdf_page_count,
+        extractedText: cell.pdf_extracted_text,
+      });
+    }
+  }, [cell.pdf_filename, cell.pdf_page_count, cell.pdf_extracted_text]);
 
   // Debounced save
   useEffect(() => {
@@ -63,11 +94,43 @@ export function NotebookCell({
     // Shift+Enter to run LLM cells
     if (e.key === 'Enter' && e.shiftKey && cell.cell_type === 'llm') {
       e.preventDefault();
-      onRun();
+      onRun(pdfInfo?.extractedText, pdfInfo?.filename);
     }
-  }, [cell.cell_type, onRun]);
+  }, [cell.cell_type, onRun, pdfInfo]);
+
+  const handlePdfExtracted = useCallback((result: ExtractedPdfResult | null) => {
+    if (result) {
+      setPdfInfo({
+        filename: result.filename,
+        pageCount: result.pageCount,
+        extractedText: result.text,
+      });
+    } else {
+      setPdfInfo(null);
+    }
+  }, []);
+
+  const handleRun = useCallback(() => {
+    onRun(pdfInfo?.extractedText, pdfInfo?.filename);
+  }, [onRun, pdfInfo]);
+
+  const handleDownloadPdf = useCallback(() => {
+    const outputContent = isRunning ? streamingOutput : cell.output;
+    if (!outputContent) return;
+
+    const filename = pdfInfo?.filename 
+      ? `summary-${pdfInfo.filename.replace('.pdf', '')}.pdf`
+      : `notebook-output-${Date.now()}.pdf`;
+
+    exportNotebookToPdf({
+      title: pdfInfo?.filename ? `Summary: ${pdfInfo.filename}` : 'Notebook Output',
+      content: outputContent,
+      filename,
+    });
+  }, [cell.output, streamingOutput, isRunning, pdfInfo]);
 
   const displayOutput = isRunning ? streamingOutput : cell.output;
+  const canDownload = !isRunning && !!cell.output;
 
   return (
     <motion.div
@@ -120,7 +183,7 @@ export function NotebookCell({
           <Button
             variant="ghost"
             size="sm"
-            onClick={onRun}
+            onClick={handleRun}
             disabled={isRunning || !localContent.trim()}
             className="h-7 gap-1.5"
           >
@@ -144,7 +207,7 @@ export function NotebookCell({
       </div>
 
       {/* Content */}
-      <div className="p-3">
+      <div className="p-3 space-y-3">
         <Textarea
           value={localContent}
           onChange={handleChange}
@@ -158,15 +221,35 @@ export function NotebookCell({
           }
           className="min-h-[80px] resize-none border-none shadow-none focus-visible:ring-0 bg-transparent"
         />
+
+        {/* PDF Upload Zone for LLM cells */}
+        {cell.cell_type === 'llm' && (
+          <PdfUploadZone
+            onPdfExtracted={handlePdfExtracted}
+            pdfInfo={pdfInfo ? { filename: pdfInfo.filename, pageCount: pdfInfo.pageCount } : null}
+            disabled={isRunning}
+          />
+        )}
       </div>
 
       {/* Output (for LLM cells) */}
       {cell.cell_type === 'llm' && displayOutput && (
         <div className="border-t">
-          <div className="px-3 py-2 bg-muted/30">
+          <div className="px-3 py-2 bg-muted/30 flex items-center justify-between">
             <Badge variant="secondary" className="text-xs">
               {isRunning ? 'Generating...' : 'Output'}
             </Badge>
+            {canDownload && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleDownloadPdf}
+                className="h-7 gap-1.5 text-muted-foreground hover:text-foreground"
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span className="text-xs">Download PDF</span>
+              </Button>
+            )}
           </div>
           <div className="p-3">
             <CellOutput content={displayOutput} isStreaming={isRunning} />
