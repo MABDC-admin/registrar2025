@@ -87,17 +87,17 @@ serve(async (req) => {
       });
       const encodedState = btoa(stateData);
 
-      // Build Canva authorization URL
+      // Build Canva authorization URL (matching Canva's exact format)
       const canvaAuthUrl = new URL('https://www.canva.com/api/oauth/authorize');
+      canvaAuthUrl.searchParams.set('code_challenge_method', 's256');
+      canvaAuthUrl.searchParams.set('response_type', 'code');
       canvaAuthUrl.searchParams.set('client_id', CANVA_CLIENT_ID);
       canvaAuthUrl.searchParams.set('redirect_uri', redirectUri);
-      canvaAuthUrl.searchParams.set('response_type', 'code');
-      canvaAuthUrl.searchParams.set('scope', 'design:content:read design:meta:read design:content:write folder:read asset:read asset:write profile:read');
       canvaAuthUrl.searchParams.set('code_challenge', codeChallenge);
-      canvaAuthUrl.searchParams.set('code_challenge_method', 'S256');
+      canvaAuthUrl.searchParams.set('scope', 'design:content:read design:meta:read design:content:write folder:read asset:read asset:write profile:read');
       canvaAuthUrl.searchParams.set('state', encodedState);
 
-      return new Response(JSON.stringify({ 
+      return new Response(JSON.stringify({
         authUrl: canvaAuthUrl.toString(),
         state: encodedState
       }), {
