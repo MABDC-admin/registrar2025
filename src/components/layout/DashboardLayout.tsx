@@ -372,7 +372,7 @@ export const DashboardLayout = ({ children, activeTab, onTabChange }: DashboardL
                 >
                   <div className="flex items-center gap-2">
                     <Building2 className="h-4 w-4" />
-                    <span className="text-sm">{selectedSchool}</span>
+                    <span className="text-sm">{selectedSchool === 'MABDC' ? 'M.A Brain Dev Center' : 'St. Francis Xavier'}</span>
                   </div>
                   <ChevronDown className="h-4 w-4" />
                 </Button>
@@ -386,7 +386,7 @@ export const DashboardLayout = ({ children, activeTab, onTabChange }: DashboardL
                 >
                   <div className="flex items-center gap-2 flex-1">
                     <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                    <span>MABDC</span>
+                    <span>M.A Brain Development Center</span>
                   </div>
                   {selectedSchool === 'MABDC' && <span className="text-emerald-500">✓</span>}
                 </DropdownMenuItem>
@@ -396,7 +396,7 @@ export const DashboardLayout = ({ children, activeTab, onTabChange }: DashboardL
                 >
                   <div className="flex items-center gap-2 flex-1">
                     <div className="w-3 h-3 rounded-full bg-blue-500" />
-                    <span>STFXSA</span>
+                    <span>St. Francis Xavier Smart Academy</span>
                   </div>
                   {selectedSchool === 'STFXSA' && <span className="text-blue-500">✓</span>}
                 </DropdownMenuItem>
