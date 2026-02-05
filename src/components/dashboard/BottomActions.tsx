@@ -1,18 +1,22 @@
 import { motion } from 'framer-motion';
 import { Users, LayoutGrid, ClipboardCheck, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { LayoutStyle } from '@/contexts/DashboardLayoutContext';
 
 interface BottomActionsProps {
   onNavigate: (tab: string) => void;
+  variant?: LayoutStyle;
 }
 
-export const BottomActions = ({ onNavigate }: BottomActionsProps) => {
+export const BottomActions = ({ onNavigate, variant = 'modern' }: BottomActionsProps) => {
+  const isClassic = variant === 'classicBlue';
+  
   const actions = [
     {
       icon: Users,
       label: 'Manage Students',
       onClick: () => onNavigate('students'),
-      bgClass: 'bg-card',
+      bgClass: isClassic ? 'classic-card' : 'bg-card',
       iconBg: 'bg-info/10',
       iconColor: 'text-info',
     },
@@ -20,7 +24,7 @@ export const BottomActions = ({ onNavigate }: BottomActionsProps) => {
       icon: LayoutGrid,
       label: 'Organize Classes',
       onClick: () => onNavigate('subjects'),
-      bgClass: 'bg-card',
+      bgClass: isClassic ? 'classic-card' : 'bg-card',
       iconBg: 'bg-success/10',
       iconColor: 'text-success',
     },
@@ -28,7 +32,7 @@ export const BottomActions = ({ onNavigate }: BottomActionsProps) => {
       icon: ClipboardCheck,
       label: 'Track Attendance',
       onClick: () => onNavigate('grades'),
-      bgClass: 'bg-info',
+      bgClass: isClassic ? 'classic-stat-blue text-white' : 'bg-info',
       iconBg: 'bg-white/20',
       iconColor: 'text-white',
       textColor: 'text-white',
@@ -50,7 +54,8 @@ export const BottomActions = ({ onNavigate }: BottomActionsProps) => {
           transition={{ delay: 0.6 + index * 0.05 }}
           onClick={action.onClick}
           className={cn(
-            "rounded-xl p-4 flex items-center gap-3 transition-all shadow-sm border border-border hover:shadow-md",
+            "p-4 flex items-center gap-3 transition-all hover:shadow-md",
+            isClassic ? "rounded-2xl shadow-lg border-0" : "rounded-xl shadow-sm border border-border",
             action.bgClass
           )}
         >

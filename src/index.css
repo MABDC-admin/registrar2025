@@ -366,6 +366,67 @@
   animation: rainbow-gradient 2s ease infinite;
 }
 
+/* Classic Blue Dashboard Theme */
+.dashboard-classic-blue {
+  --classic-page-bg: linear-gradient(135deg, #4F46E5 0%, #2563EB 50%, #0EA5E9 100%);
+  --classic-card-bg: rgba(255, 255, 255, 0.95);
+  --classic-card-blur: 12px;
+  --classic-card-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  --classic-card-radius: 1.5rem;
+  --classic-card-border: 1px solid rgba(255, 255, 255, 0.3);
+  
+  /* Stats card colors from reference */
+  --classic-stat-green: 142 71% 45%;
+  --classic-stat-blue: 217 91% 60%;
+  --classic-stat-yellow: 45 93% 47%;
+  --classic-stat-red: 0 84% 60%;
+  
+  /* Calendar header gradient */
+  --classic-calendar-header: linear-gradient(135deg, #3B82F6, #1D4ED8);
+}
+
+.dashboard-classic-blue .dashboard-page-bg {
+  position: relative;
+}
+
+.dashboard-classic-blue .dashboard-page-bg::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: var(--classic-page-bg);
+  z-index: -1;
+  pointer-events: none;
+}
+
+.dashboard-classic-blue .classic-card {
+  background: var(--classic-card-bg);
+  backdrop-filter: blur(var(--classic-card-blur));
+  -webkit-backdrop-filter: blur(var(--classic-card-blur));
+  border-radius: var(--classic-card-radius);
+  box-shadow: var(--classic-card-shadow);
+  border: var(--classic-card-border);
+}
+
+.dashboard-classic-blue .classic-stat-green {
+  background-color: hsl(var(--classic-stat-green));
+}
+
+.dashboard-classic-blue .classic-stat-blue {
+  background-color: hsl(var(--classic-stat-blue));
+}
+
+.dashboard-classic-blue .classic-stat-yellow {
+  background-color: hsl(var(--classic-stat-yellow));
+}
+
+.dashboard-classic-blue .classic-stat-red {
+  background-color: hsl(var(--classic-stat-red));
+}
+
+.dashboard-classic-blue .classic-calendar-header {
+  background: var(--classic-calendar-header);
+}
+
 /* Print styles */
 @media print {
   .no-print {

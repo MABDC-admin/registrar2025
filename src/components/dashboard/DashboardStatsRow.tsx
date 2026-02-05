@@ -2,6 +2,7 @@ import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import { useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { StudentIcon3D, TeacherIcon3D, ClassesIcon3D, LibraryIcon3D } from '@/components/icons/ThreeDIcons';
+import { LayoutStyle } from '@/contexts/DashboardLayoutContext';
 
 const AnimatedCounter = ({ value, duration = 3 }: { value: number | string, duration?: number }) => {
   const numericValue = typeof value === 'string' ? parseFloat(value) : value;
@@ -30,6 +31,7 @@ interface DashboardStatsRowProps {
   totalClasses: number;
   libraryCount?: number;
   onLibraryClick?: () => void;
+  variant?: LayoutStyle;
 }
 
 export const DashboardStatsRow = ({
@@ -37,32 +39,35 @@ export const DashboardStatsRow = ({
   totalTeachers,
   totalClasses,
   libraryCount = 0,
-  onLibraryClick
+  onLibraryClick,
+  variant = 'modern'
 }: DashboardStatsRowProps) => {
+  const isClassic = variant === 'classicBlue';
+  
   const stats = [
     {
       value: totalStudents,
       label: 'Total Students',
-      bgClass: 'bg-success',
+      bgClass: isClassic ? 'classic-stat-green' : 'bg-success',
       icon: StudentIcon3D,
     },
     {
       value: totalTeachers,
       label: 'Teachers',
-      bgClass: 'bg-info',
+      bgClass: isClassic ? 'classic-stat-blue' : 'bg-info',
       icon: TeacherIcon3D,
     },
     {
       value: totalClasses,
       label: 'Classes',
-      bgClass: 'bg-yellow-500',
+      bgClass: isClassic ? 'classic-stat-yellow' : 'bg-yellow-500',
       icon: ClassesIcon3D,
     },
     {
       value: libraryCount,
       label: 'Library',
       sublabel: 'Browse Flipbooks',
-      bgClass: 'bg-purple-500',
+      bgClass: isClassic ? 'classic-stat-red' : 'bg-purple-500',
       icon: LibraryIcon3D,
       onClick: onLibraryClick,
     },
@@ -82,8 +87,9 @@ export const DashboardStatsRow = ({
           transition={{ delay: index * 0.1 }}
           onClick={stat.onClick}
           className={cn(
-            "rounded-xl p-4 text-white flex items-center justify-between gap-3 shadow-md overflow-hidden relative",
+            "rounded-xl p-4 text-white flex items-center justify-between gap-3 overflow-hidden relative",
             stat.bgClass,
+            isClassic ? "rounded-2xl shadow-lg" : "shadow-md",
             stat.onClick && "cursor-pointer hover:scale-[1.02] transition-transform"
           )}
         >
@@ -92,7 +98,10 @@ export const DashboardStatsRow = ({
             <stat.icon className="w-full h-full drop-shadow-md" />
           </div>
           <div className="text-right">
-            <p className="text-2xl lg:text-3xl font-bold">
+            <p className={cn(
+              "font-bold",
+              isClassic ? "text-3xl lg:text-4xl" : "text-2xl lg:text-3xl"
+            )}>
               <AnimatedCounter value={stat.value} />
             </p>
             <p className="text-xs opacity-90">{stat.label}</p>
