@@ -427,6 +427,74 @@
   background: var(--classic-calendar-header);
 }
 
+/* Apple/iOS Dashboard Theme */
+.dashboard-apple {
+  /* Page Background */
+  --apple-page-bg: linear-gradient(180deg, #F5F5F7 0%, #FFFFFF 100%);
+  
+  /* Card Styling */
+  --apple-card-bg: rgba(255, 255, 255, 0.95);
+  --apple-card-radius: 20px;
+  --apple-card-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  --apple-card-border: 1px solid rgba(0, 0, 0, 0.06);
+  
+  /* Sidebar (Vibrancy Effect) */
+  --apple-sidebar-bg: rgba(255, 255, 255, 0.72);
+  --apple-sidebar-blur: 20px;
+  
+  /* iOS Accent Colors */
+  --apple-accent: #007AFF;
+  --apple-accent-light: rgba(0, 122, 255, 0.1);
+  
+  /* Stats Card Colors (iOS Palette) */
+  --apple-stat-green: #34C759;
+  --apple-stat-blue: #007AFF;
+  --apple-stat-orange: #FF9500;
+  --apple-stat-red: #FF3B30;
+}
+
+.dashboard-apple .apple-page-bg {
+  position: relative;
+}
+
+.dashboard-apple .apple-page-bg::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: var(--apple-page-bg);
+  z-index: -1;
+  pointer-events: none;
+}
+
+.dashboard-apple .apple-card {
+  background: var(--apple-card-bg);
+  border-radius: var(--apple-card-radius);
+  box-shadow: var(--apple-card-shadow);
+  border: var(--apple-card-border);
+}
+
+.dashboard-apple .apple-sidebar {
+  background: var(--apple-sidebar-bg);
+  backdrop-filter: blur(var(--apple-sidebar-blur));
+  -webkit-backdrop-filter: blur(var(--apple-sidebar-blur));
+}
+
+.dashboard-apple .apple-stat-green {
+  background-color: var(--apple-stat-green);
+}
+
+.dashboard-apple .apple-stat-blue {
+  background-color: var(--apple-stat-blue);
+}
+
+.dashboard-apple .apple-stat-orange {
+  background-color: var(--apple-stat-orange);
+}
+
+.dashboard-apple .apple-stat-red {
+  background-color: var(--apple-stat-red);
+}
+
 /* Print styles */
 @media print {
   .no-print {
