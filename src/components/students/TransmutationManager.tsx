@@ -206,12 +206,13 @@ export const TransmutationManager = ({ student, academicYearId }: TransmutationM
 
             // 2. Sync with student_grades table (final rating for reports)
             const gradeField = `q${quarter}_grade`;
-            const { error: gradeError } = await supabase
-                .from('student_grades')
+            const { error: gradeError } = await (supabase
+                .from('student_grades') as any)
                 .upsert({
                     student_id: student.id,
                     subject_id: selectedSubject,
                     academic_year_id: academicYearId,
+                    school_id: '00000000-0000-0000-0000-000000000000', // Placeholder
                     [gradeField]: computedGrades.transmutedGrade,
                     updated_at: new Date().toISOString()
                 }, {

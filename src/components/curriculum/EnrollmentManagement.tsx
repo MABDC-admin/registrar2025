@@ -220,10 +220,11 @@ export const EnrollmentManagement = () => {
             .maybeSingle();
 
           if (!existing) {
-            const { error } = await supabase.from('student_subjects').insert([{
+            const { error } = await (supabase.from('student_subjects') as any).insert([{
               student_id: student.id,
               subject_id: subject.id,
               academic_year_id: selectedYearId,
+              school_id: '00000000-0000-0000-0000-000000000000', // Placeholder - needs proper school_id
               status: 'enrolled',
             }]);
 

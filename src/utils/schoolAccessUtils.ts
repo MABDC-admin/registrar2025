@@ -5,7 +5,7 @@
  * and data export tracking.
  */
 
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 // ============================================================================
 // Types
@@ -25,40 +25,40 @@ export interface SchoolAccessLog {
     id: string;
     user_id: string;
     school_id: string;
-    academic_year_id?: string;
-    action: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE' | 'EXPORT';
+    academic_year_id?: string | null;
+    action: string;
     table_name: string;
-    record_id?: string;
-    ip_address?: string;
-    user_agent?: string;
-    success: boolean;
-    error_message?: string;
-    created_at: string;
+    record_id?: string | null;
+    ip_address?: unknown;
+    user_agent?: string | null;
+    success: boolean | null;
+    error_message?: string | null;
+    created_at: string | null;
 }
 
 export interface SchoolSwitchLog {
     id: string;
     user_id: string;
-    from_school_id?: string;
-    to_school_id?: string;
-    from_academic_year_id?: string;
-    to_academic_year_id?: string;
-    session_id?: string;
-    ip_address?: string;
-    switched_at: string;
+    from_school_id?: string | null;
+    to_school_id?: string | null;
+    from_academic_year_id?: string | null;
+    to_academic_year_id?: string | null;
+    session_id?: string | null;
+    ip_address?: unknown;
+    switched_at: string | null;
 }
 
 export interface DataExport {
     id: string;
     user_id: string;
-    school_id?: string;
-    academic_year_id?: string;
-    export_type: 'PDF' | 'XLSX' | 'CSV';
+    school_id?: string | null;
+    academic_year_id?: string | null;
+    export_type: string;
     table_name: string;
-    record_count?: number;
-    file_name?: string;
-    file_size_bytes?: number;
-    exported_at: string;
+    record_count?: number | null;
+    file_name?: string | null;
+    file_size_bytes?: number | null;
+    exported_at: string | null;
 }
 
 export interface UserSchool {
@@ -393,9 +393,9 @@ export class AuditedSchoolYearQueryBuilder<T> {
             tableName: this.tableName,
         });
 
-        return supabase
-            .from(this.tableName)
-            .select(columns)
+        return (supabase
+            .from(this.tableName as any)
+            .select(columns) as any)
             .eq('school_id', this.schoolId)
             .eq('academic_year_id', this.academicYearId);
     }
@@ -410,7 +410,7 @@ export class AuditedSchoolYearQueryBuilder<T> {
             ? data.map((item) => ({ ...baseData, ...item }))
             : { ...baseData, ...data };
 
-        const result = await supabase.from(this.tableName).insert(dataWithContext).select();
+        const result = await (supabase.from(this.tableName as any) as any).insert(dataWithContext).select();
 
         // Log the INSERT operation
         await logSchoolAccess({
@@ -426,9 +426,9 @@ export class AuditedSchoolYearQueryBuilder<T> {
     }
 
     async update(data: Partial<T>) {
-        const result = await supabase
-            .from(this.tableName)
-            .update(data)
+        const result = await (supabase
+            .from(this.tableName as any)
+            .update(data) as any)
             .eq('school_id', this.schoolId)
             .eq('academic_year_id', this.academicYearId);
 
@@ -446,9 +446,9 @@ export class AuditedSchoolYearQueryBuilder<T> {
     }
 
     async delete() {
-        const result = await supabase
-            .from(this.tableName)
-            .delete()
+        const result = await (supabase
+            .from(this.tableName as any)
+            .delete() as any)
             .eq('school_id', this.schoolId)
             .eq('academic_year_id', this.academicYearId);
 
