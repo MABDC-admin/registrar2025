@@ -1,123 +1,316 @@
 
 
-# Fix Flip Animation and Emoji Drag-and-Drop
+# AI-Powered Library Search with OCR Indexing
 
 ## Overview
 
-This plan addresses two issues in the Flipbook Viewer:
-
-1. **Mobile Flip Animation**: The mobile/single-page view lacks page-turn animation when navigating. Currently, pages just appear instantly without any transition effect.
-
-2. **Emoji Drag-and-Drop Not Working**: Stickers/emojis cannot be dragged from the picker and dropped onto the book page. The drag-and-drop handlers exist but the canvas isn't properly receiving drop events.
-
----
-
-## Issue Analysis
-
-### Issue 1: Missing Mobile Flip Animation
-
-**Current State** (lines 503-531 in FlipbookViewer.tsx):
-```text
-Mobile view renders a simple <div> with scale transform:
-├── No AnimatePresence wrapper
-├── No motion.div animation
-├── Page changes happen instantly
-└── No visual feedback during navigation
-```
-
-**Desktop State** (lines 444-502):
-```text
-Desktop spread uses framer-motion:
-├── AnimatePresence with mode="wait"
-├── motion.div with rotateY, opacity, scale
-├── 3D perspective flip effect
-└── Smooth 300ms transitions
-```
-
-### Issue 2: Drag-and-Drop Not Working
-
-**Root Causes Identified**:
-
-| Problem | Location | Description |
-|---------|----------|-------------|
-| No pointer-events on canvas | Line 518-530 | Canvas only sets cursor style, no explicit `pointer-events: auto` |
-| Canvas behind image in stacking | Line 518 | Canvas is `absolute inset-0` but may not intercept drag events |
-| Missing dragover/drop propagation | Lines 284-312 | Drop handler exists but canvas isn't receiving events |
-| Popover closes before drag completes | AnnotationToolbar.tsx | Popover may close on mousedown, canceling the drag |
-
-The main issue is that when dragging from the Popover, the Popover closes (unmounts) before the drop completes, which cancels the drag operation entirely.
+This feature adds a powerful AI-powered search system to the library that:
+1. **Background OCR Indexing**: Automatically scans all book pages using AI vision to extract text, topics, and lessons
+2. **Full-Text Search**: Enables keyword-based search across all indexed content
+3. **Direct Page Navigation**: When users click a search result, opens the flipbook directly at the matching page
 
 ---
 
-## Implementation Plan
-
-### Step 1: Add Mobile Page Flip Animation
-
-Update `src/components/library/FlipbookViewer.tsx`:
-
-Add an `AnimatePresence` wrapper and `motion.div` to the mobile/tablet single-page view with a page-flip animation:
+## System Architecture
 
 ```text
-Changes to mobile view (lines 503-531):
-├── Wrap with <AnimatePresence mode="wait">
-├── Replace <div> with <motion.div key={currentPage}>
-├── Add slide/flip animation variants:
-│   ├── initial: opacity 0, x offset based on direction
-│   ├── animate: opacity 1, x 0
-│   └── exit: opacity 0, x offset opposite direction
-├── Track navigation direction (prev/next)
-└── Apply 250ms transition with easeInOut
++--------------------+     +----------------------+     +------------------+
+|   Library Page     |     |   Edge Function      |     |   Database       |
+|                    |     |   (ocr-index-book)   |     |                  |
+| [Search Bar]       |---->|   - Fetch pages      |---->| book_page_index  |
+| [AI Search Button] |     |   - OCR via Gemini   |     | - extracted_text |
+|                    |     |   - Extract topics   |     | - topics[]       |
++--------------------+     |   - Save to DB       |     | - keywords[]     |
+         |                 +----------------------+     +------------------+
+         |                                                      |
+         v                                                      v
++--------------------+     +----------------------+     +------------------+
+| Search Results     |     |   Edge Function      |     |   Query          |
+| Page               |<----|   (search-books)     |<----| Full-text search |
+|                    |     |   - Search index     |     | with ranking     |
+| [Book Card + Page] |     |   - Return matches   |     |                  |
++--------------------+     +----------------------+     +------------------+
+         |
+         v
++--------------------+
+| Flipbook Viewer    |
+| Opens at Page X    |
++--------------------+
 ```
 
-**Animation Style Options**:
-- **Slide**: Pages slide left/right like a carousel
-- **Flip**: 3D rotation like turning a physical page
-- **Fade-Slide**: Combination of opacity and slight horizontal movement
+---
 
-Recommended: **Slide animation** for mobile (simpler, more performant) and **3D flip** for desktop (already exists).
+## Database Schema Changes
 
-### Step 2: Fix Drag-and-Drop - Keep Popover Open During Drag
+### New Table: `book_page_index`
 
-Update `src/components/library/AnnotationToolbar.tsx`:
+| Column | Type | Description |
+|--------|------|-------------|
+| id | uuid | Primary key |
+| book_id | uuid | Foreign key to books |
+| page_id | uuid | Foreign key to book_pages |
+| page_number | integer | Page number |
+| extracted_text | text | Full OCR text from the page |
+| topics | text[] | AI-detected topics/lessons |
+| keywords | text[] | Searchable keywords |
+| chapter_title | text | Detected chapter/section title |
+| summary | text | Brief AI summary of page content |
+| indexed_at | timestamptz | When indexing completed |
+| index_status | text | pending, processing, completed, error |
 
-The Popover closes when you start dragging because it detects the mousedown/pointer event as an outside click. We need to prevent it from closing during drag operations.
+### Index for Full-Text Search
+
+```sql
+-- GIN index for full-text search
+CREATE INDEX idx_book_page_index_fts ON book_page_index 
+USING gin(to_tsvector('english', extracted_text || ' ' || array_to_string(topics, ' ') || ' ' || array_to_string(keywords, ' ')));
+```
+
+### Update Books Table
+
+Add `index_status` column to track overall book indexing progress:
+- `pending` - Not yet indexed
+- `indexing` - Currently being indexed
+- `indexed` - Fully indexed
+- `error` - Indexing failed
+
+---
+
+## Edge Functions
+
+### 1. `ocr-index-book` - Background OCR Processing
+
+**Purpose**: Processes all pages of a book for OCR indexing in the background
+
+**Process Flow**:
+1. Receive book_id and optional page range
+2. Fetch all pages for the book from `book_pages`
+3. For each page (sequentially to avoid rate limits):
+   - Call Lovable AI Gateway with the page image
+   - Extract: full text, topics, keywords, chapter title, summary
+   - Save to `book_page_index` table
+4. Update book `index_status` when complete
+
+**AI Prompt Strategy**:
+```text
+Analyze this textbook/book page image and extract:
+1. All visible text (OCR) - preserve formatting
+2. Topics/Lessons mentioned (e.g., "Photosynthesis", "Chapter 5: Fractions")
+3. Keywords for search (10-20 words)
+4. Chapter/Section title if visible
+5. 1-2 sentence summary of the page content
+
+Return as JSON.
+```
+
+### 2. `search-books` - Search API
+
+**Purpose**: Search across all indexed content and return matching pages
+
+**Features**:
+- Full-text search using PostgreSQL tsvector
+- Ranking by relevance
+- Highlight matching text snippets
+- Group results by book
+
+**Response Format**:
+```json
+{
+  "results": [
+    {
+      "book_id": "...",
+      "book_title": "Grammar Essentials",
+      "cover_url": "...",
+      "matches": [
+        {
+          "page_number": 45,
+          "page_id": "...",
+          "snippet": "...the **keyword** appears in this context...",
+          "topics": ["Verb Tenses", "Past Perfect"],
+          "relevance_score": 0.95
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+## Frontend Components
+
+### 1. Enhanced Library Search Bar
+
+Replace existing simple search with AI-powered version:
 
 ```text
-Changes to AnnotationToolbar.tsx:
-├── Add state: isDragging to track drag operation
-├── Pass onDragStart to StickerPicker to set isDragging=true
-├── Use Popover's modal prop or onInteractOutside
-├── Prevent close during drag: onInteractOutside={(e) => isDragging && e.preventDefault()}
-└── Reset isDragging on dragend (via window event listener)
++-------------------------------------------------------+
+| [Search icon] Search topics, lessons, content...   [AI] |
++-------------------------------------------------------+
+        |                                            |
+        v                                            v
+    Basic filter                            Trigger AI search
+    (title/subject)                         (opens results page)
 ```
 
-### Step 3: Ensure Canvas Receives Drop Events
+**Features**:
+- Debounced input for type-ahead suggestions
+- "AI Search" button triggers full content search
+- Visual indicator showing which books are indexed
+- Quick topic suggestions based on indexed content
 
-Update `src/components/library/FlipbookViewer.tsx`:
+### 2. Search Results Page
+
+New component: `src/components/library/SearchResultsView.tsx`
 
 ```text
-Changes to canvas element:
-├── Add explicit style={{ pointerEvents: 'auto' }}
-├── Ensure canvas is above image in z-index
-├── Add visual drop feedback (optional):
-│   ├── Track isDragOver state
-│   └── Add border/highlight when dragging over
-└── Ensure onDragOver calls e.preventDefault() (already exists)
++------------------------------------------------------------------+
+| Library > Search Results for "photosynthesis"                     |
+|                                                                   |
+| Found 23 matches in 4 books                                       |
++------------------------------------------------------------------+
+|                                                                   |
+| [Book Cover] Science Grade 7                                      |
+|   Page 45: "...process of photosynthesis converts..."            |
+|   Page 46: "...chlorophyll is essential for photosynthesis..."   |
+|   Page 52: "...photosynthesis equation: 6CO2 + 6H2O..."          |
+|   [Open Book]                                                     |
+|                                                                   |
+| [Book Cover] Biology Essentials                                   |
+|   Page 12: "...introduction to photosynthesis and..."            |
+|   [Open Book]                                                     |
+|                                                                   |
++------------------------------------------------------------------+
 ```
 
-### Step 4: Update StickerPicker to Support Drag Callbacks
+**Features**:
+- Grouped by book with expand/collapse
+- Highlighted keyword matches in snippets
+- Click on page opens flipbook at that page
+- Filter by grade level, subject
+- Sort by relevance or page number
 
-Update `src/components/library/StickerPicker.tsx`:
+### 3. FlipbookViewer Enhancement
 
-Pass through drag event handlers to child components:
+Add prop to open at specific page:
+
+```typescript
+interface FlipbookViewerProps {
+  bookId: string;
+  bookTitle: string;
+  onClose: () => void;
+  initialPage?: number;  // NEW: Start at this page
+}
+```
+
+### 4. Indexing Status Indicator
+
+On book cards and in admin view:
 
 ```text
-Changes:
-├── Add onDragEnd prop to interface
-├── Pass onDragEnd to OpenMojiPicker, FluentEmojiPicker, IconSearch
-├── Each picker calls onDragEnd when drag ends
-└── This signals to parent that popover can close
++------------------+
+| [Book Cover]     |
+| Book Title       |
+| [AI Indexed] ✓   |  <-- Badge showing index status
++------------------+
 ```
+
+Admin can trigger re-indexing or see indexing progress.
+
+---
+
+## Background Indexing Strategy
+
+### When to Index
+
+1. **After Book Upload**: Automatically queue for indexing when a book's status becomes `ready`
+2. **Batch Processing**: Process during off-peak hours to save API credits
+3. **On-Demand**: Admin can trigger indexing for specific books
+
+### Processing Flow
+
+```text
+Book Uploaded --> Status: 'ready'
+       |
+       v
++------------------+
+| Indexing Queue   |  (Check every 5 minutes)
+| - Book A [new]   |
+| - Book B [retry] |
++------------------+
+       |
+       v
++------------------+
+| Process Book     |
+| - 1 page/500ms   |  (Rate limit protection)
+| - Save progress  |
+| - Resume on fail |
++------------------+
+       |
+       v
+Book index_status: 'indexed'
+```
+
+### Rate Limit Handling
+
+- Process 1 page every 500-1000ms
+- If rate limited (429), wait and retry
+- Save progress so indexing can resume
+- Use `waitUntil` for background processing
+
+---
+
+## Implementation Steps
+
+### Step 1: Database Migration
+
+Create `book_page_index` table with full-text search index and add `index_status` to `books` table.
+
+### Step 2: OCR Edge Function
+
+Create `supabase/functions/ocr-index-book/index.ts`:
+- Accept book_id
+- Process pages sequentially
+- Use Gemini 2.5 Flash for vision OCR
+- Extract text, topics, keywords
+- Save to database
+
+### Step 3: Search Edge Function
+
+Create `supabase/functions/search-books/index.ts`:
+- Accept search query
+- Use PostgreSQL full-text search
+- Return ranked results with snippets
+- Group by book
+
+### Step 4: Library Page Updates
+
+Modify `src/components/library/LibraryPage.tsx`:
+- Add AI search button
+- Add search mode toggle
+- Integrate with search results view
+
+### Step 5: Search Results Component
+
+Create `src/components/library/SearchResultsView.tsx`:
+- Display search results grouped by book
+- Highlight matching text
+- Navigate to specific page in flipbook
+
+### Step 6: FlipbookViewer Update
+
+Update to accept `initialPage` prop and navigate there on load.
+
+### Step 7: Indexing Status UI
+
+Add visual indicators for indexing status on book cards.
+
+### Step 8: Background Indexing Hook
+
+Create `src/hooks/useBookIndexing.ts`:
+- Monitor books needing indexing
+- Trigger indexing after upload
+- Track progress
 
 ---
 
@@ -125,156 +318,35 @@ Changes:
 
 | File | Action | Description |
 |------|--------|-------------|
-| `src/components/library/FlipbookViewer.tsx` | Modify | Add mobile flip animation, fix canvas drop handling |
-| `src/components/library/AnnotationToolbar.tsx` | Modify | Keep popover open during drag operations |
-| `src/components/library/StickerPicker.tsx` | Modify | Add drag event callbacks |
-| `src/components/library/OpenMojiPicker.tsx` | Modify | Add onDragEnd callback |
-| `src/components/library/FluentEmojiPicker.tsx` | Modify | Add onDragEnd callback |
-| `src/components/library/IconSearch.tsx` | Modify | Add onDragEnd callback |
+| New migration | Create | `book_page_index` table + indexes |
+| `supabase/functions/ocr-index-book/index.ts` | Create | Background OCR processing |
+| `supabase/functions/search-books/index.ts` | Create | Full-text search API |
+| `src/components/library/LibraryPage.tsx` | Modify | Add AI search bar and mode |
+| `src/components/library/SearchResultsView.tsx` | Create | Search results display |
+| `src/components/library/BookCard.tsx` | Modify | Add index status badge |
+| `src/components/library/FlipbookViewer.tsx` | Modify | Add initialPage prop |
+| `src/hooks/useBookSearch.ts` | Create | Search hook |
+| `src/hooks/useBookIndexing.ts` | Create | Indexing status hook |
+| `supabase/config.toml` | Modify | Add new edge functions |
 
 ---
 
-## Technical Details
+## User Flow Example
 
-### Mobile Flip Animation Implementation
-
-```typescript
-// Track navigation direction
-const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('right');
-
-// Update direction when navigating
-const goToNext = () => {
-  setSlideDirection('right');
-  setCurrentPage(p => Math.min(pages.length, p + 1));
-};
-
-const goToPrev = () => {
-  setSlideDirection('left');
-  setCurrentPage(p => Math.max(1, p - 1));
-};
-
-// Animation variants
-const slideVariants = {
-  enter: (direction: 'left' | 'right') => ({
-    x: direction === 'right' ? 100 : -100,
-    opacity: 0,
-  }),
-  center: {
-    x: 0,
-    opacity: 1,
-  },
-  exit: (direction: 'left' | 'right') => ({
-    x: direction === 'right' ? -100 : 100,
-    opacity: 0,
-  }),
-};
-
-// In JSX
-<AnimatePresence mode="wait" custom={slideDirection}>
-  <motion.div
-    key={currentPage}
-    custom={slideDirection}
-    variants={slideVariants}
-    initial="enter"
-    animate="center"
-    exit="exit"
-    transition={{ duration: 0.25, ease: 'easeInOut' }}
-  >
-    {/* Page content */}
-  </motion.div>
-</AnimatePresence>
-```
-
-### Popover Drag Fix Implementation
-
-```typescript
-// In AnnotationToolbar
-const [isDragging, setIsDragging] = useState(false);
-
-// Global dragend listener to reset state
-useEffect(() => {
-  const handleDragEnd = () => setIsDragging(false);
-  window.addEventListener('dragend', handleDragEnd);
-  return () => window.removeEventListener('dragend', handleDragEnd);
-}, []);
-
-<Popover>
-  <PopoverContent 
-    onInteractOutside={(e) => {
-      if (isDragging) {
-        e.preventDefault();
-      }
-    }}
-  >
-    <StickerPicker 
-      onSelect={handleStickerSelect}
-      onDragStart={() => setIsDragging(true)}
-    />
-  </PopoverContent>
-</Popover>
-```
-
-### Canvas Drop Zone Enhancement
-
-```typescript
-// Add visual feedback during drag
-const [isDragOver, setIsDragOver] = useState(false);
-
-const handleDragEnter = (e: React.DragEvent) => {
-  e.preventDefault();
-  setIsDragOver(true);
-};
-
-const handleDragLeave = (e: React.DragEvent) => {
-  e.preventDefault();
-  setIsDragOver(false);
-};
-
-const handleDrop = (e: React.DragEvent) => {
-  e.preventDefault();
-  setIsDragOver(false);
-  // ... existing drop logic
-};
-
-<canvas
-  className={cn(
-    'absolute inset-0 w-full h-full z-10',
-    isDragOver && 'ring-2 ring-primary ring-inset'
-  )}
-  style={{ pointerEvents: 'auto' }}
-  onDragEnter={handleDragEnter}
-  onDragOver={handleDragOver}
-  onDragLeave={handleDragLeave}
-  onDrop={handleDrop}
-/>
-```
-
----
-
-## Expected Behavior After Fix
-
-### Mobile Flip Animation
-1. User taps "Next" button
-2. Current page slides out to the left with fade
-3. New page slides in from the right with fade
-4. Animation duration: 250ms
-5. Works for both Next and Previous navigation
-
-### Drag-and-Drop Stickers
-1. User opens Stickers popover
-2. User drags emoji/icon from picker
-3. Popover stays open during drag
-4. User drops sticker onto book page
-5. Canvas shows visual feedback (ring) during drag over
-6. Sticker appears at drop location
-7. Popover can then be closed manually
+1. **User opens Library**: Sees books with "AI Indexed" badges
+2. **User types "photosynthesis" in search**: Type-ahead shows suggestions
+3. **User clicks "AI Search" button**: Full content search initiated
+4. **Search Results appear**: Shows all matching pages across books
+5. **User clicks "Page 45 - Science Grade 7"**: Flipbook opens at page 45
+6. **Keyword highlighted**: User sees the matching content immediately
 
 ---
 
 ## Benefits
 
-1. **Better UX**: Smooth page transitions make the reader feel more like a physical book
-2. **Intuitive Interaction**: Drag-and-drop is a natural way to place stickers
-3. **Visual Feedback**: Users see clearly where stickers will be placed
-4. **Cross-Platform**: Works on both desktop and mobile/tablet views
+1. **Deep Content Search**: Find content inside books, not just by title
+2. **Topic Discovery**: AI extracts lesson topics for easy navigation
+3. **Time Savings**: Students find relevant pages instantly
+4. **Automatic Processing**: No manual tagging required
+5. **Scalable**: Works with any number of books
 
