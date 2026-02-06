@@ -91,6 +91,72 @@ export type Database = {
         }
         Relationships: []
       }
+      book_page_index: {
+        Row: {
+          book_id: string
+          chapter_title: string | null
+          created_at: string
+          extracted_text: string | null
+          id: string
+          index_status: string
+          indexed_at: string | null
+          keywords: string[] | null
+          page_id: string
+          page_number: number
+          search_vector: unknown
+          summary: string | null
+          topics: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          book_id: string
+          chapter_title?: string | null
+          created_at?: string
+          extracted_text?: string | null
+          id?: string
+          index_status?: string
+          indexed_at?: string | null
+          keywords?: string[] | null
+          page_id: string
+          page_number: number
+          search_vector?: unknown
+          summary?: string | null
+          topics?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          book_id?: string
+          chapter_title?: string | null
+          created_at?: string
+          extracted_text?: string | null
+          id?: string
+          index_status?: string
+          indexed_at?: string | null
+          keywords?: string[] | null
+          page_id?: string
+          page_number?: number
+          search_vector?: unknown
+          summary?: string | null
+          topics?: string[] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "book_page_index_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "book_page_index_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "book_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       book_pages: {
         Row: {
           book_id: string
@@ -132,6 +198,7 @@ export type Database = {
           created_at: string
           grade_level: number
           id: string
+          index_status: string | null
           is_active: boolean | null
           page_count: number | null
           pdf_url: string | null
@@ -147,6 +214,7 @@ export type Database = {
           created_at?: string
           grade_level: number
           id?: string
+          index_status?: string | null
           is_active?: boolean | null
           page_count?: number | null
           pdf_url?: string | null
@@ -162,6 +230,7 @@ export type Database = {
           created_at?: string
           grade_level?: number
           id?: string
+          index_status?: string | null
           is_active?: boolean | null
           page_count?: number | null
           pdf_url?: string | null

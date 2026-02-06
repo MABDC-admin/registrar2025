@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { BookOpen, Loader2, MoreVertical, Pencil, Trash2, Eye, EyeOff } from 'lucide-react';
+import { BookOpen, Loader2, MoreVertical, Pencil, Trash2, Eye, EyeOff, Sparkles, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { BookIndexStatus } from '@/hooks/useBookIndexing';
 
 interface Book {
   id: string;
@@ -31,7 +38,10 @@ interface BookCardProps {
   onEdit?: () => void;
   onToggleActive?: () => void;
   onDelete?: () => void;
+  onStartIndexing?: () => void;
   canManage?: boolean;
+  indexStatus?: BookIndexStatus;
+  isIndexing?: boolean;
 }
 
 export const BookCard = ({ 
@@ -41,10 +51,85 @@ export const BookCard = ({
   onEdit,
   onToggleActive,
   onDelete,
+  onStartIndexing,
   canManage = false,
+  indexStatus,
+  isIndexing = false,
 }: BookCardProps) => {
   const isProcessing = book.status === 'processing';
   const hasError = book.status === 'error';
+
+  const getIndexBadge = () => {
+    if (!indexStatus) return null;
+
+    const { index_status, indexed_pages, total_pages } = indexStatus;
+
+    if (index_status === 'indexed') {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge 
+                variant="secondary" 
+                className="text-[10px] px-1.5 py-0.5 bg-primary/20 text-primary gap-1"
+              >
+                <Sparkles className="h-2.5 w-2.5" />
+                AI
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>AI indexed - {indexed_pages} pages searchable</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+
+    if (index_status === 'indexing' || isIndexing) {
+      const progress = total_pages > 0 ? Math.round((indexed_pages / total_pages) * 100) : 0;
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge 
+                variant="secondary" 
+                className="text-[10px] px-1.5 py-0.5 bg-secondary text-secondary-foreground gap-1"
+              >
+                <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                {progress}%
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Indexing... {indexed_pages}/{total_pages} pages</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+
+    if (index_status === 'error') {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge 
+                variant="secondary" 
+                className="text-[10px] px-1.5 py-0.5 bg-destructive/20 text-destructive gap-1"
+              >
+                <Sparkles className="h-2.5 w-2.5" />
+                Error
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Indexing failed - click to retry</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+
+    return null;
+  };
 
   return (
     <motion.div
@@ -117,7 +202,7 @@ export const BookCard = ({
             </div>
           )}
 
-          {/* Grade Level Badge & Actions */}
+          {/* Badges Row */}
           <div className="absolute top-2 right-2 flex items-center gap-1">
             {canManage && (
               <DropdownMenu>
@@ -149,6 +234,16 @@ export const BookCard = ({
                     )}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
+                  {onStartIndexing && (
+                    <DropdownMenuItem 
+                      onClick={onStartIndexing}
+                      disabled={isIndexing || indexStatus?.index_status === 'indexing'}
+                    >
+                      <RefreshCw className={cn("h-4 w-4 mr-2", isIndexing && "animate-spin")} />
+                      {indexStatus?.index_status === 'indexed' ? 'Re-index for AI' : 'Index for AI Search'}
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={onDelete} className="text-destructive">
                     <Trash2 className="h-4 w-4 mr-2" />
                     Delete
@@ -164,17 +259,18 @@ export const BookCard = ({
             </Badge>
           </div>
 
-          {/* Page Count */}
-          {book.page_count > 0 && (
-            <div className="absolute bottom-2 left-2">
+          {/* AI Index Status Badge - Bottom Left */}
+          <div className="absolute bottom-2 left-2 flex items-center gap-1">
+            {book.page_count > 0 && (
               <Badge
                 variant="outline"
                 className="text-[10px] px-1.5 py-0.5 bg-background/90 backdrop-blur-sm"
               >
                 {book.page_count} pages
               </Badge>
-            </div>
-          )}
+            )}
+            {getIndexBadge()}
+          </div>
         </div>
 
         {/* Title */}

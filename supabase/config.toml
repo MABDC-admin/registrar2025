@@ -35,3 +35,9 @@ verify_jwt = false
 
 [functions.detect-page-number]
 verify_jwt = false
+
+[functions.ocr-index-book]
+verify_jwt = false
+
+[functions.search-books]
+verify_jwt = false
