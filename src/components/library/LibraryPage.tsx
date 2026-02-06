@@ -183,34 +183,8 @@ export const LibraryPage = () => {
     },
   });
 
-  // Auto-trigger indexing for pending books on library load
-  useEffect(() => {
-    const indexPendingBooks = async () => {
-      const pendingBooks = books.filter(
-        book => book.status === 'ready' && (!book.index_status || book.index_status === 'pending')
-      );
-      
-      if (pendingBooks.length === 0) return;
-      
-      toast.info(`AI is scanning ${pendingBooks.length} book(s) for topics and lessons...`);
-      
-      for (const book of pendingBooks) {
-        // Check if already being indexed
-        if (isIndexing === book.id) continue;
-        
-        console.log(`Auto-indexing: ${book.title}`);
-        await startIndexing(book.id);
-        
-        // Wait 2 seconds between books to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
-    };
-
-    // Only run once when books load and nothing is currently indexing
-    if (books.length > 0 && !isIndexing) {
-      indexPendingBooks();
-    }
-  }, [books.length]); // Only depend on books.length to run once
+  // NOTE: Auto-indexing is disabled. Indexing runs at midnight UAE via scheduled job.
+  // Books with pending status will be indexed sequentially by the cron job.
 
   // Filter books based on selections
   const filteredBooks = useMemo(() => {
