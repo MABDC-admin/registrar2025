@@ -1,47 +1,100 @@
 
-
-# Add Text Labels to View Mode Icons
+# Filter Library Books by Student Grade Level
 
 ## Overview
 
-This will add visible text labels alongside the icons for the Thumbnails, Single Page View, and Two Page View buttons in the flipbook viewer toolbar, making them easier to understand at a glance.
+When a student logs in to access the Library, they will only see books matching their grade level. This ensures students see age-appropriate content and declutters the library view. Admin and registrar users will continue to see all books with the grade filter option.
 
-## Current State
+## Current Behavior
 
-The toolbar currently has:
-- **Thumbnails button**: Grid icon only (tooltip: "View All Pages")
-- **Single Page View button**: Image icon only (tooltip: "Single Page View")  
-- **Two Page View button**: Columns2 icon only (tooltip: "Two Page Spread")
-
-These only show text when hovering (via tooltips), which isn't immediately visible.
+- All authenticated users see all books in the library
+- Grade filter dropdown is available for manual filtering
+- No automatic filtering based on the logged-in student's grade
 
 ## Changes
 
-### File: `src/components/library/AnnotationToolbar.tsx`
+### 1. Fetch Student Grade Level for Library Filtering
 
-| Button | Current | After |
-|--------|---------|-------|
-| Thumbnails | Icon only | Icon + "Thumbnails" |
-| Single Page | Icon only | Icon + "1 Page" |
-| Two Page | Icon only | Icon + "2 Pages" |
+The LibraryPage component will fetch the student's grade level when a student user is viewing the library.
 
-The buttons will be changed from icon-only (`size="icon"`) to include visible text labels while keeping the icons.
+**Data Flow:**
+1. Check if the current user role is "student"
+2. If student, fetch their record from `user_credentials` -> `students` (same pattern as StudentPortal)
+3. Extract the numeric grade level from the student's `level` field (e.g., "Level 3" -> 3)
+4. Auto-set the grade filter and hide the dropdown
 
-## Visual Result
+### 2. Grade Level Parsing
 
-```text
-Before:
-[ Grid Icon ] [ Image Icon ] [ Columns Icon ]
+Student levels come in various formats:
+- "Level 3" -> Grade 3
+- "Kinder 1" / "Kinder 2" -> May not have matching books (handled gracefully)
+- "Grade 1" -> Grade 1
 
-After:
-[ Grid Icon Thumbnails ] [ Image Icon 1 Page ] [ Columns Icon 2 Pages ]
-```
+A utility function will parse these strings to extract the numeric grade:
+- Extract number from "Level X" format
+- Handle "Kinder" as special case (no books or Grade 0)
+- Fall back to showing all books if parsing fails
+
+### 3. UI Changes for Students
+
+| Element | Admin/Registrar | Student |
+|---------|-----------------|---------|
+| Grade filter dropdown | Visible | Hidden |
+| "All Grades" option | Available | Not applicable |
+| Books shown | All (or filtered) | Only their grade level |
+| AI Search | Available | Available (auto-filtered to grade) |
+
+### File Modified
+
+`src/components/library/LibraryPage.tsx`:
+- Add query to fetch student data when role is "student"
+- Add utility function to parse level string to grade number
+- Auto-set `selectedGrade` based on student level
+- Conditionally hide the grade filter dropdown for students
+- Update the empty state message for students
 
 ## Technical Details
 
-- Modify the three button components in `AnnotationToolbar.tsx`
-- Change `size="icon"` to `size="sm"` for proper spacing
-- Add text spans after each icon with appropriate labels
-- Keep existing tooltip functionality for additional context
-- Maintain current styling and responsiveness
+```text
+Student Login Flow:
+┌─────────────────┐
+│ Student logs in │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────────────────┐
+│ LibraryPage detects         │
+│ role === 'student'          │
+└────────┬────────────────────┘
+         │
+         ▼
+┌─────────────────────────────┐
+│ Fetch student data via      │
+│ user_credentials + students │
+└────────┬────────────────────┘
+         │
+         ▼
+┌─────────────────────────────┐
+│ Parse level: "Level 3" -> 3 │
+└────────┬────────────────────┘
+         │
+         ▼
+┌─────────────────────────────┐
+│ Filter books where          │
+│ grade_level === 3           │
+│ (auto-applied, no dropdown) │
+└─────────────────────────────┘
+```
 
+## Edge Cases
+
+- **Kinder students**: Will see a friendly "no books for your level" message
+- **Invalid level format**: Falls back to showing all books with a warning
+- **Missing student record**: Falls back to showing all books
+
+## Both Schools Covered
+
+The filtering works for both MABDC and STFXSA since:
+- The school filter is already applied via `selectedSchool` from SchoolContext
+- Student grade filtering is an additional layer on top
+- Books with `school = null` (shared) are still shown if they match the grade
