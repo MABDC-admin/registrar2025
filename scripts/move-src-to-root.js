@@ -1,8 +1,13 @@
 const fs = require('fs');
 const path = require('path');
 
-const srcDir = path.resolve(__dirname, '..', 'src');
-const rootDir = path.resolve(__dirname, '..');
+// Script runs from /home/user/ which is where the project files are
+const rootDir = process.cwd();
+const srcDir = path.join(rootDir, 'src');
+
+console.log('rootDir:', rootDir);
+console.log('srcDir:', srcDir);
+console.log('srcDir exists:', fs.existsSync(srcDir));
 
 function copyRecursive(srcPath, destPath) {
   const stat = fs.statSync(srcPath);
