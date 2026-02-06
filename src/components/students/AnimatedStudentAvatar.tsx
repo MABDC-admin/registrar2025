@@ -79,13 +79,13 @@ export const AnimatedStudentAvatar = ({
   const eyeSize = eyeSizeMap[size];
 
   if (photoUrl) {
-    // Photo avatar with subtle floating animation
+    // Photo avatar with breathing and swaying animations
     return (
       <div
         className={cn(
           sizeMap[size],
           'rounded-full overflow-hidden border-2 border-border shrink-0',
-          enableAnimation && 'animate-avatar-float',
+          enableAnimation && 'animate-avatar-float animate-avatar-breathe animate-avatar-sway',
           className
         )}
         style={{
