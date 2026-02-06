@@ -362,6 +362,25 @@
   animation: avatar-look 6s ease-in-out infinite;
 }
 
+@keyframes avatar-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+@keyframes avatar-sway {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-1.5deg); }
+  75% { transform: rotate(1.5deg); }
+}
+
+.animate-avatar-breathe {
+  animation: avatar-breathe 3s ease-in-out infinite;
+}
+
+.animate-avatar-sway {
+  animation: avatar-sway 4s ease-in-out infinite;
+}
+
 /* Accessibility: Respect reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
   .animate-avatar-float,
