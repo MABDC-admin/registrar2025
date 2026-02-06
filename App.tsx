@@ -9,10 +9,10 @@ import { ColorThemeProvider } from "@/contexts/ColorThemeContext";
 import { SchoolProvider } from "@/contexts/SchoolContext";
 import { AcademicYearProvider } from "@/contexts/AcademicYearContext";
 import { DashboardLayoutProvider } from "@/contexts/DashboardLayoutContext";
-import Index from "./pages/Index";
-import StudentProfile from "./pages/StudentProfile";
-import Auth from "./pages/Auth";
-import NotFound from "./pages/NotFound";
+import Index from "@/views/Index";
+import StudentProfile from "@/views/StudentProfile";
+import Auth from "@/views/Auth";
+import NotFound from "@/views/NotFound";
 
 const queryClient = new QueryClient();
 
