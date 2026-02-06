@@ -1,87 +1,66 @@
 
-# Add Animated Avatar to Profile Modal & Update Grid Layout
+# Enhance Photo Avatar Animations
 
 ## Summary
 
-This plan adds the animated avatar to the student profile modal header and adjusts the student card grid from 6 columns to 5 columns maximum.
+Add breathing and swaying animations to real photo avatars so they feel more alive, matching the lively experience of character avatars.
 
-## Changes Overview
+## Current vs New
 
-| File | Change |
-|------|--------|
-| `StudentProfileModal.tsx` | Replace static avatar with AnimatedStudentAvatar component |
-| `StudentTable.tsx` | Change grid from 6 to 5 columns max on 2xl screens |
+| Avatar Type | Current Animations | After Enhancement |
+|-------------|-------------------|-------------------|
+| **Photo** | Subtle float only | Float + Breathe + Sway |
+| **Character** | Float + Blink + Look | No change |
 
-## Technical Details
+## Technical Changes
 
-### 1. StudentProfileModal.tsx - Add Animated Avatar
+### 1. Add New Keyframes to `src/index.css`
 
-Replace the static avatar in the modal header (lines 162-174) with the reusable `AnimatedStudentAvatar` component:
+```css
+@keyframes avatar-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
 
-**Current code:**
-```tsx
-{student.photo_url ? (
-  <img src={student.photo_url} ... />
-) : (
-  <div className="...">
-    <span>{initials}</span>
-  </div>
-)}
+@keyframes avatar-sway {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-1.5deg); }
+  75% { transform: rotate(1.5deg); }
+}
+
+.animate-avatar-breathe {
+  animation: avatar-breathe 3s ease-in-out infinite;
+}
+
+.animate-avatar-sway {
+  animation: avatar-sway 4s ease-in-out infinite;
+}
 ```
 
-**New code:**
+### 2. Update Photo Avatar in `AnimatedStudentAvatar.tsx`
+
+Replace the single `animate-avatar-float` with combined animations:
+
 ```tsx
-<AnimatedStudentAvatar
-  photoUrl={student.photo_url}
-  name={student.student_name}
-  size="lg"
-  borderColor="rgba(255,255,255,0.3)"
-/>
-```
+// Before (line 88)
+enableAnimation && 'animate-avatar-float'
 
-This adds:
-- Gentle floating animation
-- Blinking eyes for non-photo avatars
-- Consistent styling with other avatar instances
-
-### 2. StudentTable.tsx - Reduce Grid to 5 Columns
-
-Update the grid class on line 337:
-
-**Current:**
-```tsx
-grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6
-```
-
-**New:**
-```tsx
-grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5
-```
-
-This removes the 6-column breakpoint at `2xl`, capping at 5 columns on all larger screens. Cards will be slightly larger and easier to view.
-
-## Visual Result
-
-```text
-Before (2xl screens):        After (2xl screens):
-┌───┬───┬───┬───┬───┬───┐    ┌────┬────┬────┬────┬────┐
-│ 1 │ 2 │ 3 │ 4 │ 5 │ 6 │    │  1 │  2 │  3 │  4 │  5 │
-├───┼───┼───┼───┼───┼───┤    ├────┼────┼────┼────┼────┤
-│ 7 │ 8 │ 9 │...│   │   │    │  6 │  7 │  8 │  9 │ 10 │
-└───┴───┴───┴───┴───┴───┘    └────┴────┴────┴────┴────┘
-   (6 smaller cards)            (5 larger cards)
+// After
+enableAnimation && 'animate-avatar-float animate-avatar-breathe animate-avatar-sway'
 ```
 
 ## Files to Modify
 
-1. `src/components/students/StudentProfileModal.tsx`
-   - Import AnimatedStudentAvatar
-   - Replace header avatar with animated version
+| File | Change |
+|------|--------|
+| `src/index.css` | Add `avatar-breathe` and `avatar-sway` keyframes + animation classes |
+| `src/components/students/AnimatedStudentAvatar.tsx` | Apply combined animations to photo avatars |
 
-2. `src/components/students/StudentTable.tsx`
-   - Remove `2xl:grid-cols-6` from grid class
+## Visual Result
 
-## Implementation Order
+Photo avatars will have:
+- **Float**: Gentle up/down movement (existing)
+- **Breathe**: Subtle scale pulse like breathing (new)
+- **Sway**: Gentle side-to-side rocking (new)
 
-1. Update StudentProfileModal.tsx with AnimatedStudentAvatar
-2. Update StudentTable.tsx grid columns
+This makes photo avatars feel alive and engaging, similar to the character avatars with blinking eyes.
