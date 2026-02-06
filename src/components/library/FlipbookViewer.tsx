@@ -199,7 +199,7 @@ export const FlipbookViewer = ({
         setCurrentSpread((s) => Math.max(0, s - 1));
         setIsFlipping(false);
         setFlipDirection(null);
-      }, 300);
+      }, 600); // Match the flip animation duration
     }
   }, [currentSpread, isFlipping]);
 
@@ -211,7 +211,7 @@ export const FlipbookViewer = ({
         setCurrentSpread((s) => Math.min(totalSpreads - 1, s + 1));
         setIsFlipping(false);
         setFlipDirection(null);
-      }, 300);
+      }, 600); // Match the flip animation duration
     }
   }, [currentSpread, totalSpreads, isFlipping]);
 
@@ -473,95 +473,141 @@ export const FlipbookViewer = ({
           {isLoading ? (
             <div className="text-muted-foreground">Loading pages...</div>
           ) : isDesktop && leftPage ? (
-            /* Desktop: 2-Page Spread with Enhanced 3D Flip Animation */
+            /* Desktop: 2-Page Spread with Heyzine-style Book Flip Animation */
             <div
               className="relative flex items-center justify-center"
               style={{ 
                 transform: `scale(${zoom})`, 
                 transformOrigin: 'center center',
-                perspective: '2000px',
+                perspective: '2500px',
               }}
             >
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={currentSpread}
-                  initial={{ 
-                    rotateY: flipDirection === 'right' ? -90 : flipDirection === 'left' ? 90 : 0,
-                    opacity: 0,
-                    x: flipDirection === 'right' ? 50 : flipDirection === 'left' ? -50 : 0,
-                  }}
-                  animate={{ 
-                    rotateY: 0,
-                    opacity: 1,
-                    x: 0,
-                  }}
-                  exit={{ 
-                    rotateY: flipDirection === 'right' ? 90 : flipDirection === 'left' ? -90 : 0,
-                    opacity: 0,
-                    x: flipDirection === 'right' ? -50 : flipDirection === 'left' ? 50 : 0,
-                  }}
-                  transition={{ 
-                    duration: 0.5, 
-                    ease: [0.4, 0, 0.2, 1],
-                  }}
-                  className="flex items-center justify-center gap-0"
+              {/* Book container */}
+              <div 
+                className="relative flex"
+                style={{ transformStyle: 'preserve-3d' }}
+              >
+                {/* Left Page - Static during forward flip, animates during backward flip */}
+                <div 
+                  className="relative bg-white shadow-xl"
                   style={{ 
                     transformStyle: 'preserve-3d',
-                    transformOrigin: flipDirection === 'right' ? 'left center' : 'right center',
+                    zIndex: flipDirection === 'left' ? 10 : 1,
                   }}
                 >
-                  {/* Left Page */}
-                  <motion.div 
-                    className="relative shadow-2xl bg-white"
+                  <img
+                    src={leftPage.image_url}
+                    alt={`Page ${leftPageIndex + 1}`}
+                    className="max-h-[calc(100vh-200px)] w-auto block"
+                    draggable={false}
+                  />
+                  {/* Inner shadow near spine */}
+                  <div className="absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-black/8 to-transparent pointer-events-none" />
+                </div>
+                
+                {/* Spine */}
+                <div className="w-[3px] bg-gradient-to-r from-gray-400 via-gray-300 to-gray-400 self-stretch shadow-md" />
+                
+                {/* Right Page - Static during backward flip, animates during forward flip */}
+                {rightPage && (
+                  <div 
+                    className="relative bg-white shadow-xl"
                     style={{ 
                       transformStyle: 'preserve-3d',
-                      backfaceVisibility: 'hidden',
+                      zIndex: flipDirection === 'right' ? 10 : 1,
                     }}
-                    initial={{ rotateY: flipDirection === 'left' ? 45 : 0 }}
-                    animate={{ rotateY: 0 }}
-                    transition={{ duration: 0.4, ease: 'easeOut' }}
                   >
                     <img
-                      src={leftPage.image_url}
-                      alt={`Page ${leftPageIndex + 1}`}
-                      className="max-h-[calc(100vh-200px)] w-auto"
+                      src={rightPage.image_url}
+                      alt={`Page ${rightPageIndex + 1}`}
+                      className="max-h-[calc(100vh-200px)] w-auto block"
                       draggable={false}
                     />
-                    {/* Page curl effect - enhanced shadow */}
-                    <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-black/10 via-black/5 to-transparent pointer-events-none" />
-                    {/* Inner page shadow */}
-                    <div className="absolute inset-0 shadow-inner pointer-events-none" />
-                  </motion.div>
-                  
-                  {/* Center spine */}
-                  <div className="w-1 bg-gradient-to-r from-black/20 via-black/30 to-black/20 self-stretch" />
-                  
-                  {/* Right Page */}
-                  {rightPage && (
-                    <motion.div 
-                      className="relative shadow-2xl bg-white"
+                    {/* Inner shadow near spine */}
+                    <div className="absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-black/8 to-transparent pointer-events-none" />
+                  </div>
+                )}
+
+                {/* Flipping Page Overlay - This creates the actual flip effect */}
+                <AnimatePresence mode="wait">
+                  {isFlipping && (
+                    <motion.div
+                      key={`flip-${currentSpread}-${flipDirection}`}
+                      className="absolute inset-0 flex"
                       style={{ 
                         transformStyle: 'preserve-3d',
-                        backfaceVisibility: 'hidden',
+                        pointerEvents: 'none',
                       }}
-                      initial={{ rotateY: flipDirection === 'right' ? -45 : 0 }}
-                      animate={{ rotateY: 0 }}
-                      transition={{ duration: 0.4, ease: 'easeOut' }}
+                      initial={{ opacity: 1 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.05 }}
                     >
-                      <img
-                        src={rightPage.image_url}
-                        alt={`Page ${rightPageIndex + 1}`}
-                        className="max-h-[calc(100vh-200px)] w-auto"
-                        draggable={false}
-                      />
-                      {/* Page curl effect - enhanced shadow */}
-                      <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-black/10 via-black/5 to-transparent pointer-events-none" />
-                      {/* Inner page shadow */}
-                      <div className="absolute inset-0 shadow-inner pointer-events-none" />
+                      {/* Flipping page - positioned over right page for forward, left for backward */}
+                      <motion.div
+                        className="absolute bg-white shadow-2xl overflow-hidden"
+                        style={{
+                          width: flipDirection === 'right' 
+                            ? (rightPage ? '50%' : '0') 
+                            : '50%',
+                          height: '100%',
+                          left: flipDirection === 'right' ? '50%' : '0',
+                          right: flipDirection === 'right' ? '0' : 'auto',
+                          transformOrigin: flipDirection === 'right' ? 'left center' : 'right center',
+                          transformStyle: 'preserve-3d',
+                          backfaceVisibility: 'hidden',
+                          zIndex: 20,
+                        }}
+                        initial={{ 
+                          rotateY: 0,
+                          boxShadow: '0 0 20px rgba(0,0,0,0.1)',
+                        }}
+                        animate={{ 
+                          rotateY: flipDirection === 'right' ? -180 : 180,
+                          boxShadow: '0 0 50px rgba(0,0,0,0.3)',
+                        }}
+                        transition={{ 
+                          duration: 0.6,
+                          ease: [0.645, 0.045, 0.355, 1], // Cubic bezier for realistic page flip
+                        }}
+                      >
+                        {/* Front of flipping page */}
+                        <div 
+                          className="absolute inset-0 bg-white"
+                          style={{ backfaceVisibility: 'hidden' }}
+                        >
+                          <img
+                            src={flipDirection === 'right' ? rightPage?.image_url : leftPage.image_url}
+                            alt="Flipping page"
+                            className="w-full h-full object-cover"
+                            draggable={false}
+                          />
+                          {/* Page shadow during flip */}
+                          <motion.div 
+                            className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-black/20 pointer-events-none"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: 0.3 }}
+                          />
+                        </div>
+                        
+                        {/* Back of flipping page (shows next spread's page) */}
+                        <div 
+                          className="absolute inset-0 bg-white"
+                          style={{ 
+                            backfaceVisibility: 'hidden',
+                            transform: 'rotateY(180deg)',
+                          }}
+                        >
+                          <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                            <span className="text-gray-400 text-sm">Loading...</span>
+                          </div>
+                        </div>
+                      </motion.div>
                     </motion.div>
                   )}
-                </motion.div>
-              </AnimatePresence>
+                </AnimatePresence>
+              </div>
             </div>
           ) : currentPageData ? (
             <AnimatePresence mode="wait" custom={slideDirection}>
