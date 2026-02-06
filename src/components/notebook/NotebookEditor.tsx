@@ -142,7 +142,7 @@ export function NotebookEditor({ notebookId }: NotebookEditorProps) {
       }
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/notebook-chat`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/notebook-chat`,
         {
           method: 'POST',
           headers: {
@@ -233,7 +233,7 @@ export function NotebookEditor({ notebookId }: NotebookEditorProps) {
       }
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-presentation`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/generate-presentation`,
         {
           method: 'POST',
           headers: {

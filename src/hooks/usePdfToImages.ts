@@ -1,10 +1,9 @@
 import { useState, useCallback } from 'react';
-import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
-import workerSrc from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
+import * as pdfjsLib from 'pdfjs-dist';
 import { supabase } from '@/integrations/supabase/client';
 
-// Configure worker (bundled with the app)
-pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
+// Configure worker via CDN to avoid bundler issues
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 export interface RenderProgress {
   total: number;

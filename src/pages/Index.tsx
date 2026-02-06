@@ -78,7 +78,7 @@ const Index = () => {
       toast.info('Completing Canva connection...');
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/canva-auth?action=callback&code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/canva-auth?action=callback&code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`,
         {
           headers: {
             'Authorization': `Bearer ${currentSession.access_token}`,

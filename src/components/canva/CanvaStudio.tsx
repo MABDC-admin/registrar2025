@@ -32,7 +32,7 @@ export const CanvaStudio = () => {
       }
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/canva-auth?action=status`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/canva-auth?action=status`,
         {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
@@ -65,7 +65,7 @@ export const CanvaStudio = () => {
       if (!session) return;
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/canva-auth`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/canva-auth`,
         {
           method: 'DELETE',
           headers: {

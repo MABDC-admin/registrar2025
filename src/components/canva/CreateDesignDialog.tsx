@@ -65,7 +65,7 @@ export const CreateDesignDialog = ({ onDesignCreated }: CreateDesignDialogProps)
       }
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/canva-api?endpoint=/designs`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/canva-api?endpoint=/designs`,
         {
           method: 'POST',
           headers: {

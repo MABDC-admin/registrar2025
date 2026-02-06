@@ -24,7 +24,7 @@ export const CanvaConnectButton = ({ onConnected }: CanvaConnectButtonProps) => 
       const redirectUri = `${window.location.origin}${window.location.pathname}`;
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/canva-auth?action=authorize&redirect_uri=${encodeURIComponent(redirectUri)}`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/canva-auth?action=authorize&redirect_uri=${encodeURIComponent(redirectUri)}`,
         {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
