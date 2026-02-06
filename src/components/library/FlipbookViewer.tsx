@@ -10,12 +10,16 @@ import {
   Minimize,
   Menu,
   LayoutGrid,
+  ScanLine,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { useAnnotations } from '@/hooks/useAnnotations';
+import { usePageDetection } from '@/hooks/usePageDetection';
 import { AnnotationToolbar } from './AnnotationToolbar';
 import { StickerOverlay, PlacedSticker } from './StickerOverlay';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -86,6 +90,15 @@ export const FlipbookViewer = ({
     canRedo,
   } = useAnnotations();
 
+  // Page detection hook
+  const {
+    detectedPages,
+    isDetecting,
+    detectionProgress,
+    detectPagesSequentially,
+    getPageDisplayInfo,
+  } = usePageDetection({ bookId });
+
   // Fetch pages
   useEffect(() => {
     const fetchPages = async () => {
@@ -103,6 +116,19 @@ export const FlipbookViewer = ({
 
     fetchPages();
   }, [bookId]);
+
+  // Auto-detect page numbers when pages are loaded
+  useEffect(() => {
+    if (pages.length > 0 && detectedPages.size === 0 && !isDetecting) {
+      // Prepare pages for detection (use thumbnails for faster processing)
+      const pagesToDetect = pages.map(page => ({
+        pageIndex: page.page_number - 1,
+        imageUrl: page.thumbnail_url || page.image_url
+      }));
+      
+      detectPagesSequentially(pagesToDetect);
+    }
+  }, [pages, detectedPages.size, isDetecting, detectPagesSequentially]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -398,17 +424,47 @@ export const FlipbookViewer = ({
         </div>
 
         <div className="flex items-center gap-1">
-          {/* Page indicator */}
-          <span className="text-sm text-muted-foreground mr-2">
-            {isDesktop ? (
-              <>
-                {leftPageIndex + 1}
-                {rightPage ? `-${rightPageIndex + 1}` : ''} / {pages.length}
-              </>
+          {/* AI Detection Status */}
+          {isDetecting && (
+            <div className="flex items-center gap-2 mr-4 text-sm text-muted-foreground">
+              <ScanLine className="h-4 w-4 animate-pulse text-primary" />
+              <span>Scanning pages...</span>
+              <Progress value={detectionProgress} className="w-20 h-2" />
+            </div>
+          )}
+          
+          {/* Page indicator with detected page numbers */}
+          <div className="flex items-center gap-2 mr-2">
+            {isDesktop && viewMode === 'spread' ? (
+              <span className="text-lg font-bold text-foreground">
+                {(() => {
+                  const leftInfo = getPageDisplayInfo(leftPageIndex);
+                  const rightInfo = rightPage ? getPageDisplayInfo(rightPageIndex) : null;
+                  const leftDisplay = leftInfo.pageType === 'cover' ? 'Cover' : 
+                                      leftInfo.pageType === 'blank' ? '—' : 
+                                      `Page ${leftInfo.displayNumber}`;
+                  const rightDisplay = rightInfo ? (
+                    rightInfo.pageType === 'cover' ? 'Cover' :
+                    rightInfo.pageType === 'blank' ? '—' :
+                    `Page ${rightInfo.displayNumber}`
+                  ) : '';
+                  return rightDisplay ? `${leftDisplay} • ${rightDisplay}` : leftDisplay;
+                })()}
+              </span>
             ) : (
-              <>{currentPage} / {pages.length}</>
+              <span className="text-lg font-bold text-foreground">
+                {(() => {
+                  const info = getPageDisplayInfo(currentPage - 1);
+                  return info.pageType === 'cover' ? 'Cover' :
+                         info.pageType === 'blank' ? 'Blank Page' :
+                         `Page ${info.displayNumber}`;
+                })()}
+              </span>
             )}
-          </span>
+            <span className="text-sm text-muted-foreground">
+              ({isDesktop && viewMode === 'spread' ? `${leftPageIndex + 1}${rightPage ? `-${rightPageIndex + 1}` : ''}` : currentPage} / {pages.length})
+            </span>
+          </div>
 
           {/* Zoom controls */}
           <Button variant="ghost" size="icon" onClick={handleZoomOut}>
@@ -472,26 +528,50 @@ export const FlipbookViewer = ({
                     const isInCurrentSpread = isDesktop && 
                       (page.page_number === leftPageIndex + 1 || page.page_number === rightPageIndex + 1);
                     const isCurrentMobile = !isDesktop && currentPage === page.page_number;
+                    const pageInfo = getPageDisplayInfo(page.page_number - 1);
                     
                     return (
                       <button
                         key={page.id}
                         onClick={() => goToPage(page.page_number)}
                         className={cn(
-                          'w-full rounded-lg overflow-hidden border-2 transition-colors',
+                          'w-full rounded-lg overflow-hidden border-2 transition-colors relative',
                           (isInCurrentSpread || isCurrentMobile)
                             ? 'border-primary'
-                            : 'border-transparent hover:border-muted-foreground/30'
+                            : 'border-transparent hover:border-muted-foreground/30',
+                          pageInfo.shouldHide && 'opacity-60'
                         )}
                       >
-                        <img
-                          src={page.thumbnail_url || page.image_url}
-                          alt={`Page ${page.page_number}`}
-                          className="w-full aspect-[3/4] object-cover"
-                        />
-                        <p className="text-xs text-center py-1.5 bg-muted/50 font-medium">
-                          {page.page_number}
-                        </p>
+                        <div className="relative">
+                          <img
+                            src={page.thumbnail_url || page.image_url}
+                            alt={`Page ${page.page_number}`}
+                            className="w-full aspect-[3/4] object-cover"
+                          />
+                          {/* Page type badge */}
+                          {pageInfo.isDetected && pageInfo.pageType !== 'numbered' && (
+                            <div className={cn(
+                              'absolute top-1 right-1 px-1.5 py-0.5 rounded text-[10px] font-medium',
+                              pageInfo.pageType === 'cover' && 'bg-primary text-primary-foreground',
+                              pageInfo.pageType === 'blank' && 'bg-muted text-muted-foreground'
+                            )}>
+                              {pageInfo.pageType === 'cover' ? 'Cover' : 'Blank'}
+                            </div>
+                          )}
+                        </div>
+                        <div className="py-1.5 bg-muted/50">
+                          <p className={cn(
+                            'text-center font-bold',
+                            pageInfo.isDetected ? 'text-base' : 'text-xs'
+                          )}>
+                            {pageInfo.isDetected ? pageInfo.displayNumber : page.page_number}
+                          </p>
+                          {pageInfo.isDetected && pageInfo.pageType === 'numbered' && (
+                            <p className="text-[10px] text-center text-muted-foreground">
+                              (index {page.page_number})
+                            </p>
+                          )}
+                        </div>
                       </button>
                     );
                   })}
@@ -819,33 +899,54 @@ export const FlipbookViewer = ({
             </div>
             <ScrollArea className="flex-1">
               <div className="grid grid-cols-3 md:grid-cols-4 gap-3 p-3">
-                {pages.map((page) => (
-                  <button
-                    key={page.id}
-                    ref={(el) => {
-                      if (el) thumbnailRefs.current.set(page.page_number, el);
-                    }}
-                    onClick={() => {
-                      setCurrentPage(page.page_number);
-                      setShowMobileThumbnails(false);
-                    }}
-                    className={cn(
-                      'rounded-lg overflow-hidden border-2 transition-colors',
-                      currentPage === page.page_number
-                        ? 'border-primary'
-                        : 'border-transparent hover:border-muted-foreground/30'
-                    )}
-                  >
-                    <img
-                      src={page.thumbnail_url || page.image_url}
-                      alt={`Page ${page.page_number}`}
-                      className="w-full aspect-[3/4] object-cover"
-                    />
-                    <p className="text-xs text-center py-1.5 bg-muted/50 font-medium">
-                      {page.page_number}
-                    </p>
-                  </button>
-                ))}
+                {pages.map((page) => {
+                  const pageInfo = getPageDisplayInfo(page.page_number - 1);
+                  
+                  return (
+                    <button
+                      key={page.id}
+                      ref={(el) => {
+                        if (el) thumbnailRefs.current.set(page.page_number, el);
+                      }}
+                      onClick={() => {
+                        setCurrentPage(page.page_number);
+                        setShowMobileThumbnails(false);
+                      }}
+                      className={cn(
+                        'rounded-lg overflow-hidden border-2 transition-colors relative',
+                        currentPage === page.page_number
+                          ? 'border-primary'
+                          : 'border-transparent hover:border-muted-foreground/30',
+                        pageInfo.shouldHide && 'opacity-60'
+                      )}
+                    >
+                      <div className="relative">
+                        <img
+                          src={page.thumbnail_url || page.image_url}
+                          alt={`Page ${page.page_number}`}
+                          className="w-full aspect-[3/4] object-cover"
+                        />
+                        {pageInfo.isDetected && pageInfo.pageType !== 'numbered' && (
+                          <div className={cn(
+                            'absolute top-1 right-1 px-1 py-0.5 rounded text-[9px] font-medium',
+                            pageInfo.pageType === 'cover' && 'bg-primary text-primary-foreground',
+                            pageInfo.pageType === 'blank' && 'bg-muted text-muted-foreground'
+                          )}>
+                            {pageInfo.pageType === 'cover' ? 'Cover' : 'Blank'}
+                          </div>
+                        )}
+                      </div>
+                      <div className="py-1.5 bg-muted/50">
+                        <p className={cn(
+                          'text-center font-bold',
+                          pageInfo.isDetected ? 'text-sm' : 'text-xs'
+                        )}>
+                          {pageInfo.isDetected ? pageInfo.displayNumber : page.page_number}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </ScrollArea>
           </motion.div>
@@ -877,6 +978,7 @@ export const FlipbookViewer = ({
                   const isInCurrentSpread = viewMode === 'spread' && 
                     (page.page_number === leftPageIndex + 1 || page.page_number === rightPageIndex + 1);
                   const isCurrentSingle = viewMode === 'single' && currentPage === page.page_number;
+                  const pageInfo = getPageDisplayInfo(page.page_number - 1);
                   
                   return (
                     <button
@@ -891,20 +993,42 @@ export const FlipbookViewer = ({
                         setShowDesktopThumbnails(false);
                       }}
                       className={cn(
-                        'rounded-lg overflow-hidden border-2 transition-all hover:scale-105 hover:shadow-lg',
+                        'rounded-lg overflow-hidden border-2 transition-all hover:scale-105 hover:shadow-lg relative',
                         (isInCurrentSpread || isCurrentSingle)
                           ? 'border-primary ring-2 ring-primary/20'
-                          : 'border-transparent hover:border-muted-foreground/30'
+                          : 'border-transparent hover:border-muted-foreground/30',
+                        pageInfo.shouldHide && 'opacity-60'
                       )}
                     >
-                      <img
-                        src={page.thumbnail_url || page.image_url}
-                        alt={`Page ${page.page_number}`}
-                        className="w-full aspect-[3/4] object-cover"
-                      />
-                      <p className="text-xs text-center py-2 bg-muted/50 font-medium">
-                        {page.page_number}
-                      </p>
+                      <div className="relative">
+                        <img
+                          src={page.thumbnail_url || page.image_url}
+                          alt={`Page ${page.page_number}`}
+                          className="w-full aspect-[3/4] object-cover"
+                        />
+                        {pageInfo.isDetected && pageInfo.pageType !== 'numbered' && (
+                          <div className={cn(
+                            'absolute top-1 right-1 px-1.5 py-0.5 rounded text-[10px] font-medium',
+                            pageInfo.pageType === 'cover' && 'bg-primary text-primary-foreground',
+                            pageInfo.pageType === 'blank' && 'bg-muted text-muted-foreground'
+                          )}>
+                            {pageInfo.pageType === 'cover' ? 'Cover' : 'Blank'}
+                          </div>
+                        )}
+                      </div>
+                      <div className="py-2 bg-muted/50">
+                        <p className={cn(
+                          'text-center font-bold',
+                          pageInfo.isDetected ? 'text-base' : 'text-xs'
+                        )}>
+                          {pageInfo.isDetected ? pageInfo.displayNumber : page.page_number}
+                        </p>
+                        {pageInfo.isDetected && pageInfo.pageType === 'numbered' && (
+                          <p className="text-[10px] text-center text-muted-foreground">
+                            (index {page.page_number})
+                          </p>
+                        )}
+                      </div>
                     </button>
                   );
                 })}
@@ -913,31 +1037,53 @@ export const FlipbookViewer = ({
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="lg:hidden flex items-center justify-center gap-4 py-3 border-t bg-card">
-        <Button variant="outline" size="sm" onClick={goToPrev} disabled={currentPage <= 1}>
-          <ChevronLeft className="h-4 w-4 mr-1" />
-          Prev
-        </Button>
-        <span className="text-sm">
-          {currentPage} / {pages.length}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={goToNext}
-          disabled={currentPage >= pages.length}
-        >
-          Next
-          <ChevronRight className="h-4 w-4 ml-1" />
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowMobileThumbnails(true)}
-          className={cn(isJumping && 'animate-bounce-subtle')}
-        >
-          <LayoutGrid className="h-4 w-4" />
-        </Button>
+      <div className="lg:hidden flex flex-col items-center gap-2 py-3 border-t bg-card">
+        {/* Detected page number display - large and bold */}
+        {(() => {
+          const info = getPageDisplayInfo(currentPage - 1);
+          return (
+            <div className="text-center">
+              <span className="text-2xl font-bold text-foreground">
+                {info.pageType === 'cover' ? 'Cover' :
+                 info.pageType === 'blank' ? 'Blank' :
+                 `Page ${info.displayNumber}`}
+              </span>
+              {info.isDetected && info.pageType === 'numbered' && (
+                <span className="text-xs text-muted-foreground ml-2">
+                  (#{currentPage})
+                </span>
+              )}
+            </div>
+          );
+        })()}
+        
+        {/* Navigation controls */}
+        <div className="flex items-center justify-center gap-4">
+          <Button variant="outline" size="sm" onClick={goToPrev} disabled={currentPage <= 1}>
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Prev
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            {currentPage} / {pages.length}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={goToNext}
+            disabled={currentPage >= pages.length}
+          >
+            Next
+            <ChevronRight className="h-4 w-4 ml-1" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowMobileThumbnails(true)}
+            className={cn(isJumping && 'animate-bounce-subtle')}
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </motion.div>
   );
