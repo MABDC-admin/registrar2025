@@ -35,12 +35,14 @@ interface FlipbookViewerProps {
   bookId: string;
   bookTitle: string;
   onClose: () => void;
+  initialPage?: number;
 }
 
 export const FlipbookViewer = ({
   bookId,
   bookTitle,
   onClose,
+  initialPage,
 }: FlipbookViewerProps) => {
   const [pages, setPages] = useState<BookPage[]>([]);
   const [currentSpread, setCurrentSpread] = useState(0); // For desktop: spread index (0 = pages 1-2, 1 = pages 3-4, etc.)
@@ -116,6 +118,18 @@ export const FlipbookViewer = ({
 
     fetchPages();
   }, [bookId]);
+
+  // Navigate to initial page when specified (from search results)
+  useEffect(() => {
+    if (initialPage && pages.length > 0 && !isLoading) {
+      const targetPage = Math.min(Math.max(1, initialPage), pages.length);
+      setCurrentPage(targetPage);
+      
+      // Also set spread for desktop view
+      const spreadIndex = Math.floor((targetPage - 1) / 2);
+      setCurrentSpread(spreadIndex);
+    }
+  }, [initialPage, pages.length, isLoading]);
 
   // Auto-detect page numbers when pages are loaded
   useEffect(() => {

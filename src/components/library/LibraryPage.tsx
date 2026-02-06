@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Filter, BookOpen, Plus, Eye, EyeOff } from 'lucide-react';
+import { Search, Filter, BookOpen, Plus, Sparkles, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -27,10 +27,13 @@ import { BookCard } from './BookCard';
 import { BookUploadModal } from './BookUploadModal';
 import { BookEditModal } from './BookEditModal';
 import { FlipbookViewer } from './FlipbookViewer';
+import { SearchResultsView } from './SearchResultsView';
 import { useSchool } from '@/contexts/SchoolContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBookSearch } from '@/hooks/useBookSearch';
+import { useBookIndexing } from '@/hooks/useBookIndexing';
 import { toast } from 'sonner';
 
 interface Book {
@@ -43,6 +46,7 @@ interface Book {
   status: string;
   school: string | null;
   is_active: boolean;
+  index_status: string | null;
 }
 
 const GRADE_LEVELS = [
@@ -57,11 +61,12 @@ export const LibraryPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGrade, setSelectedGrade] = useState<string>('all');
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [selectedBook, setSelectedBook] = useState<Book | null>(null);
+  const [selectedBook, setSelectedBook] = useState<{ id: string; title: string; initialPage?: number } | null>(null);
   const [editingBook, setEditingBook] = useState<Book | null>(null);
   const [deletingBook, setDeletingBook] = useState<Book | null>(null);
   const [showInactive, setShowInactive] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
   
   const { selectedSchool } = useSchool();
   const { role } = useAuth();
@@ -70,6 +75,19 @@ export const LibraryPage = () => {
   const isAdmin = role === 'admin';
   const isRegistrar = role === 'registrar';
   const canManage = isAdmin || isRegistrar;
+
+  // Book search hook
+  const { 
+    search, 
+    clearSearch, 
+    isSearching, 
+    searchResults, 
+    totalMatches,
+    searchQuery: aiSearchQuery 
+  } = useBookSearch();
+
+  // Book indexing hook
+  const { getBookIndexStatus, startIndexing, isIndexing } = useBookIndexing();
 
   // Fetch books from database
   const { data: books = [], isLoading } = useQuery({
@@ -93,6 +111,19 @@ export const LibraryPage = () => {
     },
   });
 
+  // Auto-trigger indexing for new books
+  useEffect(() => {
+    books.forEach(book => {
+      if (book.status === 'ready' && (!book.index_status || book.index_status === 'pending')) {
+        // Automatically start indexing for new books
+        const status = getBookIndexStatus(book.id);
+        if (!status || status.index_status === 'pending' || !status.index_status) {
+          // Don't auto-index, let user trigger it
+        }
+      }
+    });
+  }, [books, getBookIndexStatus]);
+
   // Filter books based on selections
   const filteredBooks = useMemo(() => {
     let result = books;
@@ -104,8 +135,8 @@ export const LibraryPage = () => {
       );
     }
 
-    // Apply search filter
-    if (searchQuery.trim()) {
+    // Apply search filter (title/subject only for basic filter)
+    if (searchQuery.trim() && !showSearchResults) {
       const query = searchQuery.toLowerCase();
       result = result.filter(
         (book) =>
@@ -115,7 +146,7 @@ export const LibraryPage = () => {
     }
 
     return result;
-  }, [books, selectedGrade, searchQuery]);
+  }, [books, selectedGrade, searchQuery, showSearchResults]);
 
   const handleUploadSuccess = () => {
     queryClient.invalidateQueries({ queryKey: ['books'] });
@@ -140,7 +171,10 @@ export const LibraryPage = () => {
 
     setIsDeleting(true);
     
-    // First delete book pages
+    // First delete book page index
+    await supabase.from('book_page_index').delete().eq('book_id', deletingBook.id);
+    
+    // Then delete book pages
     await supabase.from('book_pages').delete().eq('book_id', deletingBook.id);
     
     // Then delete the book
@@ -155,6 +189,46 @@ export const LibraryPage = () => {
     setIsDeleting(false);
     setDeletingBook(null);
   };
+
+  const handleAISearch = async () => {
+    if (!searchQuery.trim()) {
+      toast.error('Please enter a search term');
+      return;
+    }
+    
+    setShowSearchResults(true);
+    await search(searchQuery, {
+      grade_level: selectedGrade !== 'all' ? parseInt(selectedGrade) : undefined,
+    });
+  };
+
+  const handleBackFromSearch = () => {
+    setShowSearchResults(false);
+    clearSearch();
+  };
+
+  const handleOpenBookFromSearch = (bookId: string, pageNumber: number, bookTitle: string) => {
+    setSelectedBook({ id: bookId, title: bookTitle, initialPage: pageNumber });
+  };
+
+  const handleStartIndexing = async (book: Book) => {
+    await startIndexing(book.id);
+    queryClient.invalidateQueries({ queryKey: ['books'] });
+  };
+
+  // Show search results view
+  if (showSearchResults) {
+    return (
+      <SearchResultsView
+        query={aiSearchQuery}
+        results={searchResults}
+        totalMatches={totalMatches}
+        isSearching={isSearching}
+        onBack={handleBackFromSearch}
+        onOpenBook={handleOpenBookFromSearch}
+      />
+    );
+  }
 
   return (
     <>
@@ -201,14 +275,34 @@ export const LibraryPage = () => {
 
           {/* Search and Filter Controls */}
           <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by title or subject..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+            <div className="relative flex-1 flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search topics, lessons, content..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && searchQuery.trim()) {
+                      handleAISearch();
+                    }
+                  }}
+                  className="pl-10"
+                />
+              </div>
+              <Button
+                variant="default"
+                onClick={handleAISearch}
+                disabled={!searchQuery.trim() || isSearching}
+                className="gap-2 bg-gradient-to-r from-primary to-primary/80"
+              >
+                {isSearching ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                AI Search
+              </Button>
             </div>
 
             <Select value={selectedGrade} onValueChange={setSelectedGrade}>
@@ -279,11 +373,14 @@ export const LibraryPage = () => {
                 key={book.id}
                 book={book}
                 index={index}
-                onClick={() => setSelectedBook(book)}
+                onClick={() => setSelectedBook({ id: book.id, title: book.title })}
                 onEdit={() => setEditingBook(book)}
                 onToggleActive={() => handleToggleActive(book)}
                 onDelete={() => setDeletingBook(book)}
+                onStartIndexing={() => handleStartIndexing(book)}
                 canManage={canManage}
+                indexStatus={getBookIndexStatus(book.id)}
+                isIndexing={isIndexing === book.id}
               />
             ))}
           </motion.div>
@@ -364,10 +461,11 @@ export const LibraryPage = () => {
 
       {/* Flipbook Viewer */}
       <AnimatePresence>
-        {selectedBook && selectedBook.status === 'ready' && (
+        {selectedBook && (
           <FlipbookViewer
             bookId={selectedBook.id}
             bookTitle={selectedBook.title}
+            initialPage={selectedBook.initialPage}
             onClose={() => setSelectedBook(null)}
           />
         )}
