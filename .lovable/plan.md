@@ -1,382 +1,480 @@
 
-# DepEd-Compliant General Average Implementation
+# Comprehensive Student Portal Enhancement Plan
 
-## Summary
+## Current State Analysis
 
-This plan replaces the non-standard "GPA" calculation with DepEd-compliant "General Average" calculations following DepEd Order No. 8, s. 2015. The changes will properly integrate the existing `gradeComputation.ts` utility and add per-quarter averages with visual indicators.
+### What Already Exists
+| Feature | Status | Table/Component |
+|---------|--------|-----------------|
+| Dashboard (basic) | Partial | `StudentPortal.tsx` - has quick stats |
+| Profile | Complete | `StudentProfileCard.tsx` |
+| Grades/Academic | Complete | `student_grades` table, DepEd-compliant GA |
+| Subjects | Complete | `student_subjects` table |
+| Announcements | Partial | Uses `school_events` table |
+| Library | Complete | `books` table, grade-filtered |
+| Incidents/Behavior | Complete | `student_incidents` table |
+| Documents | Complete | `student_documents` table |
 
-## What's Wrong Currently
+### What Needs to Be Built
+| Feature | Priority | New Tables Required |
+|---------|----------|---------------------|
+| Attendance Tracking | High | `student_attendance` |
+| Class Schedule/Timetable | High | `class_schedules` |
+| Assignments & Homework | High | `student_assignments`, `assignment_submissions` |
+| Exam Schedules | Medium | `exam_schedules` |
+| Announcements (enhanced) | Medium | `announcements` (dedicated table) |
+| Fees & Payments | Low | `student_fees`, `fee_payments` |
+| Communication/Messaging | Low | `messages`, `message_threads` |
+| Extracurricular Activities | Low | `student_activities`, `extracurricular_clubs` |
+| Career Guidance | Low | Future phase |
+| Health & Well-being | Low | Future phase |
 
-| Issue | Current State | DepEd Standard |
-|-------|---------------|----------------|
-| Terminology | "GPA" | "General Average" (GA) |
-| Calculation | Simple arithmetic average of `final_grade` | Average of transmuted quarterly grades |
-| Passing Mark | Not shown | 75 is the passing threshold |
-| Quarterly View | No per-quarter averages | Q1, Q2, Q3, Q4 General Averages |
-| Visual Feedback | None | Color-coded passing/failing indicators |
+---
 
-## Implementation Overview
+## Phase 1: Core Student Portal (This Implementation)
+
+### Database Schema - New Tables
+
+#### 1. student_attendance
+Tracks daily attendance with school and academic year segregation.
+
+```sql
+create table public.student_attendance (
+  id uuid primary key default gen_random_uuid(),
+  student_id uuid references public.students(id) on delete cascade not null,
+  school_id uuid references public.schools(id) not null,
+  academic_year_id uuid references public.academic_years(id) not null,
+  date date not null,
+  status text not null check (status in ('present', 'absent', 'late', 'excused')),
+  time_in time,
+  time_out time,
+  remarks text,
+  recorded_by uuid,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique(student_id, date, academic_year_id)
+);
+
+-- RLS: Students view own, Staff manages all
+alter table public.student_attendance enable row level security;
+
+create policy "Students view own attendance"
+  on public.student_attendance for select using (
+    student_id in (
+      select uc.student_id from user_credentials uc 
+      where uc.user_id = auth.uid()
+    )
+  );
+
+create policy "Staff manage attendance"
+  on public.student_attendance for all using (
+    exists (
+      select 1 from user_roles ur 
+      where ur.user_id = auth.uid() 
+      and ur.role in ('admin', 'registrar', 'teacher')
+    )
+  );
+```
+
+#### 2. class_schedules
+Weekly timetable by grade level and subject.
+
+```sql
+create table public.class_schedules (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid references public.schools(id) not null,
+  academic_year_id uuid references public.academic_years(id) not null,
+  subject_id uuid references public.subjects(id) not null,
+  grade_level text not null,
+  section text,
+  day_of_week int not null check (day_of_week between 0 and 6),
+  start_time time not null,
+  end_time time not null,
+  room text,
+  teacher_id uuid references public.teachers(id),
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- RLS policies for student read, staff manage
+alter table public.class_schedules enable row level security;
+
+create policy "Anyone can view schedules"
+  on public.class_schedules for select using (true);
+
+create policy "Staff manage schedules"
+  on public.class_schedules for all using (
+    exists (
+      select 1 from user_roles ur 
+      where ur.user_id = auth.uid() 
+      and ur.role in ('admin', 'registrar', 'teacher')
+    )
+  );
+```
+
+#### 3. student_assignments
+Assignments/homework by subject and grade level.
+
+```sql
+create table public.student_assignments (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid references public.schools(id) not null,
+  academic_year_id uuid references public.academic_years(id) not null,
+  subject_id uuid references public.subjects(id) not null,
+  grade_level text not null,
+  title text not null,
+  description text,
+  instructions text,
+  due_date timestamptz not null,
+  max_score numeric,
+  assignment_type text default 'homework' check (assignment_type in ('homework', 'project', 'quiz', 'essay', 'other')),
+  attachments jsonb,
+  created_by uuid,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create table public.assignment_submissions (
+  id uuid primary key default gen_random_uuid(),
+  assignment_id uuid references public.student_assignments(id) on delete cascade not null,
+  student_id uuid references public.students(id) on delete cascade not null,
+  submitted_at timestamptz,
+  score numeric,
+  feedback text,
+  status text default 'pending' check (status in ('pending', 'submitted', 'late', 'graded', 'returned')),
+  attachments jsonb,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique(assignment_id, student_id)
+);
+
+-- RLS for both tables
+alter table public.student_assignments enable row level security;
+alter table public.assignment_submissions enable row level security;
+
+create policy "Students view grade-level assignments"
+  on public.student_assignments for select using (true);
+
+create policy "Staff manage assignments"
+  on public.student_assignments for all using (
+    exists (
+      select 1 from user_roles ur 
+      where ur.user_id = auth.uid() 
+      and ur.role in ('admin', 'registrar', 'teacher')
+    )
+  );
+
+create policy "Students view own submissions"
+  on public.assignment_submissions for select using (
+    student_id in (
+      select uc.student_id from user_credentials uc 
+      where uc.user_id = auth.uid()
+    )
+  );
+
+create policy "Students submit own work"
+  on public.assignment_submissions for insert with check (
+    student_id in (
+      select uc.student_id from user_credentials uc 
+      where uc.user_id = auth.uid()
+    )
+  );
+
+create policy "Staff manage submissions"
+  on public.assignment_submissions for all using (
+    exists (
+      select 1 from user_roles ur 
+      where ur.user_id = auth.uid() 
+      and ur.role in ('admin', 'registrar', 'teacher')
+    )
+  );
+```
+
+#### 4. exam_schedules
+Exam dates and details.
+
+```sql
+create table public.exam_schedules (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid references public.schools(id) not null,
+  academic_year_id uuid references public.academic_years(id) not null,
+  subject_id uuid references public.subjects(id) not null,
+  grade_level text not null,
+  exam_type text not null check (exam_type in ('quarterly', 'midterm', 'final', 'quiz', 'special')),
+  exam_date date not null,
+  start_time time,
+  end_time time,
+  room text,
+  quarter int check (quarter between 1 and 4),
+  notes text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table public.exam_schedules enable row level security;
+
+create policy "Anyone can view exam schedules"
+  on public.exam_schedules for select using (true);
+
+create policy "Staff manage exam schedules"
+  on public.exam_schedules for all using (
+    exists (
+      select 1 from user_roles ur 
+      where ur.user_id = auth.uid() 
+      and ur.role in ('admin', 'registrar', 'teacher')
+    )
+  );
+```
+
+#### 5. announcements (enhanced)
+Dedicated announcements table with targeting.
+
+```sql
+create table public.announcements (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid references public.schools(id),
+  academic_year_id uuid references public.academic_years(id),
+  title text not null,
+  content text not null,
+  target_audience text[] default array['all']::text[],
+  target_grade_levels text[],
+  priority text default 'normal' check (priority in ('low', 'normal', 'high', 'urgent')),
+  is_pinned boolean default false,
+  published_at timestamptz default now(),
+  expires_at timestamptz,
+  created_by uuid,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table public.announcements enable row level security;
+
+create policy "Anyone can view announcements"
+  on public.announcements for select using (true);
+
+create policy "Staff manage announcements"
+  on public.announcements for all using (
+    exists (
+      select 1 from user_roles ur 
+      where ur.user_id = auth.uid() 
+      and ur.role in ('admin', 'registrar')
+    )
+  );
+```
+
+---
+
+### New React Hooks
+
+#### src/hooks/useStudentPortalData.ts
+Central hook file for all student portal data needs:
+
+```typescript
+// Exports:
+useStudentAttendance(studentId, academicYearId)
+  - Returns: { data: AttendanceRecord[], summary: AttendanceSummary }
+  
+useStudentSchedule(gradeLevel, schoolId, academicYearId)
+  - Returns: { data: ScheduleItem[], byDay: Map<number, ScheduleItem[]> }
+  
+useStudentAssignments(studentId, gradeLevel, schoolId, academicYearId)
+  - Returns: { pending, submitted, graded, overdue }
+  
+useExamSchedule(gradeLevel, schoolId, academicYearId)
+  - Returns: { upcoming, past }
+  
+useAnnouncements(schoolId, gradeLevel)
+  - Returns: { pinned, regular, count }
+```
+
+Each hook will:
+- Filter by `school_id` and `academic_year_id` for proper segregation
+- Use React Query for caching and background updates
+- Include loading and error states
+
+---
+
+### Enhanced StudentPortal Component Structure
+
+```text
+src/components/portals/
+├── StudentPortal.tsx (main container - refactored)
+├── student/
+│   ├── StudentDashboard.tsx (overview with quick stats)
+│   ├── StudentProfileTab.tsx (enhanced personal info)
+│   ├── StudentGradesTab.tsx (with trends chart)
+│   ├── StudentSubjectsTab.tsx (enrolled subjects)
+│   ├── StudentScheduleTab.tsx (weekly timetable)
+│   ├── StudentAttendanceTab.tsx (monthly summary)
+│   ├── StudentAssignmentsTab.tsx (pending/submitted/graded)
+│   ├── StudentExamsTab.tsx (schedule and results)
+│   ├── StudentAnnouncementsTab.tsx (school-wide and grade-specific)
+│   ├── StudentLibraryTab.tsx (link to library with grade filter)
+│   └── components/
+│       ├── QuickStatsCards.tsx
+│       ├── UpcomingDeadlines.tsx
+│       ├── AttendanceCalendar.tsx
+│       ├── AttendanceChart.tsx
+│       ├── GradeTrendChart.tsx
+│       ├── WeeklyScheduleGrid.tsx
+│       ├── AssignmentCard.tsx
+│       └── ExamCountdown.tsx
+```
+
+---
+
+### UI Design - Student Portal Layout
 
 ```text
 +------------------------------------------------------------------+
-|                     STUDENT PORTAL - GRADES                       |
+|  Welcome, [Student Name]!                           [Log out]     |
+|  Level 3 | MABDC | SY 2025-2026                                  |
 +------------------------------------------------------------------+
 |                                                                   |
-|  Quick Stats Cards:                                               |
+|  Quick Stats Row:                                                 |
 |  +-----------+ +-----------+ +-----------+ +-----------+         |
-|  | Level     | | Subjects  | | Gen. Avg. | | Events    |         |
-|  | Level 3   | | 8         | | 87.50     | | 2         |         |
+|  | Gen. Avg. | | Attendance| | Pending   | | Upcoming  |         |
+|  | 87.50     | | 95.5%     | | 3 Tasks   | | 2 Exams   |         |
 |  +-----------+ +-----------+ +-----------+ +-----------+         |
 |                                                                   |
-|  Quarterly General Averages:                                      |
-|  +-------+ +-------+ +-------+ +-------+ +----------+            |
-|  |  Q1   | |  Q2   | |  Q3   | |  Q4   | |  Final   |            |
-|  | 88.25 | | 87.00 | | 86.50 | | 88.00 | |  87.44   |            |
-|  +-------+ +-------+ +-------+ +-------+ +----------+            |
++------------------------------------------------------------------+
+|  Tabs Navigation:                                                 |
+|  [Dashboard] [Profile] [Grades] [Schedule] [Attendance]          |
+|  [Assignments] [Exams] [Announcements] [Library]                 |
++------------------------------------------------------------------+
 |                                                                   |
-|  Grades Table with Pass/Fail Indicators:                          |
-|  +----------+----+----+----+----+-------+--------+               |
-|  | Subject  | Q1 | Q2 | Q3 | Q4 | Final | Status |               |
-|  +----------+----+----+----+----+-------+--------+               |
-|  | English  | 90 | 88 | 85 | 87 |  87.5 | PASSED |               |
-|  | Math     | 72 | 74 | 73 | 71 |  72.5 | FAILED |               |
-|  +----------+----+----+----+----+-------+--------+               |
+|  Tab Content Area                                                 |
+|                                                                   |
+|  Dashboard Tab Example:                                           |
+|  +------------------------+ +------------------------+           |
+|  | Quarterly Gen. Averages | | Upcoming Deadlines    |           |
+|  | Q1: 88 | Q2: 87 | ...  | | - Math HW (Tomorrow)  |           |
+|  +------------------------+ | - Science Quiz (3d)   |           |
+|                             +------------------------+           |
+|  +------------------------+ +------------------------+           |
+|  | This Week's Schedule   | | Recent Announcements   |           |
+|  | Mon: English, Math...  | | - Parent Meeting 12/20 |           |
+|  +------------------------+ +------------------------+           |
+|                                                                   |
 +------------------------------------------------------------------+
 ```
 
-## Technical Changes
+---
 
-### 1. Add New Utility Functions (src/utils/gradeComputation.ts)
+### Files to Create
 
-Add helper functions for computing General Averages:
+| File | Purpose |
+|------|---------|
+| `src/hooks/useStudentPortalData.ts` | Centralized hooks for all portal data |
+| `src/components/portals/student/StudentDashboard.tsx` | Dashboard overview component |
+| `src/components/portals/student/StudentScheduleTab.tsx` | Weekly timetable view |
+| `src/components/portals/student/StudentAttendanceTab.tsx` | Attendance summary & calendar |
+| `src/components/portals/student/StudentAssignmentsTab.tsx` | Assignment tracking |
+| `src/components/portals/student/StudentExamsTab.tsx` | Exam schedule display |
+| `src/components/portals/student/StudentAnnouncementsTab.tsx` | Enhanced announcements |
+| `src/components/portals/student/StudentLibraryTab.tsx` | Library integration |
+| `src/components/portals/student/components/QuickStatsCards.tsx` | Reusable stats cards |
+| `src/components/portals/student/components/WeeklyScheduleGrid.tsx` | Weekly grid component |
+| `src/components/portals/student/components/AttendanceCalendar.tsx` | Monthly attendance view |
+| `src/components/portals/student/components/UpcomingDeadlines.tsx` | Deadline widget |
+| `src/components/portals/student/components/GradeTrendChart.tsx` | Grade progression chart |
+| `src/types/studentPortal.ts` | TypeScript interfaces |
 
-```typescript
-/**
- * Computes General Average for a single quarter across all subjects
- * DepEd: GA = Sum of all subject grades / Number of subjects
- */
-export const computeQuarterlyGeneralAverage = (
-  grades: { q1_grade?: number | null; q2_grade?: number | null; 
-            q3_grade?: number | null; q4_grade?: number | null }[],
-  quarter: 'q1' | 'q2' | 'q3' | 'q4'
-): number | null => {
-  const key = `${quarter}_grade` as keyof typeof grades[0];
-  const validGrades = grades.filter(g => g[key] != null).map(g => g[key] as number);
-  if (validGrades.length === 0) return null;
-  return validGrades.reduce((sum, g) => sum + g, 0) / validGrades.length;
-};
-
-/**
- * Computes Annual General Average (average of Q1-Q4 GAs)
- */
-export const computeAnnualGeneralAverage = (
-  grades: { final_grade?: number | null }[]
-): number | null => {
-  const validGrades = grades.filter(g => g.final_grade != null).map(g => g.final_grade as number);
-  if (validGrades.length === 0) return null;
-  return validGrades.reduce((sum, g) => sum + g, 0) / validGrades.length;
-};
-
-/**
- * DepEd passing threshold
- */
-export const PASSING_GRADE = 75;
-
-/**
- * Check if a grade is passing
- */
-export const isPassing = (grade: number | null): boolean => {
-  return grade !== null && grade >= PASSING_GRADE;
-};
-
-/**
- * Get grade descriptor based on DepEd standards
- */
-export const getGradeDescriptor = (grade: number | null): string => {
-  if (grade === null) return 'No Grade';
-  if (grade >= 90) return 'Outstanding';
-  if (grade >= 85) return 'Very Satisfactory';
-  if (grade >= 80) return 'Satisfactory';
-  if (grade >= 75) return 'Fairly Satisfactory';
-  return 'Did Not Meet Expectations';
-};
-```
-
-### 2. Update StudentPortal.tsx
-
-#### 2a. Import the utility functions
-
-```typescript
-import {
-  computeQuarterlyGeneralAverage,
-  computeAnnualGeneralAverage,
-  isPassing,
-  getGradeDescriptor,
-  PASSING_GRADE
-} from '@/utils/gradeComputation';
-```
-
-#### 2b. Replace GPA calculation with General Average (lines 173-180)
-
-```typescript
-// Compute General Averages per quarter and annual
-const generalAverages = useMemo(() => {
-  if (!grades || grades.length === 0) return null;
-  
-  return {
-    q1: computeQuarterlyGeneralAverage(grades, 'q1'),
-    q2: computeQuarterlyGeneralAverage(grades, 'q2'),
-    q3: computeQuarterlyGeneralAverage(grades, 'q3'),
-    q4: computeQuarterlyGeneralAverage(grades, 'q4'),
-    annual: computeAnnualGeneralAverage(grades)
-  };
-}, [grades]);
-```
-
-#### 2c. Update Quick Stats Card (lines 252-265)
-
-Change "GPA" label to "Gen. Average" and add color-coding:
-
-```typescript
-<Card className={`bg-gradient-to-br ${
-  generalAverages?.annual && isPassing(generalAverages.annual)
-    ? 'from-purple-500/10 to-purple-600/5 border-purple-200/50'
-    : generalAverages?.annual
-      ? 'from-red-500/10 to-red-600/5 border-red-200/50'
-      : 'from-gray-500/10 to-gray-600/5 border-gray-200/50'
-}`}>
-  <CardContent className="p-4">
-    <div className="flex items-center gap-3">
-      <div className={`p-2 rounded-full ${
-        generalAverages?.annual && isPassing(generalAverages.annual)
-          ? 'bg-purple-500/20'
-          : 'bg-red-500/20'
-      }`}>
-        <Award className={`h-5 w-5 ${
-          generalAverages?.annual && isPassing(generalAverages.annual)
-            ? 'text-purple-600'
-            : 'text-red-600'
-        }`} />
-      </div>
-      <div>
-        <p className="text-xs text-muted-foreground">Gen. Average</p>
-        <p className={`font-semibold ${
-          generalAverages?.annual && isPassing(generalAverages.annual)
-            ? 'text-purple-600'
-            : generalAverages?.annual
-              ? 'text-red-600'
-              : ''
-        }`}>
-          {generalAverages?.annual?.toFixed(2) || 'N/A'}
-        </p>
-      </div>
-    </div>
-  </CardContent>
-</Card>
-```
-
-#### 2d. Add Quarterly General Averages Section (after Quick Stats)
-
-```typescript
-{/* Quarterly General Averages - DepEd Compliant */}
-{generalAverages && (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ delay: 0.15 }}
-  >
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg flex items-center gap-2">
-          <Award className="h-5 w-5" />
-          Quarterly General Averages
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-5 gap-3">
-          {(['q1', 'q2', 'q3', 'q4'] as const).map((quarter) => {
-            const avg = generalAverages[quarter];
-            const passing = isPassing(avg);
-            return (
-              <div
-                key={quarter}
-                className={`p-4 rounded-lg text-center ${
-                  avg === null
-                    ? 'bg-muted/50'
-                    : passing
-                      ? 'bg-green-50 border border-green-200'
-                      : 'bg-red-50 border border-red-200'
-                }`}
-              >
-                <p className="text-xs text-muted-foreground uppercase font-medium">
-                  {quarter.toUpperCase()}
-                </p>
-                <p className={`text-xl font-bold ${
-                  avg === null
-                    ? 'text-muted-foreground'
-                    : passing
-                      ? 'text-green-600'
-                      : 'text-red-600'
-                }`}>
-                  {avg?.toFixed(2) || '-'}
-                </p>
-                {avg !== null && (
-                  <Badge variant={passing ? 'default' : 'destructive'} className="mt-1 text-xs">
-                    {passing ? 'Passed' : 'Failed'}
-                  </Badge>
-                )}
-              </div>
-            );
-          })}
-          {/* Annual/Final Average */}
-          <div
-            className={`p-4 rounded-lg text-center ${
-              generalAverages.annual === null
-                ? 'bg-muted/50'
-                : isPassing(generalAverages.annual)
-                  ? 'bg-purple-50 border-2 border-purple-300'
-                  : 'bg-red-50 border-2 border-red-300'
-            }`}
-          >
-            <p className="text-xs text-muted-foreground uppercase font-medium">
-              Final
-            </p>
-            <p className={`text-xl font-bold ${
-              generalAverages.annual === null
-                ? 'text-muted-foreground'
-                : isPassing(generalAverages.annual)
-                  ? 'text-purple-600'
-                  : 'text-red-600'
-            }`}>
-              {generalAverages.annual?.toFixed(2) || '-'}
-            </p>
-            {generalAverages.annual !== null && (
-              <Badge 
-                variant={isPassing(generalAverages.annual) ? 'default' : 'destructive'} 
-                className="mt-1 text-xs"
-              >
-                {getGradeDescriptor(generalAverages.annual)}
-              </Badge>
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  </motion.div>
-)}
-```
-
-#### 2e. Update Grades Table with Pass/Fail Indicators (lines 326-356)
-
-Add a Status column and color-code individual grades:
-
-```typescript
-<thead>
-  <tr className="border-b">
-    <th className="text-left py-3 px-2 font-medium">Subject</th>
-    <th className="text-center py-3 px-2 font-medium">Q1</th>
-    <th className="text-center py-3 px-2 font-medium">Q2</th>
-    <th className="text-center py-3 px-2 font-medium">Q3</th>
-    <th className="text-center py-3 px-2 font-medium">Q4</th>
-    <th className="text-center py-3 px-2 font-medium">Final</th>
-    <th className="text-center py-3 px-2 font-medium">Status</th>
-  </tr>
-</thead>
-<tbody>
-  {grades.map((grade: any) => {
-    const finalGrade = grade.final_grade;
-    const passing = isPassing(finalGrade);
-    return (
-      <tr key={grade.id} className="border-b hover:bg-muted/50">
-        <td className="py-3 px-2">
-          <div>
-            <p className="font-medium">{grade.subjects?.name || 'Unknown'}</p>
-            <p className="text-xs text-muted-foreground">{grade.subjects?.code}</p>
-          </div>
-        </td>
-        <td className={`text-center py-3 px-2 ${getGradeColorClass(grade.q1_grade)}`}>
-          {grade.q1_grade ?? '-'}
-        </td>
-        <td className={`text-center py-3 px-2 ${getGradeColorClass(grade.q2_grade)}`}>
-          {grade.q2_grade ?? '-'}
-        </td>
-        <td className={`text-center py-3 px-2 ${getGradeColorClass(grade.q3_grade)}`}>
-          {grade.q3_grade ?? '-'}
-        </td>
-        <td className={`text-center py-3 px-2 ${getGradeColorClass(grade.q4_grade)}`}>
-          {grade.q4_grade ?? '-'}
-        </td>
-        <td className={`text-center py-3 px-2 font-semibold ${getGradeColorClass(finalGrade)}`}>
-          {finalGrade ?? '-'}
-        </td>
-        <td className="text-center py-3 px-2">
-          {finalGrade !== null && (
-            <Badge variant={passing ? 'default' : 'destructive'}>
-              {passing ? 'PASSED' : 'FAILED'}
-            </Badge>
-          )}
-        </td>
-      </tr>
-    );
-  })}
-</tbody>
-```
-
-#### 2f. Add helper function for grade colors
-
-```typescript
-// Helper for grade color classes based on DepEd thresholds
-const getGradeColorClass = (grade: number | null): string => {
-  if (grade === null) return 'text-muted-foreground';
-  if (grade >= 90) return 'text-green-600 font-medium';    // Outstanding
-  if (grade >= 85) return 'text-blue-600';                  // Very Satisfactory
-  if (grade >= 80) return 'text-cyan-600';                  // Satisfactory
-  if (grade >= 75) return 'text-yellow-600';                // Fairly Satisfactory
-  return 'text-red-600 font-medium';                        // Did Not Meet Expectations
-};
-```
-
-## Files to Modify
+### Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/utils/gradeComputation.ts` | Add quarterly/annual GA functions, isPassing, getGradeDescriptor |
-| `src/components/portals/StudentPortal.tsx` | Replace GPA with GA, add quarterly averages section, enhance grades table |
+| `src/components/portals/StudentPortal.tsx` | Refactor to use new tab components |
+| `src/components/portals/index.ts` | Export new components |
 
-## DepEd Compliance Summary
+---
 
-| Standard | Implementation |
-|----------|----------------|
-| **General Average** | Sum of final grades / Number of subjects |
-| **Quarterly GA** | Computed per quarter (Q1, Q2, Q3, Q4) |
-| **Passing Grade** | 75 (constant `PASSING_GRADE`) |
-| **Descriptors** | Outstanding (90+), Very Satisfactory (85-89), Satisfactory (80-84), Fairly Satisfactory (75-79), Did Not Meet Expectations (<75) |
-| **Visual Indicators** | Green = passing, Red = failing |
-| **Terminology** | "General Average" instead of "GPA" |
+### Data Segregation Pattern
 
-## Data Flow
+All queries will enforce school and academic year filtering:
 
-```text
-student_grades table (Q1, Q2, Q3, Q4, final_grade)
-         │
-         ▼
-useStudentGrades hook (fetches all grades for student)
-         │
-         ▼
-computeQuarterlyGeneralAverage() ─────► Q1 GA, Q2 GA, Q3 GA, Q4 GA
-         │
-         ▼
-computeAnnualGeneralAverage() ────────► Final Annual GA
-         │
-         ▼
-StudentPortal UI (Quick Stats + Quarterly Cards + Table)
+```typescript
+// Example pattern for useStudentAssignments
+const useStudentAssignments = (
+  studentId: string,
+  gradeLevel: string,
+  schoolId: string,
+  academicYearId: string
+) => {
+  return useQuery({
+    queryKey: ['student-assignments', studentId, schoolId, academicYearId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('student_assignments')
+        .select(`
+          *,
+          subjects:subject_id(code, name),
+          assignment_submissions!inner(*)
+        `)
+        .eq('school_id', schoolId)
+        .eq('academic_year_id', academicYearId)
+        .eq('grade_level', gradeLevel)
+        .eq('assignment_submissions.student_id', studentId)
+        .order('due_date', { ascending: true });
+      
+      return data;
+    },
+    enabled: !!studentId && !!schoolId && !!academicYearId
+  });
+};
 ```
 
-## No Database Changes Required
+---
 
-The existing `student_grades` table already has all necessary columns:
-- `q1_grade`, `q2_grade`, `q3_grade`, `q4_grade` - quarterly grades
-- `final_grade` - annual final grade per subject
-- `school_id`, `academic_year_id` - for proper school/year segregation
+### Implementation Order
 
-The calculation logic will use the existing data structure.
+1. **Database Migration** - Create all new tables with RLS policies
+2. **Types Definition** - Create TypeScript interfaces for new data
+3. **Hooks Layer** - Implement all data fetching hooks with proper segregation
+4. **Dashboard Tab** - Quick overview with stats and widgets
+5. **Schedule Tab** - Weekly timetable grid
+6. **Attendance Tab** - Monthly calendar with daily status
+7. **Assignments Tab** - Pending, submitted, graded assignments
+8. **Exams Tab** - Upcoming exam schedule
+9. **Announcements Tab** - Enhanced with targeting
+10. **Library Tab** - Integration with existing library
+11. **Refactor StudentPortal.tsx** - Integrate all new tabs
+12. **Parent Portal Enhancement** - Use same components for parent view
+13. **Testing** - End-to-end verification
+
+---
+
+### Features by Tab
+
+| Tab | Features |
+|-----|----------|
+| **Dashboard** | Quick stats, quarterly GA, upcoming deadlines, recent announcements, weekly schedule preview |
+| **Profile** | Personal info (read-only), student ID, class details, photo |
+| **Grades** | Subject-wise grades, Q1-Q4 breakdown, pass/fail indicators, DepEd descriptors |
+| **Schedule** | Weekly timetable grid, subject colors, room info, teacher names |
+| **Attendance** | Monthly calendar view, daily status indicators, attendance percentage, absence notes |
+| **Assignments** | Pending/submitted/graded tabs, due dates, download attachments, submission status |
+| **Exams** | Upcoming exams, past results, exam type badges, countdown timers |
+| **Announcements** | Pinned announcements, priority badges, expiry dates, grade-targeted |
+| **Library** | Grade-filtered books, search, flipbook viewer integration |
+
+---
+
+### Notes for Both Schools (MABDC & STFXSA)
+
+- All features automatically filter by student's `school_id`
+- Academic year filtering ensures current-year-only data
+- Grade-level filtering ensures appropriate content visibility
+- RLS policies enforce data isolation at the database level
+- Same component structure works for both schools
+
+---
+
+### Future Phases (Not in This Implementation)
+
+| Phase | Features |
+|-------|----------|
+| Phase 2 | Fees & Payments, Parent Portal enhancements |
+| Phase 3 | Communication/Messaging, Discussion Forums |
+| Phase 4 | Extracurricular Activities, Career Guidance |
+| Phase 5 | Health & Well-being, Advanced Notifications |
