@@ -73,6 +73,8 @@ export const AgentDetailSheet = ({ agent, open, onClose, meshUrl, loading }: Pro
   const openRemoteDesktop = () => {
     if (meshUrl && agent.meshnode_id) {
       window.open(`${meshUrl}/#/device/${agent.meshnode_id}`, '_blank');
+    } else if (meshUrl) {
+      window.open(meshUrl, '_blank');
     }
   };
 
@@ -141,9 +143,9 @@ export const AgentDetailSheet = ({ agent, open, onClose, meshUrl, loading }: Pro
 
           {/* Actions */}
           <div className="flex flex-wrap gap-2">
-            {meshUrl && agent.meshnode_id && (
+            {meshUrl && (
               <Button size="sm" onClick={openRemoteDesktop}>
-                <ExternalLink className="h-4 w-4 mr-1" /> Remote Desktop
+                <ExternalLink className="h-4 w-4 mr-1" /> {agent.meshnode_id ? 'Remote Desktop' : 'Open MeshCentral'}
               </Button>
             )}
             <Button size="sm" variant="destructive" onClick={rebootAgent} disabled={rebooting || !isOnline}>

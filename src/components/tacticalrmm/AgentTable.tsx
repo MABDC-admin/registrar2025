@@ -8,6 +8,8 @@ export const AgentTable = ({ agents, loading, onSelect }: { agents: Agent[]; loa
         <tr>
           <th className="px-4 py-2 text-left font-medium text-muted-foreground">Status</th>
           <th className="px-4 py-2 text-left font-medium text-muted-foreground">Hostname</th>
+          <th className="px-4 py-2 text-left font-medium text-muted-foreground">Site</th>
+          <th className="px-4 py-2 text-left font-medium text-muted-foreground">Description</th>
           <th className="px-4 py-2 text-left font-medium text-muted-foreground">OS</th>
           <th className="px-4 py-2 text-left font-medium text-muted-foreground">Last Seen</th>
           <th className="px-4 py-2 text-left font-medium text-muted-foreground">Flags</th>
@@ -24,6 +26,8 @@ export const AgentTable = ({ agents, loading, onSelect }: { agents: Agent[]; loa
               )}
             </td>
             <td className="px-4 py-2 font-medium">{agent.hostname}</td>
+            <td className="px-4 py-2 text-muted-foreground">{agent.site_name || '-'}</td>
+            <td className="px-4 py-2 text-muted-foreground truncate max-w-[180px]">{agent.description || '-'}</td>
             <td className="px-4 py-2 text-muted-foreground truncate max-w-[200px]">{agent.operating_system}</td>
             <td className="px-4 py-2 text-muted-foreground">{agent.last_seen ? new Date(agent.last_seen).toLocaleString() : '-'}</td>
             <td className="px-4 py-2">
@@ -35,7 +39,7 @@ export const AgentTable = ({ agents, loading, onSelect }: { agents: Agent[]; loa
           </tr>
         ))}
         {agents.length === 0 && (
-          <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">{loading ? 'Loading...' : 'No devices found'}</td></tr>
+          <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">{loading ? 'Loading...' : 'No devices found'}</td></tr>
         )}
       </tbody>
     </table>

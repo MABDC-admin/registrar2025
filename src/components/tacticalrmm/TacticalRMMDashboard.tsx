@@ -18,7 +18,8 @@ export const TacticalRMMDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('card');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('online');
+  const [siteFilter, setSiteFilter] = useState<string>('all');
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [meshUrl, setMeshUrl] = useState<string | null>(null);
@@ -59,13 +60,16 @@ export const TacticalRMMDashboard = () => {
   const offlineCount = agents.filter(a => a.status !== 'online').length;
   const rebootCount = agents.filter(a => a.needs_reboot).length;
 
+  const sites = [...new Set(agents.map(a => a.site_name).filter(Boolean))] as string[];
+
   const filtered = agents.filter(a => {
     if (statusFilter === 'online' && a.status !== 'online') return false;
     if (statusFilter === 'offline' && a.status === 'online') return false;
     if (statusFilter === 'reboot' && !a.needs_reboot) return false;
+    if (siteFilter !== 'all' && a.site_name !== siteFilter) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      return a.hostname?.toLowerCase().includes(q) || a.operating_system?.toLowerCase().includes(q);
+      return a.hostname?.toLowerCase().includes(q) || a.operating_system?.toLowerCase().includes(q) || a.description?.toLowerCase().includes(q);
     }
     return true;
   });
@@ -133,6 +137,15 @@ export const TacticalRMMDashboard = () => {
             <SelectItem value="reboot">Needs Reboot</SelectItem>
           </SelectContent>
         </Select>
+        {sites.length > 0 && (
+          <Select value={siteFilter} onValueChange={v => setSiteFilter(v)}>
+            <SelectTrigger className="w-[160px]"><SelectValue placeholder="All Sites" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Sites</SelectItem>
+              {sites.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
         <div className="flex border rounded-md">
           <Button variant={viewMode === 'card' ? 'default' : 'ghost'} size="icon" className="h-9 w-9 rounded-r-none" onClick={() => setViewMode('card')}>
             <LayoutGrid className="h-4 w-4" />

@@ -17,7 +17,7 @@ export const AgentCard = ({ agent, onClick }: { agent: Agent; onClick: () => voi
       className="cursor-pointer hover:shadow-md transition-shadow border"
       onClick={onClick}
     >
-      <CardContent className="p-4 flex flex-col gap-3">
+      <CardContent className="p-4 flex flex-col gap-2">
         <div className="flex items-start justify-between">
           {osIcon(agent.plat)}
           <span className={`h-3 w-3 rounded-full ${isOnline ? 'bg-green-500' : 'bg-destructive'}`} />
@@ -25,11 +25,17 @@ export const AgentCard = ({ agent, onClick }: { agent: Agent; onClick: () => voi
         <div className="min-w-0">
           <p className="font-semibold truncate">{agent.hostname}</p>
           <p className="text-xs text-muted-foreground truncate">{agent.operating_system}</p>
+          {agent.description && (
+            <p className="text-xs text-muted-foreground/70 truncate mt-0.5">{agent.description}</p>
+          )}
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
           <Badge variant={isOnline ? 'default' : 'destructive'} className="text-[10px] px-1.5 py-0">
             {isOnline ? 'Online' : 'Offline'}
           </Badge>
+          {agent.site_name && (
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{agent.site_name}</Badge>
+          )}
           {agent.needs_reboot && (
             <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-yellow-600">Reboot</Badge>
           )}
