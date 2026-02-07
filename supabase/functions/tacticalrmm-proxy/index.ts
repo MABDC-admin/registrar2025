@@ -25,6 +25,7 @@ serve(async (req) => {
     const TACTICALRMM_URL = Deno.env.get('TACTICALRMM_URL');
     const TACTICALRMM_API_KEY = Deno.env.get('TACTICALRMM_API_KEY');
     const TACTICALRMM_MESH_URL = Deno.env.get('TACTICALRMM_MESH_URL');
+    const TACTICALRMM_WEB_URL = Deno.env.get('TACTICALRMM_WEB_URL');
 
     if (!TACTICALRMM_URL || !TACTICALRMM_API_KEY) {
       return new Response(JSON.stringify({ error: 'Tactical RMM not configured', configured: false }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -42,7 +43,7 @@ serve(async (req) => {
         const resp = await fetch(`${TACTICALRMM_URL}/agents/`, {
           headers: { 'X-API-KEY': TACTICALRMM_API_KEY, 'Content-Type': 'application/json' },
         });
-        return new Response(JSON.stringify({ data: { healthy: resp.ok }, configured: true, meshUrl: TACTICALRMM_MESH_URL || null, rmmUrl: TACTICALRMM_URL }), {
+        return new Response(JSON.stringify({ data: { healthy: resp.ok }, configured: true, meshUrl: TACTICALRMM_MESH_URL || null, rmmUrl: TACTICALRMM_WEB_URL || null }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       } catch {
@@ -76,7 +77,7 @@ serve(async (req) => {
 
     const data = JSON.parse(responseText);
 
-    return new Response(JSON.stringify({ data, configured: true, meshUrl: TACTICALRMM_MESH_URL || null, rmmUrl: TACTICALRMM_URL }), {
+    return new Response(JSON.stringify({ data, configured: true, meshUrl: TACTICALRMM_MESH_URL || null, rmmUrl: TACTICALRMM_WEB_URL || null }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
