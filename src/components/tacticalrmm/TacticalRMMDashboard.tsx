@@ -56,6 +56,21 @@ export const TacticalRMMDashboard = () => {
     finally { setDetailLoading(false); }
   };
 
+  const handleTakeControl = async (agent: Agent) => {
+    try {
+      const { data: result, error } = await supabase.functions.invoke('tacticalrmm-proxy', {
+        body: { action: 'takecontrol', path: `/agents/${agent.agent_id}/meshcentral/` },
+      });
+      if (error || !result?.data?.control) {
+        toast.error(result?.error || 'Failed to get remote control URL');
+        return;
+      }
+      window.open(result.data.control, '_blank');
+    } catch {
+      toast.error('Failed to connect for remote control');
+    }
+  };
+
   useEffect(() => { loadAgents(); }, []);
 
   const onlineCount = agents.filter(a => a.status === 'online').length;
@@ -162,7 +177,7 @@ export const TacticalRMMDashboard = () => {
       {viewMode === 'card' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filtered.map(agent => (
-            <AgentCard key={agent.agent_id} agent={agent} onClick={() => openAgentDetail(agent)} />
+            <AgentCard key={agent.agent_id} agent={agent} onClick={() => openAgentDetail(agent)} onTakeControl={handleTakeControl} />
           ))}
           {filtered.length === 0 && (
             <p className="col-span-full text-center py-8 text-muted-foreground">{loading ? 'Loading...' : 'No devices found'}</p>

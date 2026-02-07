@@ -1,6 +1,8 @@
-import { Monitor, Server, Smartphone } from 'lucide-react';
+import { useState } from 'react';
+import { Monitor, Server, Smartphone, MonitorPlay, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import type { Agent } from './types';
 
 const osIcon = (plat: string) => {
@@ -9,8 +11,16 @@ const osIcon = (plat: string) => {
   return <Monitor className="h-8 w-8 text-muted-foreground" />;
 };
 
-export const AgentCard = ({ agent, onClick }: { agent: Agent; onClick: () => void }) => {
+export const AgentCard = ({ agent, onClick, onTakeControl }: { agent: Agent; onClick: () => void; onTakeControl?: (agent: Agent) => Promise<void> }) => {
   const isOnline = agent.status === 'online';
+  const [isConnecting, setIsConnecting] = useState(false);
+
+  const handleTakeControl = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onTakeControl) return;
+    setIsConnecting(true);
+    try { await onTakeControl(agent); } finally { setIsConnecting(false); }
+  };
 
   return (
     <Card
@@ -44,6 +54,11 @@ export const AgentCard = ({ agent, onClick }: { agent: Agent; onClick: () => voi
         <p className="text-[10px] text-muted-foreground">
           {agent.last_seen ? new Date(agent.last_seen).toLocaleString() : 'Never seen'}
         </p>
+        {isOnline && onTakeControl && (
+          <Button size="sm" variant="outline" className="w-full mt-1 h-7 text-xs" onClick={handleTakeControl} disabled={isConnecting}>
+            {isConnecting ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Connecting...</> : <><MonitorPlay className="h-3 w-3 mr-1" /> Take Control</>}
+          </Button>
+        )}
       </CardContent>
     </Card>
   );
