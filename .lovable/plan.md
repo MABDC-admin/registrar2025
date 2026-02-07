@@ -1,185 +1,87 @@
 
 
-# Docker App Deep Integrations
+# Enhanced Tactical RMM Dashboard
 
-Integrating 6 self-hosted Docker apps (NocoDB, OnlyOffice, Excalidraw, Omada Cloud Controller, Tactical RMM, Documize) into the school management system via backend proxy functions and native UI components.
-
----
-
-## Architecture Overview
-
-Each Docker app follows the same secure pattern:
-
-1. **Secrets**: Store each app's URL + API credentials as backend secrets (never exposed to browser)
-2. **Backend proxy function**: A single edge function per app that proxies API calls, keeping credentials server-side
-3. **Frontend component**: A native React dashboard that calls the proxy function and displays data within the existing UI
+Upgrading the current table-only view into a full device management dashboard with card/grid views, agent detail panel, and management actions.
 
 ---
 
-## Phase 1: NocoDB (Database/Spreadsheet Platform)
+## What You'll Get
 
-**Secrets needed**: `NOCODB_BASE_URL`, `NOCODB_API_TOKEN`
-
-**Backend function**: `supabase/functions/nocodb-proxy/index.ts`
-- Proxies GET/POST/PUT/DELETE requests to NocoDB REST API v2
-- Endpoints: list bases, list tables, list/create/update/delete records
-
-**Frontend**: `src/components/nocodb/NocoDBDashboard.tsx`
-- Shows list of NocoDB bases and tables
-- Table viewer with inline editing (similar to spreadsheet)
-- Create/edit/delete records from within the school dashboard
-- Search and filter records
+- **View Switcher**: Toggle between Card view (visual grid of devices) and Table view (current list)
+- **Device Cards**: Each device shown as a visual card with status indicator, OS icon, hostname, and quick-action buttons
+- **Agent Detail Panel**: Click any device to open a slide-out panel showing full details, system info, and management actions
+- **Management Actions**: Send commands, trigger patch scans, request reboot, and open remote desktop (opens Tactical RMM's MeshCentral remote view in a new tab)
+- **Sorting and Filtering**: Filter by status (online/offline/needs reboot) plus existing search
 
 ---
 
-## Phase 2: OnlyOffice (Document Editing)
+## Technical Details
 
-**Secrets needed**: `ONLYOFFICE_URL`, `ONLYOFFICE_JWT_SECRET`
+### 1. Update Backend Proxy (`supabase/functions/tacticalrmm-proxy/index.ts`)
 
-**Backend function**: `supabase/functions/onlyoffice-proxy/index.ts`
-- Generates signed JWT tokens for the Document Server
-- Handles document callback URLs for save events
+Add support for:
+- **Agent details**: `GET /agents/<agent_id>/` -- returns full agent info (CPU, RAM, disks, services)
+- **Send command**: `POST /agents/<agent_id>/cmd/` -- execute shell/PowerShell commands
+- **Patch scan**: `POST /agents/<agent_id>/cmd/` with Windows Update scan command  
+- **Reboot**: `POST /agents/<agent_id>/reboot/`
+- **MeshCentral URL**: Extract the `meshnode_id` from agent data to construct the remote control link
 
-**Frontend**: `src/components/onlyoffice/OnlyOfficeDashboard.tsx`
-- Document list from database storage
-- Opens documents in an embedded OnlyOffice editor (iframe with signed config)
-- Create new documents (Word, Excel, PowerPoint)
-- Collaborative editing support via OnlyOffice's built-in collab features
+The proxy will support both GET and POST methods to the Tactical RMM API, with the `method` field in the request body.
 
----
+### 2. Refactor Frontend (`src/components/tacticalrmm/TacticalRMMDashboard.tsx`)
 
-## Phase 3: Excalidraw (Whiteboard/Drawing)
+**New state:**
+- `viewMode`: `'card' | 'table'` -- toggle between views
+- `selectedAgent`: the agent currently being viewed in detail
+- `detailLoading`: loading state for agent detail fetch
+- `agentDetail`: full agent detail data
+- `statusFilter`: `'all' | 'online' | 'offline' | 'reboot'`
 
-**Secrets needed**: `EXCALIDRAW_URL`
+**New sub-components (inline or extracted):**
 
-**Backend function**: `supabase/functions/excalidraw-proxy/index.ts`
-- Proxies requests to self-hosted Excalidraw server
-- Manages saved drawings in a `excalidraw_drawings` database table
+- **AgentCard**: A card component per device showing:
+  - Color-coded status dot (green/red)
+  - OS icon (Windows/Linux/Mac based on `plat` field)
+  - Hostname (bold)
+  - OS version (truncated)
+  - Last seen timestamp
+  - Reboot/patches badges
+  - Click to open detail panel
 
-**Database table**: `excalidraw_drawings`
-| Column | Type | Description |
-|---|---|---|
-| id | uuid PK | Auto-generated |
-| school_id | uuid | School reference |
-| title | text | Drawing name |
-| scene_data | jsonb | Excalidraw scene JSON |
-| created_by | uuid | Creator |
-| is_shared | boolean | Whether shared with others |
-| created_at / updated_at | timestamptz | Timestamps |
+- **AgentDetailSheet**: A dialog/sheet that slides in when clicking a device:
+  - Full system info (CPU, RAM, disks, uptime)
+  - Installed patches count
+  - Last seen, IP address
+  - Action buttons:
+    - "Open Remote Desktop" -- opens `https://<TACTICALRMM_MESH_URL>` with the agent's mesh node (new tab)
+    - "Run Command" -- input field + execute button (sends to proxy)
+    - "Scan for Patches" -- triggers update scan
+    - "Reboot" -- with confirmation dialog
 
-**Frontend**: `src/components/excalidraw/ExcalidrawDashboard.tsx`
-- Gallery of saved drawings
-- Embedded Excalidraw editor (iframe to self-hosted instance)
-- Save/load drawings to/from database
-- Share drawings with other staff
+- **ViewToggle**: Simple button group to switch card/table views
 
----
+- **StatusFilter**: Dropdown or button group to filter by online/offline/needs reboot
 
-## Phase 4: Omada Cloud Controller (Network Management)
+### 3. Remote Desktop Access
 
-**Secrets needed**: `OMADA_URL`, `OMADA_CLIENT_ID`, `OMADA_CLIENT_SECRET`
+Tactical RMM uses MeshCentral for remote control. Each agent has a `meshnode_id`. The remote desktop link format is:
+```
+https://mesh.yourdomain.com/#/device/<meshnode_id>
+```
 
-**Backend function**: `supabase/functions/omada-proxy/index.ts`
-- Authenticates with Omada controller API (OAuth2 client credentials)
-- Proxies read-only dashboard data: connected clients, AP status, network stats
+The proxy will return the mesh node ID from agent details, and clicking "Open Remote Desktop" will open this URL in a new tab. This requires the `TACTICALRMM_MESH_URL` secret (your MeshCentral URL).
 
-**Frontend**: `src/components/omada/OmadaDashboard.tsx`
-- Network overview: total APs, connected clients, bandwidth usage
-- AP status list (online/offline, client count per AP)
-- Connected devices list with search
-- Network health indicators (charts using recharts)
+If the mesh URL is not configured, the button will be hidden with a note.
 
----
+### 4. Files Modified
 
-## Phase 5: Tactical RMM (Remote Monitoring)
+| File | Changes |
+|---|---|
+| `supabase/functions/tacticalrmm-proxy/index.ts` | Add POST method support, agent detail endpoint, command execution, reboot endpoint |
+| `src/components/tacticalrmm/TacticalRMMDashboard.tsx` | Full rewrite: add card grid view, view switcher, status filters, agent detail sheet, management actions |
 
-**Secrets needed**: `TACTICALRMM_URL`, `TACTICALRMM_API_KEY`
+### 5. New Secret (Optional)
 
-**Backend function**: `supabase/functions/tacticalrmm-proxy/index.ts`
-- Proxies requests to Tactical RMM API
-- Endpoints: list agents, agent details, alerts, patch status
-
-**Frontend**: `src/components/tacticalrmm/TacticalRMMDashboard.tsx`
-- Device inventory: all monitored school computers with status
-- Alert summary: critical/warning/info alerts
-- Patch compliance overview
-- Quick actions: trigger check-in, view agent details
-- Stats cards for total devices, online/offline, pending patches
-
----
-
-## Phase 6: Documize (Knowledge Base/Wiki)
-
-**Secrets needed**: `DOCUMIZE_URL`, `DOCUMIZE_API_KEY` (or `DOCUMIZE_USERNAME` + `DOCUMIZE_PASSWORD`)
-
-**Backend function**: `supabase/functions/documize-proxy/index.ts`
-- Authenticates with Documize API
-- Proxies: list spaces, list documents, get document content, search
-
-**Frontend**: `src/components/documize/DocumizeDashboard.tsx`
-- Space/folder browser
-- Document list with search
-- Document viewer (renders content inline or opens in new tab)
-- Quick-link to create new documents on the Documize server
-
----
-
-## Navigation Changes
-
-**`src/components/layout/DashboardLayout.tsx`**
-
-Add a new **"Integrations"** collapsible group in the sidebar for Admin role:
-- NocoDB (Database)
-- OnlyOffice (Documents)
-- Excalidraw (Whiteboard)
-- Omada (Network)
-- Tactical RMM (Devices)
-- Documize (Wiki)
-
-Add icon mappings for all 6 new tab IDs in both `icon3DMap` and `iconAppleMap`.
-
-**`src/pages/Index.tsx`**
-
-Add 6 new tab render blocks:
-- `nocodb` tab renders `NocoDBDashboard`
-- `onlyoffice` tab renders `OnlyOfficeDashboard`
-- `excalidraw` tab renders `ExcalidrawDashboard`
-- `omada` tab renders `OmadaDashboard`
-- `tacticalrmm` tab renders `TacticalRMMDashboard`
-- `documize` tab renders `DocumizeDashboard`
-
-All restricted to Admin role (with Registrar access optional).
-
----
-
-## Credential Setup Flow
-
-When you're ready to provide credentials, I'll request them one service at a time using secure secret storage. Each integration can be built and tested independently -- you don't need all credentials upfront. We can start with whichever app you want connected first.
-
----
-
-## Files Summary
-
-### New Edge Functions (6)
-- `supabase/functions/nocodb-proxy/index.ts`
-- `supabase/functions/onlyoffice-proxy/index.ts`
-- `supabase/functions/excalidraw-proxy/index.ts`
-- `supabase/functions/omada-proxy/index.ts`
-- `supabase/functions/tacticalrmm-proxy/index.ts`
-- `supabase/functions/documize-proxy/index.ts`
-
-### New Frontend Components (6 directories)
-- `src/components/nocodb/NocoDBDashboard.tsx`
-- `src/components/onlyoffice/OnlyOfficeDashboard.tsx`
-- `src/components/excalidraw/ExcalidrawDashboard.tsx`
-- `src/components/omada/OmadaDashboard.tsx`
-- `src/components/tacticalrmm/TacticalRMMDashboard.tsx`
-- `src/components/documize/DocumizeDashboard.tsx`
-
-### New Database Table (1)
-- `excalidraw_drawings` -- for saving whiteboard drawings
-
-### Modified Files (2)
-- `src/components/layout/DashboardLayout.tsx` -- new "Integrations" nav group + icon maps
-- `src/pages/Index.tsx` -- 6 new tab render blocks
+- `TACTICALRMM_MESH_URL` -- Your MeshCentral URL for remote desktop links (e.g., `https://mesh.yourdomain.com`). If not provided, the remote desktop button simply won't appear.
 
