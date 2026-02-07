@@ -88,7 +88,7 @@ const formatCountdown = (uaeTime: Date, settings: ZoomSettings | null): string =
 };
 
 export const ZoomDashboard = () => {
-  const { data: schoolId } = useSchoolId();
+  const { data: schoolId, isLoading: schoolLoading } = useSchoolId();
   const { role } = useAuth();
   const uaeTime = useUAETime();
   const [settings, setSettings] = useState<ZoomSettings | null>(null);
@@ -100,7 +100,7 @@ export const ZoomDashboard = () => {
   const sessionActive = isInSession(uaeTime, settings);
 
   const fetchSettings = async () => {
-    if (!schoolId) return;
+    if (!schoolId) { setLoading(false); return; }
     setLoading(true);
     const { data, error } = await supabase
       .from('zoom_settings')
@@ -132,10 +132,30 @@ export const ZoomDashboard = () => {
     window.open(url, '_blank');
   };
 
-  if (loading) {
+  if (schoolLoading || loading) {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (!schoolId) {
+    return (
+      <div className="space-y-6">
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
+          <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Virtual Classes</h1>
+          <p className="text-muted-foreground mt-1">Zoom virtual classroom dashboard</p>
+        </motion.div>
+        <Card className="max-w-lg mx-auto mt-12">
+          <CardContent className="flex flex-col items-center py-12 gap-4">
+            <VideoOff className="h-16 w-16 text-muted-foreground/40" />
+            <h2 className="text-xl font-semibold text-foreground">School Not Found</h2>
+            <p className="text-muted-foreground text-center">
+              Could not resolve the current school. Please contact your administrator.
+            </p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
