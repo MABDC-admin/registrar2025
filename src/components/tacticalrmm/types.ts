@@ -22,5 +22,10 @@ export interface Agent {
   monitoring_type?: string;
 }
 
+export interface ConnectedAgent extends Agent {
+  controlUrl?: string;
+  connectionError?: string;
+}
+
 export type ViewMode = 'card' | 'table';
 export type StatusFilter = 'all' | 'online' | 'offline' | 'reboot';

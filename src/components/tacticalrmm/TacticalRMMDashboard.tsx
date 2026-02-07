@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { RefreshCw, AlertCircle, CheckCircle, XCircle, AlertTriangle, Search, LayoutGrid, List } from 'lucide-react';
+import { RefreshCw, AlertCircle, CheckCircle, XCircle, AlertTriangle, Search, LayoutGrid, List, MonitorPlay, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,8 @@ import { toast } from 'sonner';
 import { AgentCard } from './AgentCard';
 import { AgentTable } from './AgentTable';
 import { AgentDetailSheet } from './AgentDetailSheet';
-import type { Agent, ViewMode, StatusFilter } from './types';
+import { LiveMonitorView } from './LiveMonitorView';
+import type { Agent, ConnectedAgent, ViewMode, StatusFilter } from './types';
 
 export const TacticalRMMDashboard = () => {
   const [configured, setConfigured] = useState<boolean | null>(null);
@@ -24,6 +25,9 @@ export const TacticalRMMDashboard = () => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [meshUrl, setMeshUrl] = useState<string | null>(null);
   const [rmmUrl, setRmmUrl] = useState<string | null>(null);
+  const [liveViewMode, setLiveViewMode] = useState(false);
+  const [connectedAgents, setConnectedAgents] = useState<ConnectedAgent[]>([]);
+  const [connectAllLoading, setConnectAllLoading] = useState(false);
 
   const loadAgents = async () => {
     setLoading(true);
@@ -71,6 +75,32 @@ export const TacticalRMMDashboard = () => {
     }
   };
 
+  const handleConnectAll = async () => {
+    const onlineAgents = agents.filter(a => a.status === 'online');
+    if (onlineAgents.length === 0) { toast.error('No online agents to connect'); return; }
+    setConnectAllLoading(true);
+    toast.info(`Connecting to ${onlineAgents.length} agents...`);
+    try {
+      const results = await Promise.allSettled(
+        onlineAgents.map(async (agent): Promise<ConnectedAgent> => {
+          const { data: result, error } = await supabase.functions.invoke('tacticalrmm-proxy', {
+            body: { action: 'takecontrol', path: `/agents/${agent.agent_id}/meshcentral/` },
+          });
+          if (error || !result?.data?.control) {
+            return { ...agent, connectionError: result?.error || 'Failed to get control URL' };
+          }
+          return { ...agent, controlUrl: result.data.control };
+        })
+      );
+      const connected = results.map(r => r.status === 'fulfilled' ? r.value : null).filter(Boolean) as ConnectedAgent[];
+      setConnectedAgents(connected);
+      setLiveViewMode(true);
+      const successCount = connected.filter(a => a.controlUrl && !a.connectionError).length;
+      toast.success(`Connected to ${successCount}/${onlineAgents.length} agents`);
+    } catch { toast.error('Failed to connect to agents'); }
+    finally { setConnectAllLoading(false); }
+  };
+
   useEffect(() => { loadAgents(); }, []);
 
   const onlineCount = agents.filter(a => a.status === 'online').length;
@@ -90,6 +120,19 @@ export const TacticalRMMDashboard = () => {
     }
     return true;
   });
+
+  if (liveViewMode) {
+    return (
+      <div className="space-y-6">
+        <LiveMonitorView
+          agents={connectedAgents}
+          onBack={() => setLiveViewMode(false)}
+          onRefreshAll={handleConnectAll}
+          refreshing={connectAllLoading}
+        />
+      </div>
+    );
+  }
 
   if (configured === false) {
     return (
@@ -119,9 +162,14 @@ export const TacticalRMMDashboard = () => {
           <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Tactical RMM</h1>
           <p className="text-muted-foreground mt-1">Remote Monitoring & Management</p>
         </div>
-        <Button variant="outline" size="sm" onClick={loadAgents}>
-          <RefreshCw className="h-4 w-4 mr-2" /> Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleConnectAll} disabled={connectAllLoading || onlineCount === 0}>
+            {connectAllLoading ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Connecting...</> : <><MonitorPlay className="h-4 w-4 mr-1" /> Connect All</>}
+          </Button>
+          <Button variant="outline" size="sm" onClick={loadAgents}>
+            <RefreshCw className="h-4 w-4 mr-2" /> Refresh
+          </Button>
+        </div>
       </motion.div>
 
       {/* Stats */}
