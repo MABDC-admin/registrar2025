@@ -426,8 +426,8 @@ const Index = () => {
         <NotebookPage />
       )}
 
-      {/* Messages - Admin and Teacher only */}
-      {activeTab === 'messages' && (role === 'admin' || role === 'teacher') && (
+      {/* Messages - Admin, Teacher, and Registrar */}
+      {activeTab === 'messages' && (role === 'admin' || role === 'teacher' || role === 'registrar') && (
         <MessagingPage />
       )}
 

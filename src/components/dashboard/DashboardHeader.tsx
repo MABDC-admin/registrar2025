@@ -1,7 +1,8 @@
-import { LogOut, GraduationCap } from 'lucide-react';
+import { LogOut, GraduationCap, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUnreadCount } from '@/hooks/useUnreadCount';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,11 +18,18 @@ import { useSchool } from '@/contexts/SchoolContext';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
 import { cn } from '@/lib/utils';
 
-export const DashboardHeader = () => {
-  const { user, signOut } = useAuth();
+interface DashboardHeaderProps {
+  onNavigateToMessages?: () => void;
+}
+
+export const DashboardHeader = ({ onNavigateToMessages }: DashboardHeaderProps) => {
+  const { user, role, signOut } = useAuth();
+  const unreadCount = useUnreadCount();
   const { currentTheme, selectTheme } = useColorTheme();
   const { schoolTheme, selectedSchool } = useSchool();
   const { data: schoolSettings } = useSchoolSettings(selectedSchool);
+
+  const showMailbox = role === 'admin' || role === 'teacher' || role === 'registrar';
 
   return (
     <div className="flex items-center justify-between mb-6">
@@ -46,6 +54,21 @@ export const DashboardHeader = () => {
       </div>
 
       <div className="flex items-center gap-2">
+        {showMailbox && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative h-10 w-10 rounded-full"
+            onClick={onNavigateToMessages}
+          >
+            <Mail className="h-5 w-5 text-muted-foreground" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </Button>
+        )}
         <ColorThemeSelector currentTheme={currentTheme} onSelectTheme={selectTheme} />
         <DashboardLayoutSwitcher />
 

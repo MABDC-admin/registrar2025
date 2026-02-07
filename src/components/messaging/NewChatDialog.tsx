@@ -41,7 +41,7 @@ export const NewChatDialog = ({ open, onClose, onCreateChat }: NewChatDialogProp
       const { data: roles } = await supabase
         .from('user_roles')
         .select('user_id, role')
-        .in('role', ['admin', 'teacher']);
+        .in('role', ['admin', 'teacher', 'registrar']);
 
       if (!roles?.length) { setLoading(false); return; }
 
