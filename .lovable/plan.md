@@ -1,87 +1,83 @@
 
 
-# Enhanced Tactical RMM Dashboard
+# Tactical RMM Dashboard Fixes and Enhancements
 
-Upgrading the current table-only view into a full device management dashboard with card/grid views, agent detail panel, and management actions.
+## Issues Identified
+
+1. **"Open" (Remote Desktop) button not visible**: The button only shows when both `meshUrl` AND `agent.meshnode_id` are present. The `meshnode_id` is only populated after clicking an agent to fetch details, but it may not be returned by the API if the field name differs. The proxy returns `meshUrl` at top level but the dashboard needs to pass it through correctly.
+
+2. **No site filtering**: Tactical RMM organizes agents by "sites" (within clients). The current dashboard has no site filter.
+
+3. **Default filter should be "online"**: Currently defaults to showing all agents.
+
+4. **No description field in card/table view**: Agent descriptions from Tactical RMM are not displayed.
 
 ---
 
-## What You'll Get
+## Changes
 
-- **View Switcher**: Toggle between Card view (visual grid of devices) and Table view (current list)
-- **Device Cards**: Each device shown as a visual card with status indicator, OS icon, hostname, and quick-action buttons
-- **Agent Detail Panel**: Click any device to open a slide-out panel showing full details, system info, and management actions
-- **Management Actions**: Send commands, trigger patch scans, request reboot, and open remote desktop (opens Tactical RMM's MeshCentral remote view in a new tab)
-- **Sorting and Filtering**: Filter by status (online/offline/needs reboot) plus existing search
+### 1. Update Agent Type (`src/components/tacticalrmm/types.ts`)
+
+Add missing fields from the Tactical RMM API:
+- `site_name: string` -- the site the agent belongs to
+- `client_name: string` -- the client/organization
+- `description: string` -- agent description/notes
+- `monitoring_type: string` -- server vs workstation
+
+### 2. Fix Remote Desktop Button Visibility (`AgentDetailSheet.tsx`)
+
+- Make the "Open Remote Desktop" button always visible when `meshUrl` exists (even without `meshnode_id`), but disabled with a tooltip explaining why if `meshnode_id` is missing
+- Ensure `meshnode_id` is fetched during the detail call
+
+### 3. Add Site Filtering (`TacticalRMMDashboard.tsx`)
+
+- Extract unique site names from the loaded agents list
+- Add a site filter dropdown next to the existing status filter
+- Filter agents by selected site
+
+### 4. Default to "Online" Filter
+
+- Change `statusFilter` initial state from `'all'` to `'online'`
+
+### 5. Add Description to Card and Table Views
+
+**AgentCard.tsx:**
+- Show `agent.description` below the OS line (truncated, muted text)
+- Show `agent.site_name` as a small badge or label
+
+**AgentTable.tsx:**
+- Add a "Site" column
+- Add a "Description" column (truncated)
+
+### 6. Update Proxy to Include Sites Endpoint
+
+Add a `sites` action to `tacticalrmm-proxy/index.ts` that fetches `/clients/` or extracts unique sites from agent data, to populate the site filter dropdown.
 
 ---
 
 ## Technical Details
 
-### 1. Update Backend Proxy (`supabase/functions/tacticalrmm-proxy/index.ts`)
-
-Add support for:
-- **Agent details**: `GET /agents/<agent_id>/` -- returns full agent info (CPU, RAM, disks, services)
-- **Send command**: `POST /agents/<agent_id>/cmd/` -- execute shell/PowerShell commands
-- **Patch scan**: `POST /agents/<agent_id>/cmd/` with Windows Update scan command  
-- **Reboot**: `POST /agents/<agent_id>/reboot/`
-- **MeshCentral URL**: Extract the `meshnode_id` from agent data to construct the remote control link
-
-The proxy will support both GET and POST methods to the Tactical RMM API, with the `method` field in the request body.
-
-### 2. Refactor Frontend (`src/components/tacticalrmm/TacticalRMMDashboard.tsx`)
-
-**New state:**
-- `viewMode`: `'card' | 'table'` -- toggle between views
-- `selectedAgent`: the agent currently being viewed in detail
-- `detailLoading`: loading state for agent detail fetch
-- `agentDetail`: full agent detail data
-- `statusFilter`: `'all' | 'online' | 'offline' | 'reboot'`
-
-**New sub-components (inline or extracted):**
-
-- **AgentCard**: A card component per device showing:
-  - Color-coded status dot (green/red)
-  - OS icon (Windows/Linux/Mac based on `plat` field)
-  - Hostname (bold)
-  - OS version (truncated)
-  - Last seen timestamp
-  - Reboot/patches badges
-  - Click to open detail panel
-
-- **AgentDetailSheet**: A dialog/sheet that slides in when clicking a device:
-  - Full system info (CPU, RAM, disks, uptime)
-  - Installed patches count
-  - Last seen, IP address
-  - Action buttons:
-    - "Open Remote Desktop" -- opens `https://<TACTICALRMM_MESH_URL>` with the agent's mesh node (new tab)
-    - "Run Command" -- input field + execute button (sends to proxy)
-    - "Scan for Patches" -- triggers update scan
-    - "Reboot" -- with confirmation dialog
-
-- **ViewToggle**: Simple button group to switch card/table views
-
-- **StatusFilter**: Dropdown or button group to filter by online/offline/needs reboot
-
-### 3. Remote Desktop Access
-
-Tactical RMM uses MeshCentral for remote control. Each agent has a `meshnode_id`. The remote desktop link format is:
-```
-https://mesh.yourdomain.com/#/device/<meshnode_id>
-```
-
-The proxy will return the mesh node ID from agent details, and clicking "Open Remote Desktop" will open this URL in a new tab. This requires the `TACTICALRMM_MESH_URL` secret (your MeshCentral URL).
-
-If the mesh URL is not configured, the button will be hidden with a note.
-
-### 4. Files Modified
+### Files Modified
 
 | File | Changes |
 |---|---|
-| `supabase/functions/tacticalrmm-proxy/index.ts` | Add POST method support, agent detail endpoint, command execution, reboot endpoint |
-| `src/components/tacticalrmm/TacticalRMMDashboard.tsx` | Full rewrite: add card grid view, view switcher, status filters, agent detail sheet, management actions |
+| `src/components/tacticalrmm/types.ts` | Add `site_name`, `client_name`, `description`, `monitoring_type` fields |
+| `src/components/tacticalrmm/TacticalRMMDashboard.tsx` | Add site filter dropdown, default status to "online", extract unique sites from agents |
+| `src/components/tacticalrmm/AgentCard.tsx` | Display description and site name |
+| `src/components/tacticalrmm/AgentTable.tsx` | Add Site and Description columns |
+| `src/components/tacticalrmm/AgentDetailSheet.tsx` | Show Remote Desktop button more prominently, handle missing meshnode_id gracefully |
+| `supabase/functions/tacticalrmm-proxy/index.ts` | No changes needed -- site data comes with agent list response |
 
-### 5. New Secret (Optional)
+### Site Filter Logic
 
-- `TACTICALRMM_MESH_URL` -- Your MeshCentral URL for remote desktop links (e.g., `https://mesh.yourdomain.com`). If not provided, the remote desktop button simply won't appear.
+Sites are extracted from the agents array:
+```text
+const sites = [...new Set(agents.map(a => a.site_name).filter(Boolean))];
+```
+
+A new `siteFilter` state (default `'all'`) filters the displayed agents.
+
+### Remote Desktop Button Fix
+
+The button will appear whenever `meshUrl` is configured. If the agent lacks a `meshnode_id`, it opens MeshCentral's main page instead of a specific device page, so you can still navigate to the device manually.
 
