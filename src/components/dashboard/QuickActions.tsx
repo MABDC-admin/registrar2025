@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { AdmitStudentIcon3D, AddTeacherIcon3D, ScheduleIcon3D, EnterGradeIcon3D } from '@/components/icons/ThreeDIcons';
-import { AppleAdmitIcon, AppleTeacherIcon, AppleScheduleIcon, AppleGradesIcon } from '@/components/icons/AppleStyleIcons';
+import { AdmitStudentIcon3D, ScheduleIcon3D, EnterGradeIcon3D, EventsIcon3D } from '@/components/icons/ThreeDIcons';
+import { AppleAdmitIcon, AppleScheduleIcon, AppleGradesIcon, AppleEventsIcon } from '@/components/icons/AppleStyleIcons';
 import { LayoutStyle } from '@/contexts/DashboardLayoutContext';
 
 interface QuickActionsProps {
@@ -23,9 +23,9 @@ export const QuickActions = ({ onNavigate, variant = 'modern' }: QuickActionsPro
       iconColor: isApple ? 'text-[#007AFF]' : 'text-info',
     },
     {
-      icon: isApple ? AppleTeacherIcon : AddTeacherIcon3D,
-      label: 'Add Teacher',
-      onClick: () => onNavigate('teachers'),
+      icon: isApple ? AppleEventsIcon : EventsIcon3D,
+      label: 'Messages',
+      onClick: () => onNavigate('messages'),
       bgClass: isApple ? 'apple-card' : isClassic ? 'classic-card' : 'bg-card hover:bg-muted',
       iconBg: isApple ? 'bg-[#34C759]/10' : 'bg-success/10',
       iconColor: isApple ? 'text-[#34C759]' : 'text-success',

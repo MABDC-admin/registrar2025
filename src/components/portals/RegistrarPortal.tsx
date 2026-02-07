@@ -52,7 +52,7 @@ export const RegistrarPortal = ({ onNavigate, stats }: RegistrarPortalProps) => 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <DashboardHeader />
+      <DashboardHeader onNavigateToMessages={() => onNavigate('messages')} />
 
       {/* Stats Row */}
       <DashboardStatsRow

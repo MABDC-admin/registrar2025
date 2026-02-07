@@ -58,7 +58,7 @@ export const AdminPortal = ({ onNavigate }: AdminPortalProps) => {
       isApple && "dashboard-apple apple-page-bg"
     )}>
       {/* Header */}
-      <DashboardHeader />
+      <DashboardHeader onNavigateToMessages={() => onNavigate('messages')} />
 
       {/* Stats Row */}
       <DashboardStatsRow

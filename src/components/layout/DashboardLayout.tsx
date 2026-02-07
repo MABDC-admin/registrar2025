@@ -287,6 +287,7 @@ const getNavGroupsForRole = (role: string | null): NavGroup[] => {
           isCollapsible: true,
           items: [
             { id: 'teachers', icon: TeacherIcon3D, label: 'Teachers' },
+            { id: 'messages', icon: EventsIcon3D, label: 'Messages' },
             { id: 'events', icon: EventsIcon3D, label: 'Events' },
             { id: 'announcement-mgmt', icon: EventsIcon3D, label: 'Announcements' },
           ]
