@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { useSchool } from '@/contexts/SchoolContext';
+import { useSchoolId } from '@/hooks/useSchoolId';
 import { useAuth } from '@/contexts/AuthContext';
 import { ZoomSettingsPanel } from './ZoomSettingsPanel';
 
@@ -88,7 +88,7 @@ const formatCountdown = (uaeTime: Date, settings: ZoomSettings | null): string =
 };
 
 export const ZoomDashboard = () => {
-  const { selectedSchool } = useSchool();
+  const { data: schoolId } = useSchoolId();
   const { role } = useAuth();
   const uaeTime = useUAETime();
   const [settings, setSettings] = useState<ZoomSettings | null>(null);
@@ -100,12 +100,12 @@ export const ZoomDashboard = () => {
   const sessionActive = isInSession(uaeTime, settings);
 
   const fetchSettings = async () => {
-    if (!selectedSchool) return;
+    if (!schoolId) return;
     setLoading(true);
     const { data, error } = await supabase
       .from('zoom_settings')
       .select('*')
-      .eq('school_id', selectedSchool)
+      .eq('school_id', schoolId)
       .maybeSingle();
 
     if (!error && data) {
@@ -119,7 +119,7 @@ export const ZoomDashboard = () => {
 
   useEffect(() => {
     fetchSettings();
-  }, [selectedSchool]);
+  }, [schoolId]);
 
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text);

@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { useSchool } from '@/contexts/SchoolContext';
+import { useSchoolId } from '@/hooks/useSchoolId';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface BreakoutRoom {
@@ -46,7 +46,7 @@ interface ZoomSettingsPanelProps {
 }
 
 export const ZoomSettingsPanel = ({ settings, onBack }: ZoomSettingsPanelProps) => {
-  const { selectedSchool } = useSchool();
+  const { data: schoolId } = useSchoolId();
   const { user } = useAuth();
 
   const [meetingUrl, setMeetingUrl] = useState(settings?.meeting_url || '');
@@ -80,11 +80,11 @@ export const ZoomSettingsPanel = ({ settings, onBack }: ZoomSettingsPanelProps) 
   };
 
   const handleSave = async () => {
-    if (!selectedSchool) return;
+    if (!schoolId) return;
     setSaving(true);
 
     const payload = {
-      school_id: selectedSchool,
+      school_id: schoolId,
       meeting_url: meetingUrl || null,
       meeting_id: meetingId || null,
       meeting_password: meetingPassword || null,
