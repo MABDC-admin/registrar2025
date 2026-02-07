@@ -23,11 +23,9 @@ export const AgentCard = ({ agent, onClick }: { agent: Agent; onClick: () => voi
           <span className={`h-3 w-3 rounded-full ${isOnline ? 'bg-green-500' : 'bg-destructive'}`} />
         </div>
         <div className="min-w-0">
-          <p className="font-semibold truncate">{agent.hostname}</p>
-          <p className="text-xs text-muted-foreground truncate">{agent.operating_system}</p>
-          {agent.description && (
-            <p className="text-xs text-muted-foreground/70 truncate mt-0.5">{agent.description}</p>
-          )}
+          <p className="font-semibold truncate">{agent.description || agent.hostname}</p>
+          <p className="text-xs text-muted-foreground truncate">{agent.hostname}</p>
+          <p className="text-xs text-muted-foreground/70 truncate mt-0.5">{agent.operating_system}</p>
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
           <Badge variant={isOnline ? 'default' : 'destructive'} className="text-[10px] px-1.5 py-0">
