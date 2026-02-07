@@ -35,12 +35,14 @@ async function getOmadaToken(url: string, clientId: string, clientSecret: string
   const omadacId = await getOmadacId(url);
   
   const tokenUrl = `${url}/openapi/authorize/token?grant_type=client_credentials&omadac_id=${omadacId}`;
+  const requestBody = { client_id: clientId, client_secret: clientSecret };
   console.log('Requesting token from:', tokenUrl);
+  console.log('Token request body client_id:', clientId, 'client_secret length:', clientSecret?.length);
   
   const resp = await fetch(tokenUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ client_id: clientId, client_secret: clientSecret }),
+    body: JSON.stringify(requestBody),
   });
   
   const text = await resp.text();
