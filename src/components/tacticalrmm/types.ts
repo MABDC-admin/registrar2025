@@ -16,6 +16,10 @@ export interface Agent {
   boot_time?: number;
   logged_in_username?: string;
   agent_version?: string;
+  site_name?: string;
+  client_name?: string;
+  description?: string;
+  monitoring_type?: string;
 }
 
 export type ViewMode = 'card' | 'table';
