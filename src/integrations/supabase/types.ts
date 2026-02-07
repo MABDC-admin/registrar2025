@@ -281,25 +281,37 @@ export type Database = {
         Row: {
           book_id: string
           created_at: string
+          detected_page_number: string | null
+          detection_completed: boolean | null
+          detection_confidence: number | null
           id: string
           image_url: string
           page_number: number
+          page_type: string | null
           thumbnail_url: string | null
         }
         Insert: {
           book_id: string
           created_at?: string
+          detected_page_number?: string | null
+          detection_completed?: boolean | null
+          detection_confidence?: number | null
           id?: string
           image_url: string
           page_number: number
+          page_type?: string | null
           thumbnail_url?: string | null
         }
         Update: {
           book_id?: string
           created_at?: string
+          detected_page_number?: string | null
+          detection_completed?: boolean | null
+          detection_confidence?: number | null
           id?: string
           image_url?: string
           page_number?: number
+          page_type?: string | null
           thumbnail_url?: string | null
         }
         Relationships: [

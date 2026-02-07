@@ -18,23 +18,54 @@ export function usePageDetection({ bookId, autoDetect = true }: UsePageDetection
   const [detectedPages, setDetectedPages] = useState<Map<number, PageDetectionResult>>(new Map());
   const [isDetecting, setIsDetecting] = useState(false);
   const [detectionProgress, setDetectionProgress] = useState(0);
-  const detectionCache = useRef<Map<string, PageDetectionResult>>(new Map());
   const abortController = useRef<AbortController | null>(null);
+  const loadedFromDb = useRef(false);
+
+  // Load persisted detection results from DB on mount
+  useEffect(() => {
+    if (!bookId || loadedFromDb.current) return;
+
+    const loadPersistedResults = async () => {
+      const { data: pages, error } = await supabase
+        .from('book_pages')
+        .select('id, page_number, detected_page_number, page_type, detection_confidence, detection_completed')
+        .eq('book_id', bookId)
+        .eq('detection_completed', true);
+
+      if (error) {
+        console.error('Failed to load persisted detection results:', error);
+        return;
+      }
+
+      if (pages && pages.length > 0) {
+        const map = new Map<number, PageDetectionResult>();
+        for (const page of pages) {
+          const pageIndex = page.page_number - 1;
+          map.set(pageIndex, {
+            pageIndex,
+            detectedPageNumber: page.detected_page_number,
+            pageType: (page.page_type as PageDetectionResult['pageType']) || 'unknown',
+            confidence: page.detection_confidence || 0,
+          });
+        }
+        setDetectedPages(map);
+        loadedFromDb.current = true;
+        console.log(`Loaded ${pages.length} persisted detection results for book ${bookId}`);
+      }
+    };
+
+    loadPersistedResults();
+  }, [bookId]);
 
   // Detect page number for a single page
   const detectPageNumber = useCallback(async (
     imageUrl: string,
-    pageIndex: number
+    pageIndex: number,
+    pageId?: string,
   ): Promise<PageDetectionResult | null> => {
-    // Check cache first
-    const cacheKey = `${bookId}-${pageIndex}`;
-    if (detectionCache.current.has(cacheKey)) {
-      return detectionCache.current.get(cacheKey)!;
-    }
-
     try {
       const { data, error } = await supabase.functions.invoke('detect-page-number', {
-        body: { imageUrl, pageIndex }
+        body: { imageUrl, pageIndex, bookId, pageId }
       });
 
       if (error) {
@@ -42,20 +73,26 @@ export function usePageDetection({ bookId, autoDetect = true }: UsePageDetection
         return null;
       }
 
-      const result = data as PageDetectionResult;
-      detectionCache.current.set(cacheKey, result);
-      return result;
+      return data as PageDetectionResult;
     } catch (err) {
       console.error('Failed to detect page number:', err);
       return null;
     }
   }, [bookId]);
 
-  // Detect page numbers for multiple pages
+  // Detect pages sequentially, skipping already-detected ones
   const detectPagesSequentially = useCallback(async (
-    pages: { pageIndex: number; imageUrl: string }[]
+    pages: { pageIndex: number; imageUrl: string; pageId?: string }[]
   ) => {
     if (pages.length === 0) return;
+
+    // Filter out pages already detected
+    const undetectedPages = pages.filter(p => !detectedPages.has(p.pageIndex));
+    
+    if (undetectedPages.length === 0) {
+      console.log('All pages already detected, skipping scan');
+      return;
+    }
 
     setIsDetecting(true);
     setDetectionProgress(0);
@@ -64,28 +101,25 @@ export function usePageDetection({ bookId, autoDetect = true }: UsePageDetection
     const results = new Map<number, PageDetectionResult>();
     let completed = 0;
 
-    // Process pages sequentially with small delay to avoid rate limits
-    for (const page of pages) {
+    for (const page of undetectedPages) {
       if (abortController.current?.signal.aborted) break;
 
-      const result = await detectPageNumber(page.imageUrl, page.pageIndex);
+      const result = await detectPageNumber(page.imageUrl, page.pageIndex, page.pageId);
       if (result) {
         results.set(page.pageIndex, result);
         setDetectedPages(prev => new Map(prev).set(page.pageIndex, result));
       }
 
       completed++;
-      setDetectionProgress(Math.round((completed / pages.length) * 100));
+      setDetectionProgress(Math.round((completed / undetectedPages.length) * 100));
 
-      // Small delay between requests to avoid rate limiting
-      if (completed < pages.length) {
+      if (completed < undetectedPages.length) {
         await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
 
     setIsDetecting(false);
     
-    // Show summary toast
     const numberedPages = Array.from(results.values()).filter(r => r.pageType === 'numbered');
     const coverPages = Array.from(results.values()).filter(r => r.pageType === 'cover');
     const blankPages = Array.from(results.values()).filter(r => r.pageType === 'blank');
@@ -97,7 +131,7 @@ export function usePageDetection({ bookId, autoDetect = true }: UsePageDetection
     }
 
     return results;
-  }, [detectPageNumber]);
+  }, [detectPageNumber, detectedPages]);
 
   // Cancel ongoing detection
   const cancelDetection = useCallback(() => {
@@ -123,10 +157,7 @@ export function usePageDetection({ bookId, autoDetect = true }: UsePageDetection
       };
     }
 
-    // Hide cover and blank pages from main view
     const shouldHide = detection.pageType === 'cover' || detection.pageType === 'blank';
-    
-    // Use detected page number if available, otherwise use index
     const displayNumber = detection.detectedPageNumber || String(pageIndex + 1);
 
     return {
@@ -137,7 +168,7 @@ export function usePageDetection({ bookId, autoDetect = true }: UsePageDetection
     };
   }, [detectedPages]);
 
-  // Clear cache on unmount
+  // Clear on unmount
   useEffect(() => {
     return () => {
       cancelDetection();
