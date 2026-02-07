@@ -131,18 +131,18 @@ export const FlipbookViewer = ({
     }
   }, [initialPage, pages.length, isLoading]);
 
-  // Auto-detect page numbers when pages are loaded
+  // Auto-detect page numbers when pages are loaded (skips already-persisted ones)
   useEffect(() => {
-    if (pages.length > 0 && detectedPages.size === 0 && !isDetecting) {
-      // Prepare pages for detection (use thumbnails for faster processing)
+    if (pages.length > 0 && !isDetecting) {
       const pagesToDetect = pages.map(page => ({
         pageIndex: page.page_number - 1,
-        imageUrl: page.thumbnail_url || page.image_url
+        imageUrl: page.thumbnail_url || page.image_url,
+        pageId: page.id,
       }));
       
       detectPagesSequentially(pagesToDetect);
     }
-  }, [pages, detectedPages.size, isDetecting, detectPagesSequentially]);
+  }, [pages, isDetecting, detectPagesSequentially]);
 
   // Keyboard navigation
   useEffect(() => {

@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,6 +9,8 @@ const corsHeaders = {
 interface PageDetectionRequest {
   imageUrl: string;
   pageIndex: number;
+  bookId?: string;
+  pageId?: string;
 }
 
 interface PageDetectionResult {
@@ -18,19 +21,44 @@ interface PageDetectionResult {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    const { imageUrl, pageIndex } = await req.json() as PageDetectionRequest;
+    const { imageUrl, pageIndex, bookId, pageId } = await req.json() as PageDetectionRequest;
     
     if (!imageUrl) {
       return new Response(
         JSON.stringify({ error: 'Image URL is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Check if already detected in DB
+    if (pageId) {
+      const { data: existing } = await supabase
+        .from('book_pages')
+        .select('detected_page_number, page_type, detection_confidence, detection_completed')
+        .eq('id', pageId)
+        .single();
+
+      if (existing?.detection_completed) {
+        console.log(`Page ${pageIndex} already detected, returning cached result`);
+        return new Response(
+          JSON.stringify({
+            pageIndex,
+            detectedPageNumber: existing.detected_page_number,
+            pageType: existing.page_type || 'unknown',
+            confidence: existing.detection_confidence || 0,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -79,9 +107,7 @@ Respond with a JSON object only, no markdown:
               },
               {
                 type: "image_url",
-                image_url: {
-                  url: imageUrl
-                }
+                image_url: { url: imageUrl }
               }
             ]
           }
@@ -91,20 +117,17 @@ Respond with a JSON object only, no markdown:
 
     if (!response.ok) {
       if (response.status === 429) {
-        console.error("Rate limit exceeded");
         return new Response(
           JSON.stringify({ error: 'Rate limit exceeded, please try again later' }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       if (response.status === 402) {
-        console.error("Payment required");
         return new Response(
           JSON.stringify({ error: 'AI credits exhausted' }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      
       const errorText = await response.text();
       console.error("AI gateway error:", response.status, errorText);
       return new Response(
@@ -115,10 +138,8 @@ Respond with a JSON object only, no markdown:
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || '';
-    
     console.log(`AI response for page ${pageIndex}:`, content);
 
-    // Parse the JSON response
     let result: PageDetectionResult = {
       pageIndex,
       detectedPageNumber: null,
@@ -127,12 +148,9 @@ Respond with a JSON object only, no markdown:
     };
 
     try {
-      // Extract JSON from the response (handle potential markdown wrapping)
       let jsonStr = content;
       const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        jsonStr = jsonMatch[0];
-      }
+      if (jsonMatch) jsonStr = jsonMatch[0];
       
       const parsed = JSON.parse(jsonStr);
       result = {
@@ -143,10 +161,26 @@ Respond with a JSON object only, no markdown:
       };
     } catch (parseError) {
       console.error("Failed to parse AI response:", parseError);
-      // Return default result with unknown type
     }
 
-    console.log(`Detection result for page ${pageIndex}:`, result);
+    // Persist result to database
+    if (pageId) {
+      const { error: updateError } = await supabase
+        .from('book_pages')
+        .update({
+          detected_page_number: result.detectedPageNumber,
+          page_type: result.pageType,
+          detection_confidence: result.confidence,
+          detection_completed: true,
+        })
+        .eq('id', pageId);
+
+      if (updateError) {
+        console.error("Failed to persist detection result:", updateError);
+      } else {
+        console.log(`Persisted detection for page ${pageIndex} (${pageId})`);
+      }
+    }
 
     return new Response(
       JSON.stringify(result),
