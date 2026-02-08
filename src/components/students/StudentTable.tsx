@@ -353,7 +353,7 @@ export const StudentTable = ({
           /* Split Panel View */
           <div className="flex gap-3 h-[calc(100vh-160px)] min-h-[500px]">
             {/* Left Panel - Student List */}
-            <div className="w-[35%] min-w-[280px] flex flex-col border rounded-xl overflow-hidden">
+            <div className="w-[25%] min-w-[240px] flex flex-col border rounded-xl overflow-hidden">
               {/* Search + Filter Row */}
               <div className="p-2.5 border-b bg-secondary/30 space-y-2">
                 <div className="flex items-center gap-2">
