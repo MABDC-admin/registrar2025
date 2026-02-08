@@ -147,6 +147,16 @@ export const ZoomDashboard = () => {
               Settings
             </Button>
           )}
+          {hasAdminAccess && (
+            <Button
+              variant="secondary"
+              onClick={() => window.open('/admin/zoom-runner', '_blank')}
+              className="bg-primary/10 text-primary hover:bg-primary/20"
+            >
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Launch Bridge
+            </Button>
+          )}
         </div>
       </motion.div>
 

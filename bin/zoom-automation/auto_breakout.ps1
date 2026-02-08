@@ -2,10 +2,13 @@
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 
-$zoomUrl = "https://zoom.us/s/89250059606?zak=eyJ6bV9za20iOiJ6bV9vM20iLCJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJjbGllbnQiLCJ1aWQiOiJkUUpaNEdhWlJfYW1iUVNKYkVYX3dnIiwiaXNzIjoid2ViIiwic3R5IjoxMDAsIndjdCI6IjIwMjYtMDItMDYiLCJleHAiOjE3NzA5ODcyMTgsImlhdCI6MTc3MDM4MjQxOCwiYWlkIjoiZFFKWjRHYVpSX2FtYlFTSmJFWF93ZyIsImNpZCI6IiJ9.zE00EBqaJCgbsjKSVwkmIXkqczkP83DOYuy3aEM229k"
+$runnerUrl = "http://localhost:5173/admin/zoom-runner" # Update to production URL when deployed
 
-Write-Host "Launching Zoom..."
-Start-Process $zoomUrl
+Write-Host "Opening Production Bridge: $runnerUrl"
+Start-Process "msedge.exe" $runnerUrl
+
+Write-Host "Waiting for Zoom Meeting window to initialize..."
+timeout /t 30
 
 Write-Host "Waiting for Zoom Meeting window..."
 $timeout = 60
