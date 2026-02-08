@@ -1,53 +1,33 @@
 
+# Fix "Failed to Read PDF" Error
 
-# Update SchoolAI System Prompt to NotebookLM-Style Grounding
+## Problem
+The PDF text extraction (`src/utils/extractPdfText.ts`) uses a CDN-loaded worker that causes version mismatches and CORS failures:
+```typescript
+// BROKEN - CDN worker often fails
+import * as pdfjsLib from 'pdfjs-dist';
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+```
 
-## What This Does
-Replaces the current system prompt with a refined version modeled after Google NotebookLM's behavior -- structured, grounded in sources when available, role-adaptive (Student/Teacher/Admin/Tech), and with stricter readability and quality rules.
+Meanwhile, the PDF-to-image utility (`pdfToImages.ts`) already works correctly using a locally bundled worker.
 
-## What Changes
+## Fix
+Update `src/utils/extractPdfText.ts` to use the same legacy build + local worker pattern that already works in the project:
 
-**File: `src/components/aichat/constants.ts`**
+```typescript
+// FIXED - local bundled worker, no CDN/CORS issues
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import workerSrc from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
+pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
+```
 
-Replace the `SCHOOL_SYSTEM_PROMPT` string with the new prompt structure. The key differences from the current prompt:
-
-1. **Grounding Rules (NEW)**: When sources (PDFs/notes) are provided, the AI must prioritize them as truth, never invent unsupported facts, and cite sources using `[S1]`, `[S2]` labels. When no sources exist, it uses general knowledge but marks uncertainty.
-
-2. **Role Auto-Adaptation (NEW)**: Explicitly defines four modes (Student, Teacher, Admin, Tech) with different response styles for each. The AI infers the best role if the user doesn't specify one.
-
-3. **Simplified Format**: Consolidates the current verbose formatting rules into a cleaner, more concise instruction set while keeping all the same section icons and spacing rules.
-
-4. **Safety Section (NEW)**: Explicit instruction to refuse unsafe/harmful requests and offer safe alternatives.
-
-5. **Preserved Features**: YouTube Video References section, code formatting rules, all expert domains, document analysis behavior, and response examples are all retained.
-
-## Technical Details
-
-### Single File Change
+## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/components/aichat/constants.ts` | Replace `SCHOOL_SYSTEM_PROMPT` content |
+| `src/utils/extractPdfText.ts` | Replace lines 1-4: switch from CDN worker to local bundled legacy worker |
 
-### Prompt Structure (New)
-
-```
-1) Identity + Core Roles (Student/Teacher/Admin/Tech)
-2) NotebookLM Grounding Rules (source-first vs general knowledge)
-3) Strict Response Format (same icons, cleaner instructions)
-4) Readability Rules (spacing, bullets, short sentences)
-5) Expert Domains (retained from current)
-6) Core Capabilities (retained from current)
-7) Response Examples (retained from current)
-8) Document Analysis (retained from current)
-9) Special Instructions (retained from current)
-10) YouTube Video References (retained from current)
-11) Quality + Safety Rules (new)
-```
-
-### No Other Changes
-- No new dependencies
-- No database changes
-- No changes to ChatMessageBubble or PDF export
-- The prompt flows through the existing `notebook-chat` edge function unchanged
-
+## No Other Changes
+- Same extraction logic, same interfaces, same limits
+- No new dependencies (already using `pdfjs-dist`)
+- Matches the proven pattern from `pdfToImages.ts`
