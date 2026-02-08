@@ -544,15 +544,6 @@ export const StudentPortal = ({ activeSection = 'dashboard' }: StudentPortalProp
         className="flex items-center justify-between"
       >
         <div className="flex items-center gap-4">
-          {/* Animated Student Avatar */}
-          {student && (
-            <AnimatedStudentAvatar
-              photoUrl={student.photo_url}
-              name={student.student_name}
-              size="2xl"
-              borderColor="hsl(var(--primary) / 0.3)"
-            />
-          )}
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
               {sectionTitles[activeSection] || 'Student Portal'}
