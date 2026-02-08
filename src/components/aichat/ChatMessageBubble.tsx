@@ -1,4 +1,4 @@
-import { Bot, User, Download, BookOpen, ExternalLink, Play } from 'lucide-react';
+import { Bot, User, Download, BookOpen, ExternalLink, Play, Lightbulb } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils';
@@ -9,10 +9,23 @@ interface ChatMessageBubbleProps {
   message: Message;
   isStreaming: boolean;
   docFilename?: string;
+  showSuggestions?: boolean;
 }
 
-export const ChatMessageBubble = ({ message, isStreaming, docFilename }: ChatMessageBubbleProps) => {
+const parseSuggestion = (content: string) => {
+  const suggestionRegex = /\n?💡 \*\*Suggestion:\*\*\s*.+$/s;
+  const match = content.match(suggestionRegex);
+  const mainContent = match ? content.slice(0, match.index) : content;
+  const suggestionText = match ? match[0].replace('💡 **Suggestion:**', '').trim() : null;
+  return { mainContent, suggestionText };
+};
+
+export const ChatMessageBubble = ({ message, isStreaming, docFilename, showSuggestions = true }: ChatMessageBubbleProps) => {
   const isUser = message.role === 'user';
+
+  const { mainContent, suggestionText } = !isUser && message.content
+    ? parseSuggestion(message.content)
+    : { mainContent: message.content, suggestionText: null };
 
   return (
     <div className={cn('flex gap-3 max-w-3xl', isUser && 'ml-auto flex-row-reverse')}>
@@ -30,7 +43,7 @@ export const ChatMessageBubble = ({ message, isStreaming, docFilename }: ChatMes
           <p className="whitespace-pre-wrap">{message.content}</p>
         ) : (
           <div className="space-y-3">
-            {message.content && (
+            {mainContent && (
               <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
@@ -39,7 +52,6 @@ export const ChatMessageBubble = ({ message, isStreaming, docFilename }: ChatMes
                       const isBookLink = href?.includes('/library/book/');
                       const isYouTube = href?.includes('youtube.com') || href?.includes('youtu.be');
                       
-                      // Extract YouTube video ID for embedding
                       let videoId: string | null = null;
                       if (isYouTube && href) {
                         const watchMatch = href.match(/[?&]v=([0-9A-Za-z_-]{11})/);
@@ -47,7 +59,6 @@ export const ChatMessageBubble = ({ message, isStreaming, docFilename }: ChatMes
                         videoId = watchMatch?.[1] || shortMatch?.[1] || null;
                       }
 
-                      // Render embedded player for direct YouTube video links
                       if (videoId) {
                         return (
                           <div className="my-2 w-full max-w-md">
@@ -88,10 +99,21 @@ export const ChatMessageBubble = ({ message, isStreaming, docFilename }: ChatMes
                     },
                   }}
                 >
-                  {message.content}
+                  {mainContent}
                 </ReactMarkdown>
               </div>
             )}
+
+            {/* Suggestion callout */}
+            {suggestionText && showSuggestions && !isStreaming && (
+              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2 mt-2">
+                <p className="text-sm text-amber-800 dark:text-amber-200 flex items-start gap-1.5">
+                  <Lightbulb className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-500" />
+                  <span>{suggestionText}</span>
+                </p>
+              </div>
+            )}
+
             {message.images && message.images.length > 0 && (
               <div className="space-y-2">
                 {message.images.map((img, idx) => (
