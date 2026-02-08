@@ -172,6 +172,7 @@ export const TransmutationManager = ({ student, academicYearId }: TransmutationM
                     student_id: student.id,
                     subject_id: selectedSubject,
                     academic_year_id: academicYearId,
+                    school_id: student.school_id,
                     quarter: parseInt(quarter),
                     ww_scores: wwRaw,
                     ww_max_scores: wwMax,
@@ -195,7 +196,7 @@ export const TransmutationManager = ({ student, academicYearId }: TransmutationM
                     student_id: student.id,
                     subject_id: selectedSubject,
                     academic_year_id: academicYearId,
-                    school_id: '00000000-0000-0000-0000-000000000000',
+                    school_id: student.school_id,
                     [gradeField]: computedGrades.transmutedGrade,
                     updated_at: new Date().toISOString()
                 }, {
