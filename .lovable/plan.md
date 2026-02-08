@@ -1,127 +1,113 @@
 
 
-# Colorize and Massively Expand Quick Actions Menu and Suggestion Chips
+# AI-Powered Dynamic Suggestions for the Quick Actions Menu
 
 ## What Changes
 
-### 1. Colorized Action Menu Groups
-Each category in the "+" menu gets its own distinct color theme so items are visually scannable at a glance:
+The static quick actions menu transforms into a **hybrid system**: a large curated set of categorized actions (expanded to 20+ categories, 100+ items) **plus** an AI-generated "Trending & For You" section at the top that dynamically adapts based on the user's chat history, time of day, and current academic context.
 
-| Category | Color | Accent |
-|----------|-------|--------|
-| Search and Discover | Blue | `bg-blue-50 text-blue-600` |
-| Create and Generate | Purple | `bg-purple-50 text-purple-600` |
-| Analyze and Upload | Amber/Orange | `bg-amber-50 text-amber-600` |
-| School Tools | Green | `bg-green-50 text-green-600` |
-| Language and Writing | Pink | `bg-pink-50 text-pink-600` |
-| Science and Math | Cyan/Teal | `bg-teal-50 text-teal-600` |
-| Lifestyle and Wellness | Rose | `bg-rose-50 text-rose-600` |
-| Fun and Creative | Indigo | `bg-indigo-50 text-indigo-600` |
-| Professional and Career | Slate | `bg-slate-100 text-slate-600` |
+## How It Works
 
-Each action row shows its **emoji** inline (replacing the Lucide icon) on a colored pill background for that group, making the menu feel vibrant and modern.
+### 1. Massively Expanded Static Categories (always available)
 
-### 2. Expanded Categories (30+ actions total)
+The menu grows from 9 to 20 color-coded categories with 100+ total actions. New categories include:
 
-**Search and Discover** (blue)
-- Search Library
-- Search YouTube Videos
-- Wikipedia Lookup
-- News and Current Events
+| Category | Color | Sample Items |
+|----------|-------|--------------|
+| Filipino / Mother Tongue | `bg-yellow-50 text-yellow-700` | Pagsulat ng Sanaysay, Pagbasa Comprehension, Filipino Grammar |
+| History & Social Studies | `bg-orange-50 text-orange-700` | Timeline Creator, Historical Figure Bio, Map Analysis |
+| Arts & Music | `bg-fuchsia-50 text-fuchsia-600` | Art Critique, Music Theory, Color Theory Explainer |
+| Technology & Digital Literacy | `bg-cyan-50 text-cyan-700` | Typing Practice, Cybersecurity Tips, Spreadsheet Helper |
+| Environmental & Earth Science | `bg-emerald-50 text-emerald-700` | Climate Change Explainer, Ecosystem Builder, Weather Analysis |
+| Parenting & Home | `bg-lime-50 text-lime-700` | Parent-Teacher Conference Prep, Homework Help Guide, Reading List |
+| Special Education & Inclusion | `bg-violet-50 text-violet-600` | IEP Helper, Differentiation Strategies, Accommodations Guide |
+| Assessment & Evaluation | `bg-sky-50 text-sky-600` | Rubric Generator, Performance Task Design, Test Item Analysis |
+| Research & Academic Writing | `bg-stone-100 text-stone-700` | APA/MLA Citation Generator, Literature Review, Thesis Statement |
+| Current Events & Media | `bg-red-50 text-red-600` | Fact Checker, Media Literacy, Current Events Discussion |
+| Values & Character Education | `bg-warmGray-50 text-warmGray-700` | Moral Dilemma Discussion, Character Traits Activity, SEL Lesson |
 
-**Create and Generate** (purple)
-- Generate Image
-- Write Essay / Report
-- Create Quiz / Exam
-- Lesson Plan (MELC)
-- Create Flashcards
-- Write a Story / Poem
-- Create a Presentation Outline
+Existing categories also get more items (e.g., "Create & Generate" gets Infographic Creator, Worksheet Maker, Rubric Builder, Certificate Template).
 
-**Analyze and Upload** (amber)
-- Upload PDF Document
-- Document Analysis
-- Summarize a Topic
-- Compare and Contrast
+### 2. AI-Generated "For You" Section (top of menu)
 
-**School Tools** (green)
-- Schedule Helper
-- Study Tips
-- Math Solver
-- Science Experiment Ideas
-- Book Report Helper
-- Research Guide
+A new section at the very top of the popover labeled "Suggested For You" with a sparkle icon. It shows 3-5 dynamically generated suggestions based on:
 
-**Language and Writing** (pink)
-- Grammar Checker
-- Translate Text
-- Vocabulary Builder
-- Letter / Email Writer
+- **Chat history**: Topics the user has recently explored
+- **Time context**: Morning = lesson prep suggestions, afternoon = grading tools, evening = study tips
+- **Recency**: Prioritizes fresh, unused action types the user hasn't tried yet
 
-**Science and Math** (teal)
-- Physics Problem Solver
-- Chemistry Helper
-- Biology Explainer
-- Statistics Calculator
+This runs entirely on the client side -- no API call needed. It analyzes the `sessions` data already available in the component and generates smart suggestions using pattern matching.
 
-**Lifestyle and Wellness** (rose)
-- Meal / Nutrition Planner
-- Exercise / PE Activities
-- Mindfulness / SEL Activity
-- Time Management Tips
+### 3. Search/Filter Bar Inside the Menu
 
-**Fun and Creative** (indigo)
-- Trivia Game
-- Brain Teasers / Riddles
-- Debate Topic Generator
-- Would You Rather (Educational)
-- Icebreaker Activities
+A small search input at the top of the popover lets users quickly filter through all 100+ actions by typing keywords (e.g., typing "quiz" shows Quiz Creator, Trivia Game, etc.).
 
-**Professional and Career** (slate)
-- Resume / CV Helper
-- Interview Prep
-- Code Helper
-- Project Idea Generator
+### 4. Suggestion Chips Expansion
 
-### 3. Colorized Suggestion Chips
-The suggestion chips above the input also get color coding:
-- Each chip gets a **random soft pastel** border/background from a pool of colors so they look inviting instead of plain gray
-- Colors rotate through: blue, green, purple, pink, amber, teal, indigo, rose
+The suggestion chips below the chat also become smarter:
+- More templates: "Deeper dive into...", "Create a worksheet on...", "Summarize...", "Debate about..."
+- More default suggestions (12 instead of 8)
+- Chips rotate/shuffle on each visit so the interface feels fresh
 
-### 4. Wider Popover
-The popover width increases from `w-72` to `w-80` and max-height from `420px` to `520px` to accommodate the expanded list comfortably.
+## Visual Layout
+
+```text
++-------------------------------------+
+| [Search actions...]           (search bar)
++-------------------------------------+
+| SUGGESTED FOR YOU            sparkle icon
+|  Morning lesson prep detected:
+|  [Lesson Plan] [Quiz Creator] [Warm-up Activity]
++-------------------------------------+
+| SEARCH & DISCOVER        (blue)
+|  Search Library | YouTube | Wikipedia
+|  News | Academic Search | Image Search
++-------------------------------------+
+| CREATE & GENERATE         (purple)
+|  Image | Essay | Quiz | Lesson Plan
+|  Flashcards | Story | Presentation
+|  Infographic | Worksheet | Rubric
+|  Certificate | Crossword Puzzle
++-------------------------------------+
+| ... 18 more categories ...
++-------------------------------------+
+```
 
 ## Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/components/aichat/ChatActionMenu.tsx` | Add 30+ actions across 9 colored categories, color each group row, show emoji on colored pill, widen popover |
-| `src/components/aichat/ChatSuggestionChips.tsx` | Add rotating pastel colors to each chip, expand default suggestions |
+| `src/components/aichat/ChatActionMenu.tsx` | Expand to 20 categories / 100+ items, add search filter, add AI "For You" section |
+| `src/components/aichat/ChatSuggestionChips.tsx` | More templates, more defaults, shuffle logic |
+
+## Files to Create
+
+| File | Purpose |
+|------|---------|
+| `src/components/aichat/useSmartSuggestions.ts` | Hook that analyzes sessions + time of day to generate personalized suggestions |
 
 ## Technical Details
 
-### Color Implementation for Menu Items
-Each group gets a `color` property. Each action row renders with:
+### Smart Suggestions Hook (`useSmartSuggestions.ts`)
+
 ```text
-<button className="flex items-center gap-2.5 w-full rounded-md px-2 py-1.5 ...">
-  <span className="w-6 h-6 rounded-md flex items-center justify-center text-sm {group.bgClass}">
-    {item.emoji}
-  </span>
-  <span>{item.label}</span>
-</button>
+Input: sessions[], current time
+Logic:
+  1. Extract all user topics from recent sessions
+  2. Determine time-of-day context (morning/afternoon/evening)
+  3. Check which action categories the user has NOT used yet
+  4. Generate 3-5 contextual suggestions:
+     - 1-2 based on recent topics ("Continue exploring Photosynthesis")
+     - 1 based on time ("Morning? Start with a warm-up activity")
+     - 1-2 unexplored categories ("Try: Rubric Generator")
+Output: Array of { emoji, label, prefill, reason }
 ```
 
-### Chip Color Rotation
-```text
-const CHIP_COLORS = [
-  'border-blue-200 bg-blue-50 text-blue-700',
-  'border-green-200 bg-green-50 text-green-700',
-  'border-purple-200 bg-purple-50 text-purple-700',
-  ...
-];
-// Each chip uses CHIP_COLORS[index % CHIP_COLORS.length]
-```
+### Search Filter
+
+A controlled input at the top of the popover. As the user types, groups are filtered to only show items whose labels match the search string (case-insensitive). Empty groups are hidden. The filter resets when the popover closes.
 
 ### No New Dependencies
-All styling via Tailwind classes already available in the project.
+
+Everything uses existing React state, Tailwind classes, and components already in the project.
 
