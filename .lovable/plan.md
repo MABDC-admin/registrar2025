@@ -1,88 +1,53 @@
 
 
-# Add YouTube Video References and Enhanced PDF Graphics
+# Update SchoolAI System Prompt to NotebookLM-Style Grounding
 
 ## What This Does
-1. **YouTube Videos in AI Responses**: SchoolAI will automatically include relevant YouTube video links when answering academic queries. These links appear as styled, clickable video cards in the chat.
-2. **Enhanced PDF Export**: The "Save as PDF" feature will include section icons (colored markers), styled headers, decorative separators, and visual indicators matching the chat formatting.
+Replaces the current system prompt with a refined version modeled after Google NotebookLM's behavior -- structured, grounded in sources when available, role-adaptive (Student/Teacher/Admin/Tech), and with stricter readability and quality rules.
 
----
+## What Changes
 
-## Part 1: YouTube Video References
-
-### System Prompt Update
 **File: `src/components/aichat/constants.ts`**
 
-Add a new section to `SCHOOL_SYSTEM_PROMPT` instructing the AI to include YouTube video references:
-- After answering a query, include a `🎥 **Video References**` section
-- Include 1-3 relevant YouTube search/video links in markdown format
-- Use YouTube search URLs (`https://www.youtube.com/results?search_query=...`) when specific video IDs aren't known -- this ensures links always work
-- Format: `[🎥 Video Title](https://youtube.com/results?search_query=topic+keywords)`
+Replace the `SCHOOL_SYSTEM_PROMPT` string with the new prompt structure. The key differences from the current prompt:
 
-### Chat Bubble YouTube Styling
-**File: `src/components/aichat/ChatMessageBubble.tsx`**
+1. **Grounding Rules (NEW)**: When sources (PDFs/notes) are provided, the AI must prioritize them as truth, never invent unsupported facts, and cite sources using `[S1]`, `[S2]` labels. When no sources exist, it uses general knowledge but marks uncertainty.
 
-Update the custom `a` component in ReactMarkdown to detect YouTube links and render them with distinct styling:
-- Detect `youtube.com` or `youtu.be` in `href`
-- Render with a red/YouTube-branded pill style with a play icon
-- Keep `target="_blank"` and `rel="noopener noreferrer"`
+2. **Role Auto-Adaptation (NEW)**: Explicitly defines four modes (Student, Teacher, Admin, Tech) with different response styles for each. The AI infers the best role if the user doesn't specify one.
 
----
+3. **Simplified Format**: Consolidates the current verbose formatting rules into a cleaner, more concise instruction set while keeping all the same section icons and spacing rules.
 
-## Part 2: Enhanced PDF Export with Graphics and Icons
+4. **Safety Section (NEW)**: Explicit instruction to refuse unsafe/harmful requests and offer safe alternatives.
 
-**File: `src/utils/aiChatPdfExport.ts`**
-
-Enhance the PDF generator with visual elements:
-
-1. **Section Icon Indicators**: Draw small colored circles before section headers to represent each icon type:
-   - Blue circle for `📘 Topic`
-   - Purple circle for `🧠 Explanation`
-   - Green circle for `✅ Answer`
-   - Orange circle for `📝 Steps`
-   - Yellow circle for `💡 Tip`
-   - Red circle for `⚠️ Warning`
-   - Gray circle for `🔧 Technical`
-   - Teal circle for `📊 Analysis`
-   - Red circle for `🎥 Video References`
-
-2. **Colored Section Headers**: Section header text rendered in matching colors (not just black)
-
-3. **Decorative Separators**: Thin colored lines between major sections instead of plain gray
-
-4. **Header Banner**: A styled header area with SchoolAI branding, a colored accent bar, and the date
-
-5. **YouTube Link Rendering**: Detect YouTube URLs in the content and render them as styled text with a "VIDEO" label prefix and the URL printed below for reference
-
-6. **Footer Enhancement**: Add SchoolAI logo text and a colored accent line in the footer
-
----
+5. **Preserved Features**: YouTube Video References section, code formatting rules, all expert domains, document analysis behavior, and response examples are all retained.
 
 ## Technical Details
 
-### Files to Modify
+### Single File Change
 
 | File | Change |
 |------|--------|
-| `src/components/aichat/constants.ts` | Add YouTube video reference instructions to system prompt |
-| `src/components/aichat/ChatMessageBubble.tsx` | Add YouTube link detection and styled rendering |
-| `src/utils/aiChatPdfExport.ts` | Add colored icon circles, styled headers, YouTube URL rendering, decorative separators |
+| `src/components/aichat/constants.ts` | Replace `SCHOOL_SYSTEM_PROMPT` content |
 
-### No New Dependencies
-- Uses existing jsPDF drawing primitives (circles, colored text, lines)
-- Uses existing ReactMarkdown custom components
-- YouTube links are standard URLs -- no embed API needed
+### Prompt Structure (New)
 
-### YouTube Link Detection Logic
-```text
-href includes "youtube.com" OR "youtu.be"
-  -> Render with red accent, play icon, "Watch on YouTube" label
+```
+1) Identity + Core Roles (Student/Teacher/Admin/Tech)
+2) NotebookLM Grounding Rules (source-first vs general knowledge)
+3) Strict Response Format (same icons, cleaner instructions)
+4) Readability Rules (spacing, bullets, short sentences)
+5) Expert Domains (retained from current)
+6) Core Capabilities (retained from current)
+7) Response Examples (retained from current)
+8) Document Analysis (retained from current)
+9) Special Instructions (retained from current)
+10) YouTube Video References (retained from current)
+11) Quality + Safety Rules (new)
 ```
 
-### PDF Icon Rendering Logic
-```text
-Line starts with emoji pattern (📘, 🧠, ✅, etc.)
-  -> Draw colored circle (3mm diameter) at left margin
-  -> Render header text in matching color, offset right
-  -> Add thin colored underline
-```
+### No Other Changes
+- No new dependencies
+- No database changes
+- No changes to ChatMessageBubble or PDF export
+- The prompt flows through the existing `notebook-chat` edge function unchanged
+
