@@ -100,23 +100,15 @@ const Index = () => {
 
       toast.info('Completing Canva connection...');
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/canva-auth?action=callback&code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${currentSession.access_token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      const { data: result, error } = await supabase.functions.invoke(`canva-auth?action=callback&code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`, {
+        method: 'GET',
+      });
 
-      const result = await response.json();
-      
-      if (response.ok && result.success) {
+      if (!error && result?.success) {
         toast.success('Successfully connected to Canva!');
         setActiveTab('canva'); // Navigate to Canva Studio
       } else {
-        throw new Error(result.error || 'Failed to connect');
+        throw new Error(error?.message || result?.error || 'Failed to connect');
       }
     } catch (error) {
       console.error('Canva OAuth callback error:', error);
@@ -135,7 +127,7 @@ const Index = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
     const state = urlParams.get('state');
-    
+
     if (code && state) {
       handleCanvaOAuthCallback(code, state);
     }
@@ -268,7 +260,7 @@ const Index = () => {
       case 'parent':
         return <ParentPortal />;
       default:
-        return <StudentPortal activeSection="dashboard" />;
+        return null;
     }
   };
 

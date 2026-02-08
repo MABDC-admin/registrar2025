@@ -24,29 +24,12 @@ export const CanvaStudio = () => {
 
   const checkConnection = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        setConnection({ connected: false });
-        setIsLoading(false);
-        return;
-      }
+      const { data, error } = await supabase.functions.invoke('canva-auth?action=status', {
+        method: 'GET',
+      });
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/canva-auth?action=status`,
-        {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      if (response.ok) {
-        const status = await response.json();
-        setConnection(status);
-      } else {
-        setConnection({ connected: false });
-      }
+      if (error) throw error;
+      setConnection(data || { connected: false });
     } catch (error) {
       console.error('Error checking Canva connection:', error);
       setConnection({ connected: false });
@@ -61,24 +44,14 @@ export const CanvaStudio = () => {
 
   const handleDisconnect = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      const { error } = await supabase.functions.invoke('canva-auth?action=disconnect', {
+        method: 'GET',
+      });
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/canva-auth`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      if (error) throw error;
 
-      if (response.ok) {
-        toast.success('Disconnected from Canva');
-        setConnection({ connected: false });
-      }
+      toast.success('Disconnected from Canva');
+      setConnection({ connected: false });
     } catch (error) {
       toast.error('Failed to disconnect');
     }
@@ -183,7 +156,7 @@ export const CanvaStudio = () => {
             <TabsTrigger value="designs">My Designs</TabsTrigger>
             <TabsTrigger value="templates">Templates</TabsTrigger>
           </TabsList>
-          
+
           <CreateDesignDialog onDesignCreated={() => {
             // Refresh designs after creating a new one
             window.location.reload();

@@ -14,38 +14,29 @@ export const CanvaConnectButton = ({ onConnected }: CanvaConnectButtonProps) => 
   const handleConnect = async () => {
     setIsConnecting(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast.error('Please sign in first');
-        return;
-      }
-
       // Current URL as redirect URI (for OAuth callback)
       const redirectUri = `${window.location.origin}${window.location.pathname}`;
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/canva-auth?action=authorize&redirect_uri=${encodeURIComponent(redirectUri)}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      const { data, error } = await supabase.functions.invoke(`canva-auth?action=authorize&redirect_uri=${encodeURIComponent(redirectUri)}`, {
+        method: 'GET',
+      });
 
-      const data = await response.json();
+      if (error) throw error;
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to start authorization');
+      if (data?.configured === false) {
+        toast.error('Canva is not configured. Please set CANVA_CLIENT_ID and CANVA_CLIENT_SECRET.');
+        return;
       }
 
-      if (data.authUrl) {
-        // Redirect to Canva OAuth
+      if (data?.authUrl) {
         window.location.href = data.authUrl;
+      } else {
+        throw new Error('Failed to get authorization URL');
       }
     } catch (error) {
       console.error('Connect error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to connect to Canva');
+    } finally {
       setIsConnecting(false);
     }
   };

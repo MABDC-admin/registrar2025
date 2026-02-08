@@ -9,118 +9,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { useSchoolId } from '@/hooks/useSchoolId';
 import { useAuth } from '@/contexts/AuthContext';
 import { ZoomSettingsPanel } from './ZoomSettingsPanel';
-
-interface BreakoutRoom {
-  name: string;
-  url: string;
-}
-
-interface ZoomSettings {
-  id: string;
-  meeting_url: string | null;
-  meeting_id: string | null;
-  meeting_password: string | null;
-  breakout_rooms: BreakoutRoom[];
-  schedule_start: string;
-  schedule_end: string;
-  timezone: string;
-  active_days: number[];
-  is_active: boolean;
-}
-
-const useUAETime = () => {
-  const [now, setNow] = useState(() => new Date());
-
-  useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const uaeTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Dubai' }));
-  return uaeTime;
-};
-
-const isInSession = (uaeTime: Date, settings: ZoomSettings | null): boolean => {
-  if (!settings?.is_active) return false;
-
-  const day = uaeTime.getDay(); // 0=Sun, 1=Mon...
-  if (!settings.active_days.includes(day)) return false;
-
-  const [startH, startM] = settings.schedule_start.split(':').map(Number);
-  const [endH, endM] = settings.schedule_end.split(':').map(Number);
-
-  const currentMinutes = uaeTime.getHours() * 60 + uaeTime.getMinutes();
-  const startMinutes = startH * 60 + startM;
-  const endMinutes = endH * 60 + endM;
-
-  return currentMinutes >= startMinutes && currentMinutes < endMinutes;
-};
-
-const formatCountdown = (uaeTime: Date, settings: ZoomSettings | null): string => {
-  if (!settings) return '';
-
-  const [startH, startM] = settings.schedule_start.split(':').map(Number);
-  const day = uaeTime.getDay();
-
-  // If it's a weekday and before start time
-  if (settings.active_days.includes(day)) {
-    const currentMinutes = uaeTime.getHours() * 60 + uaeTime.getMinutes();
-    const startMinutes = startH * 60 + startM;
-    if (currentMinutes < startMinutes) {
-      const diff = startMinutes - currentMinutes;
-      const h = Math.floor(diff / 60);
-      const m = diff % 60;
-      return h > 0 ? `${h}h ${m}m until session starts` : `${m}m until session starts`;
-    }
-  }
-
-  // Find next active day
-  let daysUntil = 1;
-  for (let i = 1; i <= 7; i++) {
-    const nextDay = (day + i) % 7;
-    if (settings.active_days.includes(nextDay)) {
-      daysUntil = i;
-      break;
-    }
-  }
-
-  return daysUntil === 1 ? 'Next session tomorrow' : `Next session in ${daysUntil} days`;
-};
+import { useZoomSession } from '@/hooks/useZoomSession';
 
 export const ZoomDashboard = () => {
   const { data: schoolId, isLoading: schoolLoading } = useSchoolId();
   const { role } = useAuth();
-  const uaeTime = useUAETime();
-  const [settings, setSettings] = useState<ZoomSettings | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { settings, loading, uaeTime, inSession, countdown, refresh } = useZoomSession(schoolId);
   const [showSettings, setShowSettings] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [manualOverride, setManualOverride] = useState(false);
 
   const hasAdminAccess = role === 'admin' || role === 'registrar';
-  const sessionActive = isInSession(uaeTime, settings) || manualOverride;
-
-  const fetchSettings = async () => {
-    if (!schoolId) { setLoading(false); return; }
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('zoom_settings')
-      .select('*')
-      .eq('school_id', schoolId)
-      .maybeSingle();
-
-    if (!error && data) {
-      setSettings({
-        ...data,
-        breakout_rooms: (data.breakout_rooms as unknown as BreakoutRoom[] | null) || [],
-      });
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    fetchSettings();
-  }, [schoolId]);
+  const sessionActive = inSession || manualOverride;
 
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
@@ -167,7 +67,7 @@ export const ZoomDashboard = () => {
         settings={settings}
         onBack={() => {
           setShowSettings(false);
-          fetchSettings();
+          refresh();
         }}
       />
     );
@@ -269,7 +169,7 @@ export const ZoomDashboard = () => {
                 <p className="text-sm text-muted-foreground mt-1">
                   {sessionActive
                     ? `Ends at ${settings.schedule_end.slice(0, 5)}`
-                    : formatCountdown(uaeTime, settings)}
+                    : countdown}
                 </p>
               </div>
             </CardContent>

@@ -13,6 +13,11 @@ interface AuthContextType {
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   hasRole: (role: AppRole) => boolean;
+  impersonate: (target: { id: string, role: AppRole, full_name?: string | null }) => void;
+  stopImpersonating: () => void;
+  isImpersonating: boolean;
+  actualRole: AppRole | null;
+  actualUser: User | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,6 +36,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [role, setRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Impersonation state
+  const [impersonatedUser, setImpersonatedUser] = useState<{ id: string, role: AppRole, full_name?: string | null } | null>(null);
+
   const fetchUserRole = async (userId: string) => {
     const { data, error } = await supabase
       .from('user_roles')
@@ -44,6 +52,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    // Load impersonation from sessionStorage
+    const stored = sessionStorage.getItem('impersonating_target');
+    if (stored) {
+      try {
+        setImpersonatedUser(JSON.parse(stored));
+      } catch (e) {
+        console.error('Failed to parse impersonation target:', e);
+      }
+    }
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
@@ -57,6 +75,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }, 0);
         } else {
           setRole(null);
+          setImpersonatedUser(null);
+          sessionStorage.removeItem('impersonating_target');
         }
         setLoading(false);
       }
@@ -99,6 +119,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(null);
       setSession(null);
       setRole(null);
+      setImpersonatedUser(null);
+      sessionStorage.removeItem('impersonating_target');
       
       // Then sign out from Supabase (ignore errors if session already expired)
       await supabase.auth.signOut({ scope: 'local' });
@@ -108,18 +130,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const hasRole = (checkRole: AppRole) => role === checkRole;
+  const impersonate = (target: { id: string, role: AppRole, full_name?: string | null }) => {
+    setImpersonatedUser(target);
+    sessionStorage.setItem('impersonating_target', JSON.stringify(target));
+  };
+
+  const stopImpersonating = () => {
+    setImpersonatedUser(null);
+    sessionStorage.removeItem('impersonating_target');
+    sessionStorage.removeItem('impersonating_admin_session');
+  };
+
+  const currentRole = impersonatedUser?.role || role;
+  const isImpersonating = !!impersonatedUser;
+
+  const hasRole = (checkRole: AppRole) => currentRole === checkRole;
 
   return (
     <AuthContext.Provider value={{
-      user,
+      user: impersonatedUser ? { ...user, id: impersonatedUser.id } as User : user,
       session,
-      role,
+      role: currentRole,
       loading,
       signIn,
       signUp,
       signOut,
-      hasRole
+      hasRole,
+      impersonate,
+      stopImpersonating,
+      isImpersonating,
+      actualRole: role,
+      actualUser: user
     }}>
       {children}
     </AuthContext.Provider>

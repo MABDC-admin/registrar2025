@@ -1,11 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useStudentDashboardStats } from '@/hooks/useStudentPortalData';
-import { 
-  Award, 
-  Calendar, 
-  ClipboardList, 
-  GraduationCap, 
+import {
+  Award,
+  Calendar,
+  ClipboardList,
+  GraduationCap,
   Clock,
   AlertTriangle,
   Megaphone,
@@ -14,6 +14,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, differenceInDays, isPast } from 'date-fns';
 import { useMemo } from 'react';
+import { motion } from 'framer-motion';
 import {
   computeQuarterlyGeneralAverage,
   computeAnnualGeneralAverage,
@@ -34,6 +35,10 @@ interface StudentDashboardProps {
   studentPhotoUrl?: string | null;
 }
 
+import { useZoomSession } from '@/hooks/useZoomSession';
+import { Video, ExternalLink } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+
 export const StudentDashboard = ({
   studentId,
   gradeLevel,
@@ -49,6 +54,8 @@ export const StudentDashboard = ({
     schoolId,
     academicYearId
   );
+
+  const { settings, inSession, countdown } = useZoomSession(schoolId);
 
   // Compute General Averages
   const generalAverages = useMemo(() => {
@@ -80,35 +87,76 @@ export const StudentDashboard = ({
 
   return (
     <div className="space-y-6">
+      {/* Virtual Classroom Banner */}
+      {settings && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="relative overflow-hidden group"
+        >
+          <Card className={`border-none shadow-md ${inSession ? 'bg-gradient-to-r from-emerald-600 to-teal-600 border-none' : 'bg-muted/50'}`}>
+            <CardContent className="p-0">
+              <div className="flex flex-col sm:flex-row items-center justify-between p-4 sm:p-6 gap-4">
+                <div className="flex items-center gap-4 text-center sm:text-left">
+                  <div className={`p-3 rounded-full ${inSession ? 'bg-white/20' : 'bg-muted'}`}>
+                    <Video className={`h-6 w-6 ${inSession ? 'text-white' : 'text-muted-foreground'}`} />
+                  </div>
+                  <div>
+                    <h3 className={`text-lg font-bold ${inSession ? 'text-white' : 'text-foreground'}`}>
+                      {inSession ? 'Your Classroom is Live!' : 'Virtual Classroom'}
+                    </h3>
+                    <p className={`text-sm ${inSession ? 'text-white/80' : 'text-muted-foreground'}`}>
+                      {inSession ? 'Tap join to enter the session' : countdown || 'Scheduled for school hours'}
+                    </p>
+                  </div>
+                </div>
+
+                <Button
+                  size="lg"
+                  variant={inSession ? 'secondary' : 'outline'}
+                  disabled={!inSession || !settings.meeting_url}
+                  onClick={() => settings.meeting_url && window.open(settings.meeting_url, '_blank')}
+                  className={`${inSession ? 'bg-white text-emerald-700 hover:bg-white/90 shadow-lg' : ''} px-8`}
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  {inSession ? 'Join Class Now' : 'Class Offline'}
+                </Button>
+              </div>
+
+              {/* Decorative side badge */}
+              <div className={`absolute top-0 right-0 p-1 px-3 text-[10px] font-bold uppercase tracking-wider ${inSession ? 'bg-emerald-500 text-white' : 'bg-muted-foreground text-white'}`}>
+                {inSession ? 'Live' : 'Scheduled'}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       {/* Quick Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {/* General Average */}
-        <Card className={`bg-gradient-to-br ${
-          generalAverages?.annual && isPassing(generalAverages.annual)
-            ? 'from-purple-500/10 to-purple-600/5 border-purple-200/50'
-            : generalAverages?.annual
-              ? 'from-red-500/10 to-red-600/5 border-red-200/50'
-              : 'from-muted to-muted/50'
-        }`}>
+        <Card className={`bg-gradient-to-br ${generalAverages?.annual && isPassing(generalAverages.annual)
+          ? 'from-purple-500/10 to-purple-600/5 border-purple-200/50'
+          : generalAverages?.annual
+            ? 'from-red-500/10 to-red-600/5 border-red-200/50'
+            : 'from-muted to-muted/50'
+          }`}>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-full ${
-                generalAverages?.annual && isPassing(generalAverages.annual)
-                  ? 'bg-purple-500/20'
-                  : 'bg-red-500/20'
-              }`}>
+              <div className={`p-2 rounded-full ${generalAverages?.annual && isPassing(generalAverages.annual)
+                ? 'bg-purple-500/20'
+                : 'bg-red-500/20'
+                }`}>
                 <Award className="h-5 w-5 text-purple-600" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Gen. Average</p>
-                <p className={`text-xl font-bold ${
-                  generalAverages?.annual && isPassing(generalAverages.annual)
-                    ? 'text-purple-600'
-                    : generalAverages?.annual
-                      ? 'text-red-600'
-                      : ''
-                }`}>
+                <p className={`text-xl font-bold ${generalAverages?.annual && isPassing(generalAverages.annual)
+                  ? 'text-purple-600'
+                  : generalAverages?.annual
+                    ? 'text-red-600'
+                    : ''
+                  }`}>
                   {generalAverages?.annual?.toFixed(2) || 'N/A'}
                 </p>
               </div>
@@ -134,25 +182,21 @@ export const StudentDashboard = ({
         </Card>
 
         {/* Pending Assignments */}
-        <Card className={`bg-gradient-to-br ${
-          assignments.overdue.length > 0
-            ? 'from-red-500/10 to-red-600/5 border-red-200/50'
-            : 'from-blue-500/10 to-blue-600/5 border-blue-200/50'
-        }`}>
+        <Card className={`bg-gradient-to-br ${assignments.overdue.length > 0
+          ? 'from-red-500/10 to-red-600/5 border-red-200/50'
+          : 'from-blue-500/10 to-blue-600/5 border-blue-200/50'
+          }`}>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-full ${
-                assignments.overdue.length > 0 ? 'bg-red-500/20' : 'bg-blue-500/20'
-              }`}>
-                <ClipboardList className={`h-5 w-5 ${
-                  assignments.overdue.length > 0 ? 'text-red-600' : 'text-blue-600'
-                }`} />
+              <div className={`p-2 rounded-full ${assignments.overdue.length > 0 ? 'bg-red-500/20' : 'bg-blue-500/20'
+                }`}>
+                <ClipboardList className={`h-5 w-5 ${assignments.overdue.length > 0 ? 'text-red-600' : 'text-blue-600'
+                  }`} />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Tasks</p>
-                <p className={`text-xl font-bold ${
-                  assignments.overdue.length > 0 ? 'text-red-600' : 'text-blue-600'
-                }`}>
+                <p className={`text-xl font-bold ${assignments.overdue.length > 0 ? 'text-red-600' : 'text-blue-600'
+                  }`}>
                   {assignments.pending.length + assignments.overdue.length}
                 </p>
               </div>
@@ -195,46 +239,42 @@ export const StudentDashboard = ({
                 return (
                   <div
                     key={quarter}
-                    className={`p-3 rounded-lg text-center ${
-                      avg === null
-                        ? 'bg-muted/50'
-                        : passing
-                          ? 'bg-green-50 border border-green-200'
-                          : 'bg-red-50 border border-red-200'
-                    }`}
+                    className={`p-3 rounded-lg text-center ${avg === null
+                      ? 'bg-muted/50'
+                      : passing
+                        ? 'bg-green-50 border border-green-200'
+                        : 'bg-red-50 border border-red-200'
+                      }`}
                   >
                     <p className="text-xs text-muted-foreground uppercase font-medium">
                       {quarter.toUpperCase()}
                     </p>
-                    <p className={`text-lg font-bold ${
-                      avg === null
-                        ? 'text-muted-foreground'
-                        : passing
-                          ? 'text-green-600'
-                          : 'text-red-600'
-                    }`}>
+                    <p className={`text-lg font-bold ${avg === null
+                      ? 'text-muted-foreground'
+                      : passing
+                        ? 'text-green-600'
+                        : 'text-red-600'
+                      }`}>
                       {avg?.toFixed(2) || '-'}
                     </p>
                   </div>
                 );
               })}
               <div
-                className={`p-3 rounded-lg text-center ${
-                  generalAverages.annual === null
-                    ? 'bg-muted/50'
-                    : isPassing(generalAverages.annual)
-                      ? 'bg-purple-50 border-2 border-purple-300'
-                      : 'bg-red-50 border-2 border-red-300'
-                }`}
+                className={`p-3 rounded-lg text-center ${generalAverages.annual === null
+                  ? 'bg-muted/50'
+                  : isPassing(generalAverages.annual)
+                    ? 'bg-purple-50 border-2 border-purple-300'
+                    : 'bg-red-50 border-2 border-red-300'
+                  }`}
               >
                 <p className="text-xs text-muted-foreground uppercase font-medium">Final</p>
-                <p className={`text-lg font-bold ${
-                  generalAverages.annual === null
-                    ? 'text-muted-foreground'
-                    : isPassing(generalAverages.annual)
-                      ? 'text-purple-600'
-                      : 'text-red-600'
-                }`}>
+                <p className={`text-lg font-bold ${generalAverages.annual === null
+                  ? 'text-muted-foreground'
+                  : isPassing(generalAverages.annual)
+                    ? 'text-purple-600'
+                    : 'text-red-600'
+                  }`}>
                   {generalAverages.annual?.toFixed(2) || '-'}
                 </p>
               </div>

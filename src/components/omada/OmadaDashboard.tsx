@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
-const OMADA_API_BASE = 'https://api.mabdc.org/api/omada';
+
 
 export const OmadaDashboard = () => {
   const [healthy, setHealthy] = useState<boolean | null>(null);
@@ -16,11 +17,20 @@ export const OmadaDashboard = () => {
   const checkStatus = async () => {
     setLoading(true);
     try {
-      const resp = await fetch(`${OMADA_API_BASE}/sites`);
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const data = await resp.json();
+      const { data, error } = await supabase.functions.invoke('omada-proxy', {
+        body: { action: 'proxy', path: '/openapi/v1/sites' },
+      });
+
+      if (error) throw error;
+
+      if (data?.configured === false) {
+        setHealthy(false);
+        setSites([]);
+        return;
+      }
+
       setHealthy(true);
-      setSites(Array.isArray(data) ? data : data?.result?.data || data?.data || []);
+      setSites(Array.isArray(data?.data) ? data.data : data?.result?.data || data?.data || []);
     } catch (err: any) {
       console.error('Omada API error:', err);
       setHealthy(false);
@@ -120,9 +130,9 @@ export const OmadaDashboard = () => {
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Cannot Reach API</h3>
+            <h3 className="text-lg font-semibold mb-2">Omada Not Configured</h3>
             <p className="text-muted-foreground max-w-md">
-              Unable to connect to <code className="bg-muted px-1 rounded">api.mabdc.org</code>. Check if the API is online.
+              Please provide your Omada Controller URL, Client ID, and Client Secret. Contact your administrator to set up the <code className="bg-muted px-1 rounded">OMADA_URL</code>, <code className="bg-muted px-1 rounded">OMADA_CLIENT_ID</code>, and <code className="bg-muted px-1 rounded">OMADA_CLIENT_SECRET</code> secrets in Supabase.
             </p>
           </CardContent>
         </Card>

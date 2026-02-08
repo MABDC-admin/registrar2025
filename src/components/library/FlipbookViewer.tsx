@@ -10,12 +10,9 @@ import {
   Minimize,
   Menu,
   LayoutGrid,
-  ScanLine,
-  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { useAnnotations } from '@/hooks/useAnnotations';
@@ -61,10 +58,10 @@ export const FlipbookViewer = ({
   const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('right');
   const [placedStickers, setPlacedStickers] = useState<Map<number, PlacedSticker[]>>(new Map());
   const [containerRect, setContainerRect] = useState<DOMRect | null>(null);
-  
+
   const isMobile = useIsMobile();
   const isDesktop = !isMobile && typeof window !== 'undefined' && window.innerWidth >= 1024;
-  
+
   const thumbnailRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
   const imageRef = useRef<HTMLImageElement>(null);
   const pageContainerRef = useRef<HTMLDivElement>(null);
@@ -124,7 +121,7 @@ export const FlipbookViewer = ({
     if (initialPage && pages.length > 0 && !isLoading) {
       const targetPage = Math.min(Math.max(1, initialPage), pages.length);
       setCurrentPage(targetPage);
-      
+
       // Also set spread for desktop view
       const spreadIndex = Math.floor((targetPage - 1) / 2);
       setCurrentSpread(spreadIndex);
@@ -141,7 +138,7 @@ export const FlipbookViewer = ({
         imageUrl: page.thumbnail_url || page.image_url,
         pageId: page.id,
       }));
-      
+
       detectPagesSequentially(pagesToDetect);
     }
   }, [pages, detectPagesSequentially]);
@@ -334,14 +331,14 @@ export const FlipbookViewer = ({
   // Handle sticker placement from click
   const handleStickerPlace = useCallback((sticker: { type: 'emoji' | 'icon'; value: string }) => {
     if (!pageContainerRef.current) return;
-    
+
     const rect = pageContainerRef.current.getBoundingClientRect();
     setContainerRect(rect);
-    
+
     // Place sticker in center of visible area
     const centerX = (rect.width / 2) / zoom;
     const centerY = (rect.height / 2) / zoom;
-    
+
     const newSticker: PlacedSticker = {
       id: crypto.randomUUID(),
       type: sticker.type,
@@ -350,14 +347,14 @@ export const FlipbookViewer = ({
       y: centerY - 24,
       size: 48,
     };
-    
+
     setPlacedStickers(prev => {
       const pageStickers = prev.get(currentPage) || [];
       const updated = new Map(prev);
       updated.set(currentPage, [...pageStickers, newSticker]);
       return updated;
     });
-    
+
     setPendingSticker(null);
     setAnnotationMode('none');
   }, [currentPage, zoom, setPendingSticker, setAnnotationMode]);
@@ -367,7 +364,7 @@ export const FlipbookViewer = ({
     setPlacedStickers(prev => {
       const pageStickers = prev.get(currentPage) || [];
       const updated = new Map(prev);
-      updated.set(currentPage, pageStickers.map(s => 
+      updated.set(currentPage, pageStickers.map(s =>
         s.id === id ? { ...s, ...updates } : s
       ));
       return updated;
@@ -398,19 +395,25 @@ export const FlipbookViewer = ({
     }
   }, [pendingSticker, annotationMode, handleStickerPlace]);
 
-  // Mobile slide animation variants
-  const slideVariants = {
+  // Mobile flip animation variants
+  const flipVariants = {
     enter: (direction: 'left' | 'right') => ({
-      x: direction === 'right' ? 100 : -100,
+      rotateY: direction === 'right' ? 90 : -90,
       opacity: 0,
+      scale: 0.95,
+      x: direction === 'right' ? 40 : -40,
     }),
     center: {
-      x: 0,
+      rotateY: 0,
       opacity: 1,
+      scale: 1,
+      x: 0,
     },
     exit: (direction: 'left' | 'right') => ({
-      x: direction === 'right' ? -100 : 100,
+      rotateY: direction === 'right' ? -90 : 90,
       opacity: 0,
+      scale: 0.95,
+      x: direction === 'right' ? -40 : 40,
     }),
   };
 
@@ -440,15 +443,41 @@ export const FlipbookViewer = ({
         </div>
 
         <div className="flex items-center gap-1">
-          {/* AI Detection Status */}
-          {isDetecting && (
-            <div className="flex items-center gap-2 mr-4 text-sm text-muted-foreground">
-              <ScanLine className="h-4 w-4 animate-pulse text-primary" />
-              <span>Scanning pages...</span>
-              <Progress value={detectionProgress} className="w-20 h-2" />
+
+          {/* Mobile Navigation Controls */}
+          {isMobile && (
+            <div className="flex items-center gap-1 mr-2 border-r pr-2 shadow-sm">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={goToPrev}
+                disabled={currentPage <= 1}
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn("h-8 w-8 text-primary transition-transform", isJumping && "animate-bounce-subtle")}
+                onClick={() => setShowMobileThumbnails(true)}
+              >
+                <LayoutGrid className="h-5 w-5" />
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={goToNext}
+                disabled={currentPage >= pages.length}
+              >
+                <ChevronRight className="h-5 w-5" />
+              </Button>
             </div>
           )}
-          
+
           {/* Page indicator with detected page numbers */}
           <div className="flex items-center gap-2 mr-2">
             {isDesktop && viewMode === 'spread' ? (
@@ -456,51 +485,55 @@ export const FlipbookViewer = ({
                 {(() => {
                   const leftInfo = getPageDisplayInfo(leftPageIndex);
                   const rightInfo = rightPage ? getPageDisplayInfo(rightPageIndex) : null;
-                  const leftDisplay = leftInfo.pageType === 'cover' ? 'Cover' : 
-                                      leftInfo.pageType === 'blank' ? '—' : 
-                                      `Page ${leftInfo.displayNumber}`;
+                  const leftDisplay = leftInfo.pageType === 'cover' ? 'Cover' :
+                    leftInfo.pageType === 'blank' ? '—' :
+                      `Page ${leftInfo.displayNumber}`;
                   const rightDisplay = rightInfo ? (
                     rightInfo.pageType === 'cover' ? 'Cover' :
-                    rightInfo.pageType === 'blank' ? '—' :
-                    `Page ${rightInfo.displayNumber}`
+                      rightInfo.pageType === 'blank' ? '—' :
+                        `Page ${rightInfo.displayNumber}`
                   ) : '';
                   return rightDisplay ? `${leftDisplay} • ${rightDisplay}` : leftDisplay;
                 })()}
               </span>
             ) : (
-              <span className="text-lg font-bold text-foreground">
+              <span className={cn("font-bold text-foreground", isMobile ? "text-base" : "text-lg")}>
                 {(() => {
                   const info = getPageDisplayInfo(currentPage - 1);
                   return info.pageType === 'cover' ? 'Cover' :
-                         info.pageType === 'blank' ? 'Blank Page' :
-                         `Page ${info.displayNumber}`;
+                    info.pageType === 'blank' ? 'Blank' :
+                      `Page ${info.displayNumber}`;
                 })()}
               </span>
             )}
-            <span className="text-sm text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               ({isDesktop && viewMode === 'spread' ? `${leftPageIndex + 1}${rightPage ? `-${rightPageIndex + 1}` : ''}` : currentPage} / {pages.length})
             </span>
           </div>
 
-          {/* Zoom controls */}
-          <Button variant="ghost" size="icon" onClick={handleZoomOut}>
-            <ZoomOut className="h-4 w-4" />
-          </Button>
-          <span className="text-sm w-12 text-center">
-            {Math.round(zoom * 100)}%
-          </span>
-          <Button variant="ghost" size="icon" onClick={handleZoomIn}>
-            <ZoomIn className="h-4 w-4" />
-          </Button>
+          {!isMobile && (
+            <>
+              {/* Zoom controls */}
+              <Button variant="ghost" size="icon" onClick={handleZoomOut}>
+                <ZoomOut className="h-4 w-4" />
+              </Button>
+              <span className="text-sm w-12 text-center">
+                {Math.round(zoom * 100)}%
+              </span>
+              <Button variant="ghost" size="icon" onClick={handleZoomIn}>
+                <ZoomIn className="h-4 w-4" />
+              </Button>
 
-          {/* Fullscreen */}
-          <Button variant="ghost" size="icon" onClick={toggleFullscreen}>
-            {isFullscreen ? (
-              <Minimize className="h-4 w-4" />
-            ) : (
-              <Maximize className="h-4 w-4" />
-            )}
-          </Button>
+              {/* Fullscreen */}
+              <Button variant="ghost" size="icon" onClick={toggleFullscreen}>
+                {isFullscreen ? (
+                  <Minimize className="h-4 w-4" />
+                ) : (
+                  <Maximize className="h-4 w-4" />
+                )}
+              </Button>
+            </>
+          )}
 
           {/* Close */}
           <Button variant="ghost" size="icon" onClick={onClose}>
@@ -541,11 +574,11 @@ export const FlipbookViewer = ({
               <div className="h-full overflow-y-auto scrollbar-wide">
                 <div className="p-3 space-y-3">
                   {pages.map((page) => {
-                    const isInCurrentSpread = isDesktop && 
+                    const isInCurrentSpread = isDesktop &&
                       (page.page_number === leftPageIndex + 1 || page.page_number === rightPageIndex + 1);
                     const isCurrentMobile = !isDesktop && currentPage === page.page_number;
                     const pageInfo = getPageDisplayInfo(page.page_number - 1);
-                    
+
                     return (
                       <button
                         key={page.id}
@@ -605,21 +638,21 @@ export const FlipbookViewer = ({
             /* Desktop: 2-Page Spread with Heyzine-style Book Flip Animation */
             <div
               className="relative flex items-center justify-center"
-              style={{ 
-                transform: `scale(${zoom})`, 
+              style={{
+                transform: `scale(${zoom})`,
                 transformOrigin: 'center center',
                 perspective: '2500px',
               }}
             >
               {/* Book container */}
-              <div 
+              <div
                 className="relative flex"
                 style={{ transformStyle: 'preserve-3d' }}
               >
                 {/* Left Page - Static during forward flip, animates during backward flip */}
-                <div 
+                <div
                   className="relative bg-white shadow-xl"
-                  style={{ 
+                  style={{
                     transformStyle: 'preserve-3d',
                     zIndex: flipDirection === 'left' ? 10 : 1,
                   }}
@@ -633,15 +666,15 @@ export const FlipbookViewer = ({
                   {/* Inner shadow near spine */}
                   <div className="absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-black/8 to-transparent pointer-events-none" />
                 </div>
-                
+
                 {/* Spine */}
                 <div className="w-[3px] bg-gradient-to-r from-gray-400 via-gray-300 to-gray-400 self-stretch shadow-md" />
-                
+
                 {/* Right Page - Static during backward flip, animates during forward flip */}
                 {rightPage && (
-                  <div 
+                  <div
                     className="relative bg-white shadow-xl"
-                    style={{ 
+                    style={{
                       transformStyle: 'preserve-3d',
                       zIndex: flipDirection === 'right' ? 10 : 1,
                     }}
@@ -663,7 +696,7 @@ export const FlipbookViewer = ({
                     <motion.div
                       key={`flip-${currentSpread}-${flipDirection}`}
                       className="absolute inset-0 flex"
-                      style={{ 
+                      style={{
                         transformStyle: 'preserve-3d',
                         pointerEvents: 'none',
                       }}
@@ -672,12 +705,12 @@ export const FlipbookViewer = ({
                       exit={{ opacity: 0 }}
                       transition={{ duration: 0.05 }}
                     >
-                      {/* Flipping page - positioned over right page for forward, left for backward */}
+                      {/* Flipping leaf */}
                       <motion.div
                         className="absolute bg-white shadow-2xl overflow-hidden"
                         style={{
-                          width: flipDirection === 'right' 
-                            ? (rightPage ? '50%' : '0') 
+                          width: flipDirection === 'right'
+                            ? (rightPage ? '50%' : '0')
                             : '50%',
                           height: '100%',
                           left: flipDirection === 'right' ? '50%' : '0',
@@ -687,51 +720,91 @@ export const FlipbookViewer = ({
                           backfaceVisibility: 'hidden',
                           zIndex: 20,
                         }}
-                        initial={{ 
+                        initial={{
                           rotateY: 0,
                           boxShadow: '0 0 20px rgba(0,0,0,0.1)',
                         }}
-                        animate={{ 
+                        animate={{
                           rotateY: flipDirection === 'right' ? -180 : 180,
                           boxShadow: '0 0 50px rgba(0,0,0,0.3)',
                         }}
-                        transition={{ 
+                        transition={{
                           duration: 0.6,
-                          ease: [0.645, 0.045, 0.355, 1], // Cubic bezier for realistic page flip
+                          ease: [0.645, 0.045, 0.355, 1],
                         }}
                       >
-                        {/* Front of flipping page */}
-                        <div 
+                        {/* Front of flipping leaf */}
+                        <motion.div
                           className="absolute inset-0 bg-white"
-                          style={{ backfaceVisibility: 'hidden' }}
+                          style={{
+                            backfaceVisibility: 'hidden',
+                            transformOrigin: flipDirection === 'right' ? 'left center' : 'right center',
+                          }}
                         >
                           <img
                             src={flipDirection === 'right' ? rightPage?.image_url : leftPage.image_url}
-                            alt="Flipping page"
+                            alt="Flipping front"
                             className="w-full h-full object-cover"
                             draggable={false}
                           />
                           {/* Page shadow during flip */}
-                          <motion.div 
-                            className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-black/20 pointer-events-none"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ duration: 0.3 }}
+                          <div className={cn(
+                            "absolute inset-0 pointer-events-none z-10",
+                            flipDirection === 'right'
+                              ? "bg-gradient-to-r from-black/30 via-black/10 to-transparent"
+                              : "bg-gradient-to-l from-black/30 via-black/10 to-transparent"
+                          )} />
+
+                          {/* Crease Highlight - simulates the fold reflecting light */}
+                          <motion.div
+                            className="absolute inset-y-0 w-20 pointer-events-none z-20"
+                            style={{
+                              left: flipDirection === 'right' ? 'auto' : 0,
+                              right: flipDirection === 'right' ? 0 : 'auto',
+                              background: flipDirection === 'right'
+                                ? 'linear-gradient(to left, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 50%, transparent 100%)'
+                                : 'linear-gradient(to right, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 50%, transparent 100%)'
+                            }}
+                            animate={{ opacity: [0, 1, 0] }}
+                            transition={{ duration: 0.6 }}
                           />
-                        </div>
-                        
-                        {/* Back of flipping page (shows next spread's page) */}
-                        <div 
-                          className="absolute inset-0 bg-white"
-                          style={{ 
+                        </motion.div>
+
+                        {/* Back of flipping leaf */}
+                        <motion.div
+                          className="absolute inset-0 bg-white shadow-2xl"
+                          style={{
                             backfaceVisibility: 'hidden',
                             transform: 'rotateY(180deg)',
+                            transformOrigin: flipDirection === 'right' ? 'left center' : 'right center',
                           }}
                         >
-                          <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                            <span className="text-gray-400 text-sm">Loading...</span>
-                          </div>
-                        </div>
+                          {(() => {
+                            const backPageData = flipDirection === 'right'
+                              ? pages[(currentSpread + 1) * 2]
+                              : pages[(currentSpread - 1) * 2 + 1];
+
+                            return backPageData ? (
+                              <img
+                                src={backPageData.image_url}
+                                alt="Flipping back"
+                                className="w-full h-full object-cover"
+                                draggable={false}
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-gray-50 flex items-center justify-center">
+                                <span className="text-gray-300">...</span>
+                              </div>
+                            );
+                          })()}
+                          {/* Inner shadow for the back page */}
+                          <div className={cn(
+                            "absolute inset-y-0 w-24 pointer-events-none",
+                            flipDirection === 'right'
+                              ? "right-0 bg-gradient-to-l from-black/30 via-black/5 to-transparent"
+                              : "left-0 bg-gradient-to-r from-black/30 via-black/5 to-transparent"
+                          )} />
+                        </motion.div>
                       </motion.div>
                     </motion.div>
                   )}
@@ -739,21 +812,8 @@ export const FlipbookViewer = ({
               </div>
             </div>
           ) : isDesktop && viewMode === 'single' && currentPageData ? (
-            /* Desktop: Single Page View with Slide Animation and Zoom Controls */
+            /* Desktop: Single Page View */
             <div className="relative flex flex-col items-center">
-              {/* Zoom Controls for Single Page View */}
-              <div className="absolute top-4 right-4 z-30 flex items-center gap-2 bg-card/90 backdrop-blur-sm rounded-lg p-2 shadow-lg border">
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleZoomOut}>
-                  <ZoomOut className="h-4 w-4" />
-                </Button>
-                <span className="text-sm w-12 text-center font-medium">
-                  {Math.round(zoom * 100)}%
-                </span>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleZoomIn}>
-                  <ZoomIn className="h-4 w-4" />
-                </Button>
-              </div>
-              
               <AnimatePresence mode="wait" custom={slideDirection}>
                 <motion.div
                   key={currentPage}
@@ -762,12 +822,16 @@ export const FlipbookViewer = ({
                     pageContainerRef.current = el;
                   }}
                   custom={slideDirection}
-                  variants={slideVariants}
+                  variants={flipVariants}
                   initial="enter"
                   animate="center"
                   exit="exit"
-                  transition={{ duration: 0.25, ease: 'easeInOut' }}
-                  className="relative"
+                  transition={{
+                    type: 'spring',
+                    stiffness: 260,
+                    damping: 25
+                  }}
+                  className="relative preserve-3d"
                   style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
                 >
                   <img
@@ -778,7 +842,7 @@ export const FlipbookViewer = ({
                     draggable={false}
                     onLoad={handleImageLoad}
                   />
-                  {/* Canvas Overlay for Annotations */}
+                  {/* Canvas Overlay */}
                   <canvas
                     ref={canvasRef}
                     className={cn(
@@ -791,8 +855,6 @@ export const FlipbookViewer = ({
                     onMouseUp={handleMouseUp}
                     onMouseLeave={handleMouseUp}
                   />
-                  
-                  {/* Sticker Overlays */}
                   {(placedStickers.get(currentPage) || []).map((sticker) => (
                     <StickerOverlay
                       key={sticker.id}
@@ -807,58 +869,62 @@ export const FlipbookViewer = ({
               </AnimatePresence>
             </div>
           ) : currentPageData ? (
-            /* Mobile/Tablet: Single Page View with Slide Animation */
-            <AnimatePresence mode="wait" custom={slideDirection}>
-              <motion.div
-                key={currentPage}
-                ref={(el) => {
-                  if (containerRef) containerRef.current = el;
-                  pageContainerRef.current = el;
-                }}
-                custom={slideDirection}
-                variants={slideVariants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                transition={{ duration: 0.25, ease: 'easeInOut' }}
-                className="relative"
-                style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
-              >
-                <img
-                  ref={imageRef}
-                  src={currentPageData.image_url}
-                  alt={`Page ${currentPage}`}
-                  className="max-h-[calc(100vh-180px)] w-auto shadow-lg"
-                  draggable={false}
-                  onLoad={handleImageLoad}
-                />
-                {/* Canvas Overlay for Annotations */}
-                <canvas
-                  ref={canvasRef}
-                  className={cn(
-                    'absolute inset-0 w-full h-full z-10',
-                    annotationMode !== 'none' && annotationMode !== 'sticker' ? 'cursor-crosshair' : ''
-                  )}
-                  style={{ pointerEvents: annotationMode !== 'none' && annotationMode !== 'sticker' ? 'auto' : 'none' }}
-                  onMouseDown={handleMouseDown}
-                  onMouseMove={handleMouseMove}
-                  onMouseUp={handleMouseUp}
-                  onMouseLeave={handleMouseUp}
-                />
-                
-                {/* Sticker Overlays */}
-                {(placedStickers.get(currentPage) || []).map((sticker) => (
-                  <StickerOverlay
-                    key={sticker.id}
-                    sticker={sticker}
-                    containerRect={containerRect}
-                    zoom={zoom}
-                    onUpdate={handleStickerUpdate}
-                    onRemove={handleStickerRemove}
+            /* Mobile: Single Page with Flip Transition */
+            <div className="relative w-full h-full flex items-center justify-center" style={{ perspective: '1200px' }}>
+              <AnimatePresence mode="wait" custom={slideDirection}>
+                <motion.div
+                  key={currentPage}
+                  ref={(el) => {
+                    if (containerRef) containerRef.current = el;
+                    pageContainerRef.current = el;
+                  }}
+                  custom={slideDirection}
+                  variants={flipVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{
+                    type: 'spring',
+                    stiffness: 260,
+                    damping: 25
+                  }}
+                  className="relative preserve-3d"
+                  style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
+                >
+                  <img
+                    ref={imageRef}
+                    src={currentPageData.image_url}
+                    alt={`Page ${currentPage}`}
+                    className="max-h-[calc(100vh-180px)] w-auto shadow-2xl rounded-sm"
+                    draggable={false}
+                    onLoad={handleImageLoad}
                   />
-                ))}
-              </motion.div>
-            </AnimatePresence>
+                  <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-black/5 to-transparent pointer-events-none" />
+                  <canvas
+                    ref={canvasRef}
+                    className={cn(
+                      'absolute inset-0 w-full h-full z-10',
+                      annotationMode !== 'none' && annotationMode !== 'sticker' ? 'cursor-crosshair' : ''
+                    )}
+                    style={{ pointerEvents: annotationMode !== 'none' && annotationMode !== 'sticker' ? 'auto' : 'none' }}
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
+                  />
+                  {(placedStickers.get(currentPage) || []).map((sticker) => (
+                    <StickerOverlay
+                      key={sticker.id}
+                      sticker={sticker}
+                      containerRect={containerRect}
+                      zoom={zoom}
+                      onUpdate={handleStickerUpdate}
+                      onRemove={handleStickerRemove}
+                    />
+                  ))}
+                </motion.div>
+              </AnimatePresence>
+            </div>
           ) : (
             <div className="text-muted-foreground">No pages available</div>
           )}
@@ -867,7 +933,7 @@ export const FlipbookViewer = ({
           <Button
             variant="secondary"
             size="icon"
-            className="absolute left-4 top-1/2 -translate-y-1/2 opacity-70 hover:opacity-100"
+            className="absolute left-4 top-1/2 -translate-y-1/2 opacity-70 hover:opacity-100 z-30"
             onClick={goToPrev}
             disabled={
               isDesktop && viewMode === 'spread'
@@ -881,7 +947,7 @@ export const FlipbookViewer = ({
           <Button
             variant="secondary"
             size="icon"
-            className="absolute right-4 top-1/2 -translate-y-1/2 opacity-70 hover:opacity-100"
+            className="absolute right-4 top-1/2 -translate-y-1/2 opacity-70 hover:opacity-100 z-30"
             onClick={goToNext}
             disabled={
               isDesktop && viewMode === 'spread'
@@ -917,7 +983,7 @@ export const FlipbookViewer = ({
               <div className="grid grid-cols-3 md:grid-cols-4 gap-3 p-3">
                 {pages.map((page) => {
                   const pageInfo = getPageDisplayInfo(page.page_number - 1);
-                  
+
                   return (
                     <button
                       key={page.id}
@@ -991,11 +1057,11 @@ export const FlipbookViewer = ({
             <ScrollArea className="flex-1">
               <div className="grid grid-cols-8 gap-4 p-6">
                 {pages.map((page) => {
-                  const isInCurrentSpread = viewMode === 'spread' && 
+                  const isInCurrentSpread = viewMode === 'spread' &&
                     (page.page_number === leftPageIndex + 1 || page.page_number === rightPageIndex + 1);
                   const isCurrentSingle = viewMode === 'single' && currentPage === page.page_number;
                   const pageInfo = getPageDisplayInfo(page.page_number - 1);
-                  
+
                   return (
                     <button
                       key={page.id}
@@ -1053,54 +1119,6 @@ export const FlipbookViewer = ({
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="lg:hidden flex flex-col items-center gap-2 py-3 border-t bg-card">
-        {/* Detected page number display - large and bold */}
-        {(() => {
-          const info = getPageDisplayInfo(currentPage - 1);
-          return (
-            <div className="text-center">
-              <span className="text-2xl font-bold text-foreground">
-                {info.pageType === 'cover' ? 'Cover' :
-                 info.pageType === 'blank' ? 'Blank' :
-                 `Page ${info.displayNumber}`}
-              </span>
-              {info.isDetected && info.pageType === 'numbered' && (
-                <span className="text-xs text-muted-foreground ml-2">
-                  (#{currentPage})
-                </span>
-              )}
-            </div>
-          );
-        })()}
-        
-        {/* Navigation controls */}
-        <div className="flex items-center justify-center gap-4">
-          <Button variant="outline" size="sm" onClick={goToPrev} disabled={currentPage <= 1}>
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Prev
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            {currentPage} / {pages.length}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={goToNext}
-            disabled={currentPage >= pages.length}
-          >
-            Next
-            <ChevronRight className="h-4 w-4 ml-1" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowMobileThumbnails(true)}
-            className={cn(isJumping && 'animate-bounce-subtle')}
-          >
-            <LayoutGrid className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-    </motion.div>
+    </motion.div >
   );
 };

@@ -26,23 +26,12 @@ const roleBadgeVariant: Record<string, string> = {
 };
 
 export const ImpersonatePage = () => {
-  const { user, role } = useAuth();
-  const isAdmin = role === 'admin';
+  const { user, role, impersonate, stopImpersonating, isImpersonating, actualRole, actualUser } = useAuth();
+  const isAdmin = actualRole === 'admin';
 
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
-  const [impersonating, setImpersonating] = useState<UserProfile | null>(null);
-
-  // Restore impersonation state from sessionStorage
-  useEffect(() => {
-    const stored = sessionStorage.getItem('impersonating_target');
-    if (stored) {
-      try {
-        setImpersonating(JSON.parse(stored));
-      } catch { /* ignore */ }
-    }
-  }, []);
 
   // Fetch users for admin
   useEffect(() => {
@@ -94,23 +83,23 @@ export const ImpersonatePage = () => {
   });
 
   const handleImpersonate = (target: UserProfile) => {
-    sessionStorage.setItem('impersonating_admin_session', JSON.stringify({ userId: user?.id, email: user?.email }));
-    sessionStorage.setItem('impersonating_target', JSON.stringify(target));
-    setImpersonating(target);
+    impersonate({
+      id: target.id,
+      role: (target.role as any) || 'student',
+      full_name: target.full_name
+    });
     toast.success(`Now viewing as ${target.full_name || target.email}`);
   };
 
   const handleStopImpersonating = () => {
-    sessionStorage.removeItem('impersonating_admin_session');
-    sessionStorage.removeItem('impersonating_target');
-    setImpersonating(null);
+    stopImpersonating();
     toast.info('Stopped impersonating. Returned to admin view.');
   };
 
   return (
     <div className="space-y-6">
       {/* Impersonation Banner */}
-      {impersonating && (
+      {isImpersonating && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -119,9 +108,9 @@ export const ImpersonatePage = () => {
           <div className="flex items-center gap-3">
             <Eye className="h-5 w-5 text-warning" />
             <span className="text-sm font-medium">
-              Viewing as <strong>{impersonating.full_name || impersonating.email}</strong>
-              <Badge className={`ml-2 ${roleBadgeVariant[impersonating.role || ''] || ''}`} variant="outline">
-                {impersonating.role}
+              Viewing as <strong>{user?.id}</strong>
+              <Badge className={`ml-2 ${roleBadgeVariant[role || ''] || ''}`} variant="outline">
+                {role}
               </Badge>
             </span>
           </div>
@@ -190,17 +179,17 @@ export const ImpersonatePage = () => {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          {u.id === user?.id ? (
+                          {u.id === actualUser?.id ? (
                             <span className="text-xs text-muted-foreground">You</span>
                           ) : (
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => handleImpersonate(u)}
-                              disabled={impersonating?.id === u.id}
+                              disabled={isImpersonating && user?.id === u.id}
                             >
                               <UserCheck className="h-4 w-4 mr-1" />
-                              {impersonating?.id === u.id ? 'Active' : 'Impersonate'}
+                              {isImpersonating && user?.id === u.id ? 'Active' : 'Impersonate'}
                             </Button>
                           )}
                         </TableCell>

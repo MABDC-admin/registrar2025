@@ -44,10 +44,10 @@ interface BookCardProps {
   isIndexing?: boolean;
 }
 
-export const BookCard = ({ 
-  book, 
-  index, 
-  onClick, 
+export const BookCard = ({
+  book,
+  index,
+  onClick,
   onEdit,
   onToggleActive,
   onDelete,
@@ -69,8 +69,8 @@ export const BookCard = ({
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Badge 
-                variant="secondary" 
+              <Badge
+                variant="secondary"
                 className="text-[10px] px-1.5 py-0.5 bg-primary/20 text-primary gap-1"
               >
                 <Sparkles className="h-2.5 w-2.5" />
@@ -91,8 +91,8 @@ export const BookCard = ({
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Badge 
-                variant="secondary" 
+              <Badge
+                variant="secondary"
                 className="text-[10px] px-1.5 py-0.5 bg-secondary text-secondary-foreground gap-1"
               >
                 <Loader2 className="h-2.5 w-2.5 animate-spin" />
@@ -112,8 +112,8 @@ export const BookCard = ({
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Badge 
-                variant="secondary" 
+              <Badge
+                variant="secondary"
                 className="text-[10px] px-1.5 py-0.5 bg-destructive/20 text-destructive gap-1"
               >
                 <Sparkles className="h-2.5 w-2.5" />
@@ -135,13 +135,19 @@ export const BookCard = ({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05 }}
+      whileHover={{ y: -4, scale: 1.02 }}
+      transition={{
+        delay: index * 0.05,
+        type: 'spring',
+        stiffness: 300,
+        damping: 20
+      }}
     >
       <Card
         className={cn(
           'group cursor-pointer overflow-hidden transition-all duration-300',
-          'hover:shadow-lg hover:scale-[1.02] hover:-translate-y-1',
           'bg-card border-border',
+          !isProcessing && !hasError && book.is_active && 'hover:shadow-lg',
           isProcessing && 'opacity-70',
           hasError && 'border-destructive/50',
           !book.is_active && 'opacity-60'
@@ -237,7 +243,7 @@ export const BookCard = ({
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   {onStartIndexing && (
-                    <DropdownMenuItem 
+                    <DropdownMenuItem
                       onClick={onStartIndexing}
                       disabled={isIndexing || indexStatus?.index_status === 'indexing'}
                     >
