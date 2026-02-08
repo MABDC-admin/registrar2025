@@ -1,144 +1,101 @@
 
 
-# Enhance Teacher Portal with Profile & DepEd CSV Import
+# Progressive Web App (PWA) Setup
 
 ## Overview
 
-Redesign the Teacher Portal to match the Student Portal's polished UI pattern, add a teacher data fetching system that links a logged-in teacher to their record, and create a CSV import feature for bulk-loading teacher data from DepEd files.
+Make the MABDC Registrar Portal installable as a PWA so users can add it to their home screen on any device. It will work offline, load instantly, and feel like a native app.
 
 ## What Will Change
 
-### 1. Teacher Data Fetching Hook
+### 1. Install `vite-plugin-pwa`
 
-Create a data-fetching system similar to the Student Portal's `useStudentData` pattern. When a teacher logs in, the app will look up their `user_id` in the `teachers` table and load their profile, assigned classes, grades they manage, and schedule.
+Add the `vite-plugin-pwa` package which handles service worker generation, manifest creation, and caching automatically.
 
-**New file: `src/hooks/useTeacherData.ts`**
-- `useTeacherProfile(userId)` -- fetches the teacher record from the `teachers` table by matching `user_id`
-- `useTeacherClasses(teacherId)` -- fetches students/subjects assigned to the teacher (by matching `student_grades.submitted_by` or subjects + grade_level)
-- `useTeacherSchedule(teacherId)` -- fetches schedule data if available
+### 2. Configure Vite (`vite.config.ts`)
 
-### 2. Teacher Portal Redesign
+Add the PWA plugin with:
+- App name: "MABDC - St. Francis Registrar Portal"
+- Short name: "MABDC Portal"
+- Theme color: `#0D9488` (teal, matching current theme-color)
+- Background color: `#ffffff`
+- Display: `standalone`
+- Start URL: `/`
+- Icons: 192x192 and 512x512 PNG icons
+- Runtime caching strategy for API calls
+- Auto-update service worker (prompt user to reload when update available)
 
-**Modified file: `src/components/portals/TeacherPortal.tsx`**
+### 3. Add PWA Icons (`public/`)
 
-Complete rewrite to match the Student Portal pattern:
-- Accept an `activeSection` prop (like StudentPortal) for multi-section navigation
-- Add a loading state with spinner
-- Fetch real teacher data using the new hooks
-- Display teacher profile card with gradient header (matching StudentProfileCard style)
-- Show real "My Classes" from database instead of hardcoded data
-- Display real assigned subjects and grade levels
-- Quick action cards that navigate to actual sections (grades, attendance, etc.)
-- Dashboard stats (students in my classes, pending grades, attendance today)
+Create two icon files:
+- `public/pwa-192x192.png` -- 192x192 app icon (teal graduation cap on white)
+- `public/pwa-512x512.png` -- 512x512 app icon (same design, larger)
 
-Sections:
-- `dashboard` -- overview with stats, quick actions, my classes
-- `profile` -- teacher profile card (similar to StudentProfileCard)
-- `grades` -- redirect to GradesManagement (already exists)
-- `attendance` -- redirect to AttendanceManagement
-- `schedule` -- class schedule view
-- `assignments` -- redirect to AssignmentManagement
+These will be simple generated SVG-based icons embedded as PNGs.
 
-### 3. Teacher Profile Card
+### 4. Update `index.html`
 
-**New file: `src/components/teachers/TeacherProfileCard.tsx`**
+Add mobile-optimized meta tags:
+- `<meta name="apple-mobile-web-app-capable" content="yes">`
+- `<meta name="apple-mobile-web-app-status-bar-style" content="default">`
+- `<meta name="apple-mobile-web-app-title" content="MABDC Portal">`
+- `<link rel="apple-touch-icon" href="/pwa-192x192.png">`
 
-Mirrors `StudentProfileCard` design:
-- Teal/green gradient header with teacher name, employee ID, department
-- Basic Information card (name, employee ID, email, phone)
-- Department & Subjects card (assigned subjects, grade levels)
-- School Information card (school name, status)
-- Same card styling with gradient headers and colored borders
+### 5. Register Service Worker (`src/main.tsx`)
 
-### 4. DepEd CSV Import for Teachers
+Import and call `registerSW` from `vite-plugin-pwa/vanilla` to handle:
+- Auto-registration of the service worker
+- Prompt for update when a new version is available
 
-**New file: `src/components/teachers/TeacherCSVImport.tsx`**
+### 6. Install Prompt Page (`src/pages/Install.tsx`)
 
-Similar to the existing `CSVImport` component for students:
-- File upload dropzone accepting .csv and .xlsx files
-- Column mapping UI (map CSV columns to teacher table fields: employee_id, full_name, email, phone, department, grade_level, subjects)
-- Preview table showing parsed data before import
-- Bulk insert into `teachers` table with the current school context
-- Option to create user accounts during import (calls `create-users` edge function)
-- Validation: check for duplicate employee IDs and emails
-- Progress indicator during import
-- Success/error summary
+Create a dedicated `/install` page with:
+- Instructions for installing on iOS (Share > Add to Home Screen)
+- Instructions for installing on Android (browser menu > Install)
+- A "Install Now" button that triggers the browser's native install prompt (on supported browsers)
+- Visual guide with device icons
 
-### 5. Database Changes
+### 7. Add Route (`src/App.tsx`)
 
-**Add `teacher_id` column to `user_credentials` table** -- to link teacher accounts similarly to how `student_id` links student accounts. This enables the Teacher Portal to look up the teacher record for the logged-in user.
-
-```sql
-ALTER TABLE public.user_credentials 
-ADD COLUMN teacher_id uuid REFERENCES public.teachers(id) ON DELETE SET NULL;
-```
-
-**Update RLS on `teachers` table** -- add a policy allowing teachers to view their own record:
-```sql
-CREATE POLICY "Teachers can view own record"
-ON public.teachers
-FOR SELECT
-USING (user_id = auth.uid());
-```
-
-### 6. Integration in Index.tsx
-
-Update `Index.tsx` to:
-- Pass `activeSection` prop to TeacherPortal based on active tab
-- Add teacher-specific tab routes (teacher-profile, teacher-classes) mapped to TeacherPortal sections
-- Add "Teacher CSV Import" as a menu item under School Management for admin/registrar roles
-
-### 7. Navigation Updates
-
-**Modified file: `src/components/layout/DashboardLayout.tsx`**
-
-Add teacher-specific navigation items in the teacher role's nav groups:
-- Profile item under a "My Info" collapsible group
-
-### 8. Fix Build Errors
-
-While implementing, also fix the two pre-existing build errors:
-- `supabase/functions/process-pdf/index.ts` -- fix `pdf-lib` import to use a compatible import method
-- `src/components/zoom/ZoomRunner.tsx` -- add null checks for `window.ZoomMtg`
-
----
+Add `<Route path="/install" element={<Install />} />` before the catch-all route.
 
 ## Technical Details
 
-### Teacher Data Flow
-```text
-User logs in (teacher role)
-  -> useTeacherProfile(user.id) queries teachers table WHERE user_id = auth.uid()
-  -> Returns teacher record (name, employee_id, department, subjects, school)
-  -> TeacherPortal renders profile + dashboard using real data
-```
+### Caching Strategy
 
-### CSV Import Flow
+- **Precache**: All app shell assets (JS, CSS, HTML, fonts)
+- **Runtime cache**: API requests use NetworkFirst strategy (try network, fall back to cache)
+- **Images**: CacheFirst with 30-day expiry
+
+### Service Worker Config (vite.config.ts)
+
 ```text
-Upload CSV/XLSX file
-  -> Parse with papaparse/xlsx (already installed)
-  -> Show column mapping UI
-  -> Validate data (required fields, duplicates)
-  -> Preview rows
-  -> Bulk insert into teachers table
-  -> Optionally create user accounts via create-users edge function
-  -> Show results summary
+VitePWA({
+  registerType: 'autoUpdate',
+  includeAssets: ['favicon.ico', 'pwa-192x192.png', 'pwa-512x512.png'],
+  manifest: {
+    name: 'MABDC - St. Francis Registrar Portal',
+    short_name: 'MABDC Portal',
+    theme_color: '#0D9488',
+    background_color: '#ffffff',
+    display: 'standalone',
+    icons: [...]
+  },
+  workbox: {
+    runtimeCaching: [...]
+  }
+})
 ```
 
 ### Files Created
-- `src/hooks/useTeacherData.ts`
-- `src/components/teachers/TeacherProfileCard.tsx`
-- `src/components/teachers/TeacherCSVImport.tsx`
+- `public/pwa-192x192.png`
+- `public/pwa-512x512.png`
+- `src/pages/Install.tsx`
 
 ### Files Modified
-- `src/components/portals/TeacherPortal.tsx` (major rewrite)
-- `src/pages/Index.tsx` (add teacher section routes + CSV import tab)
-- `src/components/layout/DashboardLayout.tsx` (add teacher nav items)
-- `supabase/functions/process-pdf/index.ts` (fix build error)
-- `src/components/zoom/ZoomRunner.tsx` (fix build error)
-
-### Database Migration
-- Add `teacher_id` column to `user_credentials`
-- Add RLS policy for teachers to view own record
-- Update `create-users` edge function to populate `teacher_id` in `user_credentials` when creating teacher accounts
+- `vite.config.ts` (add PWA plugin)
+- `index.html` (add Apple meta tags)
+- `src/main.tsx` (register service worker)
+- `src/App.tsx` (add /install route)
+- `package.json` (add vite-plugin-pwa dependency)
 
