@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Student } from '@/types/student';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
@@ -7,33 +7,58 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { Calendar, User, Heart, MapPin, Phone, BookOpen, Bus, TrendingUp, ClipboardCheck } from 'lucide-react';
+import { Calendar, User, Heart, MapPin, Phone, BookOpen, TrendingUp, ClipboardCheck, GraduationCap, FolderOpen, Calculator, AlertTriangle, Loader2 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { useStudentQRCode } from '@/hooks/useStudentQRCode';
+import { StudentSubjectsManager } from './StudentSubjectsManager';
+import { DocumentsManager } from './DocumentsManager';
+import { TransmutationManager } from './TransmutationManager';
+import { AnecdotalBehaviorTab } from './AnecdotalBehaviorTab';
+import { AcademicHistoryTab } from './AcademicHistoryTab';
+import { supabase } from '@/integrations/supabase/client';
 
 interface StudentDetailPanelProps {
   student: Student;
 }
 
-type DetailTab = 'progress' | 'attendance' | 'fees' | 'bus';
+type DetailTab = 'overview' | 'academic' | 'subjects' | 'documents' | 'anecdotal' | 'grades';
 
 const tabs: { id: DetailTab; label: string; icon: React.ElementType }[] = [
-  { id: 'progress', label: 'Progress', icon: TrendingUp },
-  { id: 'attendance', label: 'Attendance', icon: ClipboardCheck },
-  { id: 'fees', label: 'Fees History', icon: BookOpen },
-  { id: 'bus', label: 'School Bus', icon: Bus },
+  { id: 'overview', label: 'Overview', icon: TrendingUp },
+  { id: 'academic', label: 'Academic', icon: BookOpen },
+  { id: 'subjects', label: 'Subjects', icon: GraduationCap },
+  { id: 'documents', label: 'Documents', icon: FolderOpen },
+  { id: 'anecdotal', label: 'Anecdotal', icon: AlertTriangle },
+  { id: 'grades', label: 'Grades', icon: Calculator },
 ];
 
 export const StudentDetailPanel = ({ student }: StudentDetailPanelProps) => {
-  const [activeTab, setActiveTab] = useState<DetailTab>('progress');
+  const [activeTab, setActiveTab] = useState<DetailTab>('overview');
   const { qrCodeUrl, isLoading: qrLoading } = useStudentQRCode(student.id);
+  const [currentAcademicYearId, setCurrentAcademicYearId] = useState<string>('');
+
+  useEffect(() => {
+    const fetchCurrentYear = async () => {
+      const { data } = await supabase
+        .from('academic_years')
+        .select('id')
+        .eq('is_current', true)
+        .single();
+      if (data) setCurrentAcademicYearId(data.id);
+    };
+    fetchCurrentYear();
+  }, []);
+
+  // Reset tab when student changes
+  useEffect(() => {
+    setActiveTab('overview');
+  }, [student.id]);
 
   const address = student.uae_address || student.phil_address || '-';
   const birthDate = student.birth_date
     ? format(new Date(student.birth_date), 'MMM dd, yyyy')
     : '-';
 
-  // Mock progress data from quarter grades if available
   const progressData = student.grade_quarters
     ? [
         { quarter: 'Q1', grade: student.grade_quarters.q1 ? 88 : null },
@@ -114,35 +139,15 @@ export const StudentDetailPanel = ({ student }: StudentDetailPanelProps) => {
           </div>
         </div>
 
-        {/* Basic Details Card */}
-        <Card className="border shadow-sm">
-          <CardContent className="p-5">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
-              Basic Details
-            </h3>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-              {detailItems.map((item) => (
-                <div key={item.label} className={cn(item.span && 'col-span-2')}>
-                  <p className="text-xs text-muted-foreground mb-0.5 flex items-center gap-1.5">
-                    <item.icon className="h-3 w-3" />
-                    {item.label}
-                  </p>
-                  <p className="text-sm font-medium truncate">{item.value}</p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Tabs */}
         <div>
-          <div className="flex border-b border-border">
+          <div className="flex border-b border-border overflow-x-auto">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  'flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors',
+                  'flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap',
                   activeTab === tab.id
                     ? 'border-primary text-primary'
                     : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -155,52 +160,82 @@ export const StudentDetailPanel = ({ student }: StudentDetailPanelProps) => {
           </div>
 
           <div className="pt-4 min-h-[200px]">
-            {activeTab === 'progress' && (
-              progressData.length > 0 ? (
-                <div className="h-[220px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={progressData}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis dataKey="quarter" className="text-xs" />
-                      <YAxis domain={[70, 100]} className="text-xs" />
-                      <RechartsTooltip />
-                      <Line
-                        type="monotone"
-                        dataKey="grade"
-                        stroke="hsl(var(--primary))"
-                        strokeWidth={2}
-                        dot={{ fill: 'hsl(var(--primary))', r: 4 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+            {activeTab === 'overview' && (
+              <>
+                {/* Basic Details Card */}
+                <Card className="border shadow-sm mb-4">
+                  <CardContent className="p-5">
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
+                      Basic Details
+                    </h3>
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                      {detailItems.map((item) => (
+                        <div key={item.label} className={cn(item.span && 'col-span-2')}>
+                          <p className="text-xs text-muted-foreground mb-0.5 flex items-center gap-1.5">
+                            <item.icon className="h-3 w-3" />
+                            {item.label}
+                          </p>
+                          <p className="text-sm font-medium truncate">{item.value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Progress Chart */}
+                {progressData.length > 0 ? (
+                  <div className="h-[220px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={progressData}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                        <XAxis dataKey="quarter" className="text-xs" />
+                        <YAxis domain={[70, 100]} className="text-xs" />
+                        <RechartsTooltip />
+                        <Line
+                          type="monotone"
+                          dataKey="grade"
+                          stroke="hsl(var(--primary))"
+                          strokeWidth={2}
+                          dot={{ fill: 'hsl(var(--primary))', r: 4 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-[120px] text-muted-foreground">
+                    <TrendingUp className="h-10 w-10 mb-2 opacity-30" />
+                    <p className="text-sm">No grade data available yet</p>
+                  </div>
+                )}
+              </>
+            )}
+
+            {activeTab === 'academic' && (
+              <AcademicHistoryTab student={student} />
+            )}
+
+            {activeTab === 'subjects' && (
+              <StudentSubjectsManager studentId={student.id} gradeLevel={student.level} />
+            )}
+
+            {activeTab === 'documents' && (
+              <DocumentsManager studentId={student.id} />
+            )}
+
+            {activeTab === 'anecdotal' && (
+              <AnecdotalBehaviorTab studentId={student.id} />
+            )}
+
+            {activeTab === 'grades' && (
+              currentAcademicYearId ? (
+                <div className="h-[500px]">
+                  <TransmutationManager student={student} academicYearId={currentAcademicYearId} />
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center h-[200px] text-muted-foreground">
-                  <TrendingUp className="h-10 w-10 mb-2 opacity-30" />
-                  <p className="text-sm">No grade data available yet</p>
+                <div className="flex items-center justify-center h-64">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
               )
-            )}
-
-            {activeTab === 'attendance' && (
-              <div className="flex flex-col items-center justify-center h-[200px] text-muted-foreground">
-                <ClipboardCheck className="h-10 w-10 mb-2 opacity-30" />
-                <p className="text-sm">Attendance records will appear here</p>
-              </div>
-            )}
-
-            {activeTab === 'fees' && (
-              <div className="flex flex-col items-center justify-center h-[200px] text-muted-foreground">
-                <BookOpen className="h-10 w-10 mb-2 opacity-30" />
-                <p className="text-sm">Fees history will appear here</p>
-              </div>
-            )}
-
-            {activeTab === 'bus' && (
-              <div className="flex flex-col items-center justify-center h-[200px] text-muted-foreground">
-                <Bus className="h-10 w-10 mb-2 opacity-30" />
-                <p className="text-sm">School bus information will appear here</p>
-              </div>
             )}
           </div>
         </div>
