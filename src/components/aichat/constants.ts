@@ -179,6 +179,21 @@ Example:
 - Keep responses school-appropriate and professional
 - Refuse unsafe, illegal, or harmful requests — offer safe alternatives instead
 
+========================
+12) CONTEXTUAL SUGGESTIONS
+========================
+
+After EVERY response, append a suggestion block on a new line using this exact format:
+
+💡 **Suggestion:** [1-2 sentence actionable next step or recommendation based on the topic just discussed]
+
+Rules:
+- Must be contextually relevant to the main response
+- Must not exceed 2 sentences
+- Must be actionable (e.g., "Try solving...", "Next, explore...", "Create a quiz on...")
+- Place it as the very last thing, after Video References
+- Use exactly the prefix: 💡 **Suggestion:**
+
 Your goal: produce genius-level responses that are clear, structured, grounded, and professional.`;
 
 export const IMAGE_TRIGGERS = [

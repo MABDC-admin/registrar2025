@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Square, Bot, FileText, X, Loader2, Eraser } from 'lucide-react';
+import { Send, Square, Bot, FileText, X, Loader2, Eraser, Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,6 +29,10 @@ export const AIChatPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isExtractingPdf, setIsExtractingPdf] = useState(false);
   const [activeMode, setActiveMode] = useState<ModeInfo | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(() => {
+    const saved = localStorage.getItem('ai-suggestions-enabled');
+    return saved !== null ? saved === 'true' : true;
+  });
   const [extractionProgress, setExtractionProgress] = useState<ExtractionProgress | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -42,6 +47,10 @@ export const AIChatPage = () => {
   }, []);
 
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
+
+  useEffect(() => {
+    localStorage.setItem('ai-suggestions-enabled', String(showSuggestions));
+  }, [showSuggestions]);
 
   // Stop loading when switching sessions
   useEffect(() => {
@@ -299,6 +308,10 @@ export const AIChatPage = () => {
                 <button onClick={removeDoc} className="ml-1 hover:text-destructive transition-colors"><X className="h-3.5 w-3.5" /></button>
               </div>
             )}
+            <div className="flex items-center gap-1.5" title={showSuggestions ? 'Suggestions on' : 'Suggestions off'}>
+              <Lightbulb className={`h-3.5 w-3.5 ${showSuggestions ? 'text-amber-500' : 'text-muted-foreground'}`} />
+              <Switch checked={showSuggestions} onCheckedChange={setShowSuggestions} className="scale-75" />
+            </div>
             <Button variant="ghost" size="sm" onClick={() => clearSession(activeId)} disabled={messages.length === 0} className="gap-1.5 text-xs">
               <Eraser className="h-3.5 w-3.5" /> Clear
             </Button>
@@ -316,6 +329,7 @@ export const AIChatPage = () => {
                 message={msg}
                 isStreaming={isLoading && msg === messages[messages.length - 1] && msg.role === 'assistant'}
                 docFilename={uploadedDoc?.filename}
+                showSuggestions={showSuggestions}
               />
             ))
           )}
