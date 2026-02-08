@@ -1,16 +1,53 @@
 
 
-# Update Omada Controller Credentials
+# Fix: Registrar Cannot See Other Users in Chat
 
-## Current Status
-The Omada proxy edge function is deployed and reachable. The controller is configured (`OMADA_URL` is set), but the current `OMADA_CLIENT_ID` and `OMADA_CLIENT_SECRET` values are outdated, causing an authentication error: **"The Client Id Or Client Secret is Invalid."**
+## Problem
+The registrar (and teacher) roles cannot see other users when creating a new chat conversation. This is caused by overly restrictive RLS (Row-Level Security) policies on two tables:
 
-## Steps
+1. **profiles table** -- Only admins can view all profiles; everyone else can only see their own profile
+2. **user_roles table** -- Only admins can view all roles; everyone else can only see their own role
 
-1. **Update `OMADA_CLIENT_ID` secret** to `889aad07694f437087890b70c5fd1806`
-2. **Update `OMADA_CLIENT_SECRET` secret** to `fb32591a98e54dbfb6269a2ca384f958`
-3. **Re-test the connection** by calling the `omada-proxy` edge function with the `status` action to confirm it returns `healthy: true`
-4. **Test fetching sites** by calling the `proxy` action with `/openapi/v1/sites` to verify full API access
+When the chat dialog queries these tables to list available contacts, the registrar gets empty results.
 
-No code changes are required -- only the stored secret values need updating.
+## Solution
+Add SELECT policies so that teachers and registrars can also view profiles and roles of other staff members (admin, teacher, registrar).
+
+## Technical Details
+
+### Database Migration
+Add two new RLS policies:
+
+**1. Allow teachers and registrars to view all profiles:**
+```sql
+CREATE POLICY "Staff can view all profiles"
+ON public.profiles
+FOR SELECT
+TO authenticated
+USING (
+  has_role(auth.uid(), 'teacher'::app_role)
+  OR has_role(auth.uid(), 'registrar'::app_role)
+);
+```
+
+**2. Allow teachers and registrars to view user roles:**
+```sql
+CREATE POLICY "Staff can view all roles"
+ON public.user_roles
+FOR SELECT
+TO authenticated
+USING (
+  has_role(auth.uid(), 'teacher'::app_role)
+  OR has_role(auth.uid(), 'registrar'::app_role)
+);
+```
+
+### Why This Is Safe
+- These policies use the existing `has_role()` security definer function, avoiding recursion
+- Only authenticated users with verified staff roles (teacher/registrar) gain access
+- Student and parent roles remain restricted to viewing only their own data
+- No code changes are needed -- the existing `NewChatDialog.tsx` queries will work correctly once the policies allow data access
+
+### No Frontend Changes Required
+The `NewChatDialog` component already queries `user_roles` and `profiles` correctly. The fix is purely at the database policy level.
 
