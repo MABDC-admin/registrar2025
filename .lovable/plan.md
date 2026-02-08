@@ -1,43 +1,79 @@
 
+# Integrate Library Search into AI Chat
 
-# AI Chat Page with Gemini Flash
+## What This Does
+When you type **"find [topic]"** in the AI chat, SchoolAI will search through all indexed books in your library and return matching topics, lessons, and keywords -- then present the results as a formatted, intelligent response.
 
-## Overview
-Create a dedicated AI Chat page that lets all authenticated users have conversations with Google's Gemini Flash model through the built-in Lovable AI gateway. The page reuses the existing `notebook-chat` edge function (already configured with streaming and error handling).
+## How It Works
 
-## What You'll Get
-- A full-screen chat interface with message bubbles, markdown rendering, and streaming responses
-- Conversation history maintained during the session
-- Loading indicators while the AI responds
-- Error handling for rate limits (429) and credit issues (402)
-- Responsive design for mobile and desktop
-- Accessible from the sidebar under "Resources" as "AI Chat"
+1. **Keyword Detection**: When your message starts with "find" (e.g., "find photosynthesis", "find fractions"), the system intercepts it before sending to the AI model.
+
+2. **Library Search**: It queries the indexed book pages database for matching topics, keywords, chapter titles, and text content.
+
+3. **AI-Formatted Response**: The raw search results are passed to SchoolAI, which formats them into a helpful response with:
+   - Book titles and page numbers
+   - Relevant topics and chapter titles
+   - Snippets of matching content
+   - Suggestions for further exploration
+
+4. **Fallback**: If no results are found, the AI tells you and offers to help explain the topic instead.
+
+---
 
 ## Technical Details
 
-### New File: `src/components/aichat/AIChatPage.tsx`
-- Main chat component with:
-  - State: `messages[]` array with `{role, content, id}`, `isLoading`, `error`
-  - Streaming via `fetch` to the existing `notebook-chat` edge function with SSE parsing
-  - System prompt: "You are a helpful AI assistant. Keep answers clear and concise. Use markdown formatting."
-  - Model: `google/gemini-3-flash-preview`
-  - Message rendering with `react-markdown` + `remark-gfm` (already installed)
-  - Auto-scroll to latest message
-  - Input with Enter-to-send (Shift+Enter for newline)
-  - AbortController support for canceling in-flight requests
-  - Toast notifications for 429/402 errors
+### Files to Modify
 
-### Modified File: `src/components/layout/DashboardLayout.tsx`
-- Add `{ id: 'ai-chat', icon: NotebookIcon3D, label: 'AI Chat' }` to the Resources section for admin, registrar, and teacher nav groups
-- Add icon mapping entries for `'ai-chat'`
+**`src/components/aichat/constants.ts`**
+- Add a `isFindRequest(text)` helper that detects messages starting with "find " (case-insensitive)
+- Extract the search query from the message (everything after "find ")
 
-### Modified File: `src/pages/Index.tsx`
-- Import `AIChatPage`
-- Add tab rendering: `{activeTab === 'ai-chat' && (role === 'admin' || role === 'teacher' || role === 'registrar') && <AIChatPage />}`
+**`src/components/aichat/AIChatPage.tsx`**
+- Import `isFindRequest` from constants
+- Add a `handleFindRequest(query)` function that:
+  1. Calls the `search-books` edge function with the extracted topic
+  2. Formats results into a context string
+  3. Sends the context + user query to the AI chat for a nicely formatted response
+- Update `handleSend` to check `isFindRequest` before `isImageRequest` and route accordingly
 
-### No edge function changes needed
-The existing `notebook-chat` function already supports:
-- Streaming SSE responses
-- Lovable AI gateway with `google/gemini-3-flash-preview`
-- Auth verification
-- Rate limit (429) and credit (402) error handling
+### Search Flow
+
+```text
+User types: "find photosynthesis"
+       |
+       v
+isFindRequest() detects "find" prefix
+       |
+       v
+Extract query: "photosynthesis"
+       |
+       v
+Call search-books edge function
+       |
+       v
+Results found? ----No----> AI responds: "No library results found, but here's what I know..."
+       |
+      Yes
+       |
+       v
+Build context string with book titles, pages, topics, snippets
+       |
+       v
+Send to AI with prompt: "Format these library search results for the user"
+       |
+       v
+AI renders formatted results with book names, page numbers, and summaries
+```
+
+### Response Format Example
+The AI will present results like:
+
+- **Book**: "Science Grade 7" -- Page 45
+  - **Chapter**: Plant Biology
+  - **Topics**: Photosynthesis, Chloroplasts, Light Reactions
+  - **Snippet**: "Photosynthesis is the process by which plants convert..."
+
+### No External Dependencies
+- Uses the existing `search-books` edge function (already deployed)
+- No new database tables or migrations needed
+- No new packages required
