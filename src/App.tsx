@@ -13,6 +13,7 @@ import Index from "./pages/Index";
 import StudentProfile from "./pages/StudentProfile";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import Install from "./pages/Install";
 import { ZoomRunner } from "./components/zoom/ZoomRunner";
 
 const queryClient = new QueryClient();
@@ -61,6 +62,7 @@ const App = () => {
                       <Route path="/library/book/:bookId" element={<Index />} />
                       <Route path="/student/:id" element={<StudentProfile />} />
                       <Route path="/admin/zoom-runner" element={<ZoomRunner />} />
+                      <Route path="/install" element={<Install />} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                       <Route path="*" element={<NotFound />} />
                     </Routes>
