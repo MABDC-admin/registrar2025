@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
-import { X, Printer, User, BookOpen, GraduationCap, FileDown, Loader2, Calculator } from 'lucide-react';
+import { X, Printer, User, BookOpen, GraduationCap, FileDown, Loader2, Calculator, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -10,6 +10,8 @@ import { DocumentsManager } from './DocumentsManager';
 import { StudentSubjectsManager } from './StudentSubjectsManager';
 import { TransmutationManager } from './TransmutationManager';
 import { AnimatedStudentAvatar } from './AnimatedStudentAvatar';
+import { AcademicHistoryTab } from './AcademicHistoryTab';
+import { AnecdotalBehaviorTab } from './AnecdotalBehaviorTab';
 import { generateSF1 } from '@/utils/sf1Generator';
 import { generateAnnex1 } from '@/utils/annex1Generator';
 import { generateSF9 } from '@/utils/sf9Generator';
@@ -242,6 +244,13 @@ export const StudentProfileModal = ({ student, isOpen, onClose }: StudentProfile
                     Profile
                   </TabsTrigger>
                   <TabsTrigger
+                    value="academic"
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-cyan-500 data-[state=active]:bg-transparent px-2 pb-3 font-medium transition-all"
+                  >
+                    <BookOpen className="h-4 w-4 mr-2" />
+                    Academic History
+                  </TabsTrigger>
+                  <TabsTrigger
                     value="subjects"
                     className="rounded-none border-b-2 border-transparent data-[state=active]:border-cyan-500 data-[state=active]:bg-transparent px-2 pb-3 font-medium transition-all"
                   >
@@ -254,6 +263,13 @@ export const StudentProfileModal = ({ student, isOpen, onClose }: StudentProfile
                   >
                     <BookOpen className="h-4 w-4 mr-2" />
                     Documents
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="anecdotal"
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-cyan-500 data-[state=active]:bg-transparent px-2 pb-3 font-medium transition-all"
+                  >
+                    <AlertTriangle className="h-4 w-4 mr-2" />
+                    Anecdotal
                   </TabsTrigger>
                   <TabsTrigger
                     value="grades"
@@ -281,6 +297,18 @@ export const StudentProfileModal = ({ student, isOpen, onClose }: StudentProfile
                   </motion.div>
                 )}
 
+                {activeTab === 'academic' && (
+                  <motion.div
+                    key="academic"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <AcademicHistoryTab student={student} />
+                  </motion.div>
+                )}
+
                 {activeTab === 'subjects' && (
                   <motion.div
                     key="subjects"
@@ -302,6 +330,18 @@ export const StudentProfileModal = ({ student, isOpen, onClose }: StudentProfile
                     transition={{ duration: 0.2 }}
                   >
                     <DocumentsManager studentId={student.id} />
+                  </motion.div>
+                )}
+
+                {activeTab === 'anecdotal' && (
+                  <motion.div
+                    key="anecdotal"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <AnecdotalBehaviorTab studentId={student.id} />
                   </motion.div>
                 )}
 
