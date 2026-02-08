@@ -1,103 +1,111 @@
 
 
-# New Student Page UI - Split Panel Layout
+# Student QR Code Generation with Edge Function
 
 ## Overview
-Redesign the Students page content area to use a master-detail split-panel layout (student list on left, student detail on right), matching the provided reference image. The sidebar navigation remains completely unchanged. No data is removed -- this is purely a visual/layout restructuring using existing data.
+Create a backend function that generates QR codes containing student LRN and password data, display them in the student detail panel next to the avatar, and set up real-time change detection for automatic regeneration when credentials change.
+
+## Architecture
+
+```text
+user_credentials table (password changes)
+        |
+        v
+  Realtime subscription (postgres_changes)
+        |
+        v
+  Frontend detects change --> calls edge function
+        |
+        v
+  generate-student-qr edge function
+  (fetches LRN + password, generates QR data URL)
+        |
+        v
+  QR code displayed in StudentDetailPanel avatar section
+```
 
 ## What Changes
 
-### 1. New View Mode: "Split Panel" in StudentTable
-Add a new `viewMode` option ("split") to the existing `StudentTable` component that renders a two-column layout:
+### 1. New Edge Function: `generate-student-qr`
+**File:** `supabase/functions/generate-student-qr/index.ts`
 
-**Left Panel (~35% width):**
-- "Students" header with search bar
-- Scrollable list of students showing: avatar, name, class/level, LRN, year
-- Highlighted row for selected student
-- Clicking a student selects them (does NOT open a modal)
+- Accepts `student_id` as input
+- Fetches the student's LRN from `students` table and password from `user_credentials` table
+- Generates a QR code data URL containing a JSON payload: `{ lrn, password, generated_at }`
+- Uses the `qrcode` npm package (server-side generation)
+- Returns the base64 QR image data URL
+- Includes CORS headers
+- No caching headers (ensures fresh data on every call since password may change)
 
-**Right Panel (~65% width):**
-- Dark gradient header banner with student photo, name, level, and LRN
-- "Basic Details" card showing: Gender, Date of Birth, Religion (use "-" if not available), Blood Group (use "-"), Address, Father name/contact, Mother name/contact
-- Tab bar with: Progress, Attendance, Fees History, School Bus (map to existing data where available; show placeholder for missing modules)
-- Progress tab: show a simple line chart of grades if available (using recharts, already installed)
+### 2. New Hook: `useStudentQRCode`
+**File:** `src/hooks/useStudentQRCode.ts`
 
-### 2. Modify StudentTable Component
-- Add `'split'` to the `ViewMode` type
-- Add a split-panel toggle button alongside existing card/compact/table toggles
-- When `viewMode === 'split'`, render the two-panel layout instead of the grid/list
-- Move the search bar into the left panel header (matching the reference)
-- Selected student state managed internally (no modal popup in split view)
+- Takes `studentId` as parameter
+- Calls the edge function to get QR data URL
+- Sets up a Supabase Realtime subscription on `user_credentials` table filtered by `student_id`
+- When a password change event is detected (`UPDATE`), automatically re-fetches the QR code
+- Returns `{ qrCodeUrl, isLoading, error }`
 
-### 3. Create StudentDetailPanel Component
-New component: `src/components/students/StudentDetailPanel.tsx`
-- Receives a `Student` object as prop
-- Renders the dark header banner with photo, name, level, LRN
-- Renders the Basic Details grid
-- Renders the tabbed section (Progress, Attendance, etc.)
-- Progress tab uses a simple `recharts` `LineChart` or `AreaChart` for grade visualization
-- Attendance tab shows attendance summary (reuses existing attendance data if available)
-- Tabs without data show a friendly placeholder
+### 3. Modify StudentDetailPanel
+**File:** `src/components/students/StudentDetailPanel.tsx`
 
-### 4. Styling
-- Dark navy/slate gradient for the detail header (matching reference image)
-- Clean white card for Basic Details with subtle borders
-- Tab navigation with underline-style active indicator
-- Responsive: on mobile, collapse to single column (list only, tap opens detail)
+- Import and use the `useStudentQRCode` hook
+- In the dark header banner, position the QR code to the right of the avatar section
+- Layout: `[Avatar] [Student Info] ... [QR Code]`
+- QR code displayed as a small image (~80x80px) with a subtle white border
+- Shows a loading skeleton while generating
+- Tooltip on hover: "Scan for student credentials"
+
+### 4. Database: Enable Realtime on `user_credentials`
+- Add `user_credentials` to the realtime publication so the frontend can subscribe to password change events
+
+## Data Flow
+
+1. Student detail panel mounts with a student
+2. `useStudentQRCode(student.id)` fires, calling the edge function
+3. Edge function queries `students.lrn` and `user_credentials.temp_password` for the student
+4. QR code is generated server-side with payload `{ lrn: "...", password: "..." }`
+5. Data URL returned to frontend and displayed
+6. Realtime subscription listens for `UPDATE` on `user_credentials` where `student_id` matches
+7. On password change event, hook re-invokes the edge function to get a fresh QR code
+
+## QR Code Content Format
+```json
+{
+  "lrn": "123456789012",
+  "password": "123456",
+  "school": "MABDC",
+  "generated": "2026-02-08T12:00:00Z"
+}
+```
 
 ## What Does NOT Change
-- Sidebar navigation (completely untouched)
-- Database schema (no changes)
-- Existing student data (no removal)
-- Other view modes (cards, compact, table) remain available
-- All existing modals (view, edit, delete) still work
+- Database schema (no new columns or tables)
+- Other student views (profile card, LIS detail)
+- Authentication flow
+- Existing QR code generation in enrollment wizard (that remains separate)
 
 ## Technical Details
 
-### Files to Create
-- `src/components/students/StudentDetailPanel.tsx` -- the right-side detail view
+### Edge Function Implementation
+- Uses `npm:qrcode` for server-side QR generation
+- Creates Supabase client with service role key to read credentials securely
+- Returns `{ qr_data_url: "data:image/png;base64,..." }`
+- Error handling for missing student or missing credentials
 
-### Files to Modify
-- `src/components/students/StudentTable.tsx` -- add split view mode and internal selected-student state
+### Config Update
+- Add `[functions.generate-student-qr]` with `verify_jwt = false` to `supabase/config.toml`
 
-### Data Mapping (Reference Image to Existing Fields)
-| UI Label | Data Source |
-|----------|------------|
-| Photo | `student.photo_url` |
-| Name | `student.student_name` |
-| Class | `student.level` |
-| Student ID | `student.lrn` |
-| Gender | `student.gender` |
-| Date of Birth | `student.birth_date` |
-| Religion | Not in schema -- show "-" |
-| Blood Group | Not in schema -- show "-" |
-| Address | `student.uae_address` or `student.phil_address` |
-| Father | `student.father_name` + `student.father_contact` |
-| Mother | `student.mother_maiden_name` + `student.mother_contact` |
-| Year | Derived from `student.created_at` or academic year |
-| Progress chart | From grades data (if available) |
-| Attendance | From attendance records (if available) |
-
-### Component Structure
-
-```text
-StudentTable (split mode)
-+---------------------------+-------------------------------+
-| Left Panel (35%)          | Right Panel (65%)             |
-| +-------------------+     | +---------------------------+ |
-| | Search bar        |     | | Dark Header Banner        | |
-| +-------------------+     | | Photo | Name | Class | ID | |
-| | Student Row (sel) |     | +---------------------------+ |
-| | Student Row       |     | | Basic Details Card        | |
-| | Student Row       |     | | Gender | DOB | Religion   | |
-| | Student Row       |     | | Address | Father | Mother | |
-| | ...               |     | +---------------------------+ |
-| |                   |     | | Tabs: Progress|Attendance | |
-| |                   |     | | [Chart / Content]         | |
-| +-------------------+     | +---------------------------+ |
-+---------------------------+-------------------------------+
+### Realtime Subscription
+```sql
+ALTER PUBLICATION supabase_realtime ADD TABLE public.user_credentials;
 ```
 
-### Responsive Behavior
-- Desktop (>=1024px): side-by-side split panel
-- Tablet/Mobile (<1024px): full-width list; tapping a student opens detail as overlay or navigates
+### Files to Create
+- `supabase/functions/generate-student-qr/index.ts`
+- `src/hooks/useStudentQRCode.ts`
+
+### Files to Modify
+- `src/components/students/StudentDetailPanel.tsx` (add QR display in header)
+- `supabase/config.toml` (add function config)
+
