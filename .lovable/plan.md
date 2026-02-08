@@ -1,53 +1,31 @@
 
 
-# Fix: Registrar Cannot See Other Users in Chat
+# Fix: Chat File Upload "Bucket Not Found" Error
 
 ## Problem
-The registrar (and teacher) roles cannot see other users when creating a new chat conversation. This is caused by overly restrictive RLS (Row-Level Security) policies on two tables:
-
-1. **profiles table** -- Only admins can view all profiles; everyone else can only see their own profile
-2. **user_roles table** -- Only admins can view all roles; everyone else can only see their own role
-
-When the chat dialog queries these tables to list available contacts, the registrar gets empty results.
+When uploading a file in the messaging chat, a 404 "Bucket not found" error is returned. The `chat-attachments` storage bucket exists, but it is missing an **INSERT** policy. Without it, the storage API rejects the upload as if the bucket doesn't exist.
 
 ## Solution
-Add SELECT policies so that teachers and registrars can also view profiles and roles of other staff members (admin, teacher, registrar).
+Add a storage RLS policy allowing authenticated users to upload files to the `chat-attachments` bucket, restricted to their own UID folder (matching the existing upload path pattern: `${user.id}/${timestamp}.${ext}`).
 
 ## Technical Details
 
 ### Database Migration
-Add two new RLS policies:
 
-**1. Allow teachers and registrars to view all profiles:**
 ```sql
-CREATE POLICY "Staff can view all profiles"
-ON public.profiles
-FOR SELECT
+-- Allow authenticated users to upload to their own folder in chat-attachments
+CREATE POLICY "Users can upload chat files"
+ON storage.objects
+FOR INSERT
 TO authenticated
-USING (
-  has_role(auth.uid(), 'teacher'::app_role)
-  OR has_role(auth.uid(), 'registrar'::app_role)
+WITH CHECK (
+  bucket_id = 'chat-attachments'
+  AND (storage.foldername(name))[1] = auth.uid()::text
 );
 ```
 
-**2. Allow teachers and registrars to view user roles:**
-```sql
-CREATE POLICY "Staff can view all roles"
-ON public.user_roles
-FOR SELECT
-TO authenticated
-USING (
-  has_role(auth.uid(), 'teacher'::app_role)
-  OR has_role(auth.uid(), 'registrar'::app_role)
-);
-```
-
-### Why This Is Safe
-- These policies use the existing `has_role()` security definer function, avoiding recursion
-- Only authenticated users with verified staff roles (teacher/registrar) gain access
-- Student and parent roles remain restricted to viewing only their own data
-- No code changes are needed -- the existing `NewChatDialog.tsx` queries will work correctly once the policies allow data access
-
-### No Frontend Changes Required
-The `NewChatDialog` component already queries `user_roles` and `profiles` correctly. The fix is purely at the database policy level.
+This ensures:
+- Only authenticated users can upload
+- Files can only be placed in a folder matching the user's own ID (matching the existing code pattern in `useMessaging.ts`)
+- No frontend code changes are needed
 
