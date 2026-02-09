@@ -27,6 +27,7 @@ interface UserCredential {
   user_id: string | null;
   student_name?: string;
   student_level?: string;
+  student_school?: string;
 }
 
 export const UserManagement = () => {
@@ -40,6 +41,7 @@ export const UserManagement = () => {
   const [confirmText, setConfirmText] = useState('');
   const [levelFilter, setLevelFilter] = useState<string>('all');
   const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [schoolFilter, setSchoolFilter] = useState<string>('all');
   const [showPrintDialog, setShowPrintDialog] = useState(false);
   const [selectedSchool, setSelectedSchool] = useState('M.A Brain Development Center');
   const [resettingPasswordId, setResettingPasswordId] = useState<string | null>(null);
@@ -65,7 +67,8 @@ export const UserManagement = () => {
         *,
         students:student_id (
           student_name,
-          level
+          level,
+          school
         )
       `)
       .order('created_at', { ascending: false });
@@ -75,6 +78,7 @@ export const UserManagement = () => {
         ...cred,
         student_name: cred.students?.student_name || null,
         student_level: cred.students?.level || null,
+        student_school: cred.students?.school || null,
       }));
       setCredentials(mappedData as UserCredential[]);
     }
@@ -104,9 +108,20 @@ export const UserManagement = () => {
     return credentials.filter(cred => {
       const matchesLevel = levelFilter === 'all' || cred.student_level === levelFilter;
       const matchesRole = roleFilter === 'all' || cred.role === roleFilter;
-      return matchesLevel && matchesRole;
+      let matchesSchool = true;
+      if (schoolFilter !== 'all') {
+        const school = cred.student_school?.toUpperCase() || '';
+        if (schoolFilter === 'MABDC') {
+          matchesSchool = school.includes('MABDC') || (cred.role === 'student' && !cred.student_school);
+        } else if (schoolFilter === 'STFXSA') {
+          matchesSchool = school.includes('STFXSA') || school.includes('ST. FRANCIS');
+        }
+        // Non-student roles only show in "All Schools"
+        if (cred.role !== 'student') matchesSchool = false;
+      }
+      return matchesLevel && matchesRole && matchesSchool;
     });
-  }, [credentials, levelFilter, roleFilter]);
+  }, [credentials, levelFilter, roleFilter, schoolFilter]);
 
   // Student credentials only for printing
   const studentCredentials = useMemo(() => {
@@ -536,6 +551,16 @@ export const UserManagement = () => {
             <div className="flex items-center gap-2 flex-wrap">
               <div className="flex items-center gap-2">
                 <Filter className="h-4 w-4 text-muted-foreground" />
+                <Select value={schoolFilter} onValueChange={setSchoolFilter}>
+                  <SelectTrigger className="w-[130px]">
+                    <SelectValue placeholder="School" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Schools</SelectItem>
+                    <SelectItem value="MABDC">MABDC</SelectItem>
+                    <SelectItem value="STFXSA">STFXSA</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Select value={roleFilter} onValueChange={setRoleFilter}>
                   <SelectTrigger className="w-[130px]">
                     <SelectValue placeholder="Role" />
@@ -596,6 +621,7 @@ export const UserManagement = () => {
                     <TableHead>Username (LRN)</TableHead>
                     <TableHead>Student Name</TableHead>
                     <TableHead>Level</TableHead>
+                    <TableHead>School</TableHead>
                     <TableHead>Password</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Created</TableHead>
@@ -610,6 +636,15 @@ export const UserManagement = () => {
                       <TableCell>
                         {cred.student_level ? (
                           <Badge variant="outline">{cred.student_level}</Badge>
+                        ) : '-'}
+                      </TableCell>
+                      <TableCell>
+                        {cred.student_school ? (
+                          <Badge variant="secondary" className="text-xs">
+                            {cred.student_school.toUpperCase().includes('MABDC') ? 'MABDC' : 
+                             cred.student_school.toUpperCase().includes('STFXSA') || cred.student_school.toUpperCase().includes('ST. FRANCIS') ? 'STFXSA' : 
+                             cred.student_school}
+                          </Badge>
                         ) : '-'}
                       </TableCell>
                       <TableCell>
