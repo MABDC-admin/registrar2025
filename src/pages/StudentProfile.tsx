@@ -170,7 +170,9 @@ const StudentProfile = () => {
     phil_address: '',
     level: '',
     school: '',
-    previous_school: ''
+    previous_school: '',
+    mother_tongue: '',
+    dialects: ''
   });
 
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -197,7 +199,9 @@ const StudentProfile = () => {
         phil_address: student.phil_address || '',
         level: student.level || '',
         school: student.school || '',
-        previous_school: student.previous_school || ''
+        previous_school: student.previous_school || '',
+        mother_tongue: student.mother_tongue || '',
+        dialects: student.dialects || ''
       });
     }
   }, [student]);
@@ -897,14 +901,16 @@ const StudentProfile = () => {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <Label className="text-xs">UAE Address</Label>
-                        <Textarea
-                          value={studentForm.uae_address}
-                          onChange={(e) => setStudentForm({ ...studentForm, uae_address: e.target.value })}
-                          rows={2}
-                        />
-                      </div>
+                      {student.school === 'MABDC' && (
+                        <div className="space-y-1">
+                          <Label className="text-xs">UAE Address</Label>
+                          <Textarea
+                            value={studentForm.uae_address}
+                            onChange={(e) => setStudentForm({ ...studentForm, uae_address: e.target.value })}
+                            rows={2}
+                          />
+                        </div>
+                      )}
                       <div className="space-y-1">
                         <Label className="text-xs">Philippine Address</Label>
                         <Textarea
@@ -1013,10 +1019,12 @@ const StudentProfile = () => {
                   </div>
                   <div className="p-5 bg-gradient-to-br from-amber-50/50 to-white dark:from-slate-800/50 dark:to-slate-900 relative z-10">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">UAE Address</p>
-                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{student.uae_address || 'Not provided'}</p>
-                      </div>
+                      {student.school === 'MABDC' && (
+                        <div>
+                          <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">UAE Address</p>
+                          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{student.uae_address || 'Not provided'}</p>
+                        </div>
+                      )}
                       <div>
                         <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">Philippine Address</p>
                         <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{student.phil_address || 'Not provided'}</p>
@@ -1082,6 +1090,8 @@ const StudentProfile = () => {
                         </SelectContent>
                       </Select>
                     </div>
+                    <EditableField label="Mother Tongue" value={studentForm.mother_tongue} field="mother_tongue" />
+                    <EditableField label="Dialects" value={studentForm.dialects} field="dialects" />
                     <EditableField label="Previous School" value={studentForm.previous_school} field="previous_school" />
                   </div>
                 </CardContent>

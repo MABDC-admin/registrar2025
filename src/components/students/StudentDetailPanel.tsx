@@ -64,11 +64,11 @@ export const StudentDetailPanel = ({ student }: StudentDetailPanelProps) => {
 
   const progressData = student.grade_quarters
     ? [
-        { quarter: 'Q1', grade: student.grade_quarters.q1 ? 88 : null },
-        { quarter: 'Q2', grade: student.grade_quarters.q2 ? 85 : null },
-        { quarter: 'Q3', grade: student.grade_quarters.q3 ? 90 : null },
-        { quarter: 'Q4', grade: student.grade_quarters.q4 ? 87 : null },
-      ].filter(d => d.grade !== null)
+      { quarter: 'Q1', grade: student.grade_quarters.q1 ? 88 : null },
+      { quarter: 'Q2', grade: student.grade_quarters.q2 ? 85 : null },
+      { quarter: 'Q3', grade: student.grade_quarters.q3 ? 90 : null },
+      { quarter: 'Q4', grade: student.grade_quarters.q4 ? 87 : null },
+    ].filter(d => d.grade !== null)
     : [];
 
   const detailItems = [
@@ -77,7 +77,7 @@ export const StudentDetailPanel = ({ student }: StudentDetailPanelProps) => {
     { label: 'Age', value: student.age?.toString() || '-', icon: User },
     { label: 'Religion', value: student.religion || '-', icon: Heart },
     { label: 'Philippine Address', value: student.phil_address || '-', icon: MapPin, span: true },
-    { label: 'UAE Address', value: student.uae_address || '-', icon: MapPin, span: true },
+    ...(student.school === 'MABDC' ? [{ label: 'UAE Address', value: student.uae_address || '-', icon: MapPin, span: true }] : []),
     {
       label: 'Father',
       value: student.father_name

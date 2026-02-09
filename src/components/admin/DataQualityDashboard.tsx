@@ -162,7 +162,14 @@ export const DataQualityDashboard = () => {
         const missingFields: string[] = [];
         if (!student.gender) missingFields.push('gender');
         if (!student.mother_maiden_name && !student.father_name) missingFields.push('guardian name');
-        if (!student.phil_address && !student.uae_address) missingFields.push('address');
+
+        // School-specific address validation
+        if (selectedSchool === 'MABDC') {
+          if (!student.uae_address) missingFields.push('UAE address');
+        } else {
+          if (!student.phil_address) missingFields.push('PH address');
+        }
+
         if (!student.mother_contact && !student.father_contact) missingFields.push('guardian contact');
 
         if (missingFields.length > 0) {

@@ -17,6 +17,8 @@ export interface Student {
   uae_address: string | null;
   previous_school: string | null;
   religion: string | null;
+  mother_tongue: string | null;
+  dialects: string | null;
   photo_url: string | null;
   created_at: string;
   updated_at: string;
@@ -57,6 +59,8 @@ export interface StudentFormData {
   uae_address?: string;
   previous_school?: string;
   religion?: string;
+  mother_tongue?: string;
+  dialects?: string;
 }
 
 export interface CSVStudent {

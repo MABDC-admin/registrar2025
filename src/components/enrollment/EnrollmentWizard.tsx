@@ -44,6 +44,8 @@ export const EnrollmentWizard = () => {
         phil_address: '',
         uae_address: '',
         previous_school: '',
+        mother_tongue: '',
+        dialects: '',
         signature: ''
     });
 
@@ -255,6 +257,8 @@ export const EnrollmentWizard = () => {
             phil_address: '',
             uae_address: '',
             previous_school: '',
+            mother_tongue: '',
+            dialects: '',
             signature: ''
         });
         setCurrentStep(1);
@@ -402,7 +406,7 @@ const EnrollmentSuccess = ({ studentName, credentials, onNew }: { studentName: s
                 <div className="bg-muted/30 rounded-lg p-6 mb-8 border border-border text-left">
                     <h3 className="font-semibold mb-4 flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-stat-purple" />
-                     Student Portal Credentials
+                        Student Portal Credentials
                     </h3>
                     <div className="grid grid-cols-2 gap-4">
                         <div>

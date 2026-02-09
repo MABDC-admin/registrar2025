@@ -1,9 +1,9 @@
 import { motion } from 'framer-motion';
 import { useRef, useState, useEffect } from 'react';
-import { 
-  User, 
-  Phone, 
-  MapPin, 
+import {
+  User,
+  Phone,
+  MapPin,
   Calendar,
   Users,
   Camera,
@@ -33,12 +33,12 @@ interface EnrolledSubject {
   status: string;
 }
 
-export const StudentProfileCard = ({ 
-  student, 
-  showPhotoUpload = true, 
+export const StudentProfileCard = ({
+  student,
+  showPhotoUpload = true,
   showEditButton = false,
   onEditClick,
-  compact = false 
+  compact = false
 }: StudentProfileCardProps) => {
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [enrolledSubjects, setEnrolledSubjects] = useState<EnrolledSubject[]>([]);
@@ -49,7 +49,7 @@ export const StudentProfileCard = ({
   useEffect(() => {
     const fetchEnrolledSubjects = async () => {
       if (!student?.id) return;
-      
+
       try {
         const { data, error } = await supabase
           .from('student_subjects')
@@ -132,7 +132,7 @@ export const StudentProfileCard = ({
   };
 
   return (
-    <motion.div 
+    <motion.div
       className="space-y-6"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -182,7 +182,7 @@ export const StudentProfileCard = ({
                 </button>
               )}
             </div>
-            
+
             {/* Student Info */}
             <div className="flex-1 space-y-1">
               <div className="flex items-center gap-3 flex-wrap">
@@ -217,15 +217,15 @@ export const StudentProfileCard = ({
 
       {/* Edit Button Row */}
       {showEditButton && (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2 }}
           className="flex justify-end"
         >
-          <Button 
-            variant="default" 
-            size="sm" 
+          <Button
+            variant="default"
+            size="sm"
             onClick={onEditClick}
             className="bg-slate-700 hover:bg-slate-800 text-white gap-2"
           >
@@ -246,7 +246,7 @@ export const StudentProfileCard = ({
           style={{ borderTopColor: '#0891b2' }}
         >
           {/* Header */}
-          <div 
+          <div
             className="px-5 py-3 flex items-center gap-2"
             style={{
               background: 'linear-gradient(135deg, #0891b2 0%, #22d3ee 100%)'
@@ -255,7 +255,7 @@ export const StudentProfileCard = ({
             <User className="h-4 w-4 text-white" />
             <h3 className="font-semibold text-white">Basic Information</h3>
           </div>
-          
+
           {/* Content */}
           <div className="p-5 space-y-4 bg-gradient-to-br from-cyan-50/50 to-white dark:from-slate-800/50 dark:to-slate-900">
             <div className="grid grid-cols-2 gap-4">
@@ -294,7 +294,7 @@ export const StudentProfileCard = ({
           style={{ borderTopColor: '#a855f7' }}
         >
           {/* Header */}
-          <div 
+          <div
             className="px-5 py-3 flex items-center gap-2"
             style={{
               background: 'linear-gradient(135deg, #a855f7 0%, #d946ef 100%)'
@@ -303,7 +303,7 @@ export const StudentProfileCard = ({
             <Users className="h-4 w-4 text-white" />
             <h3 className="font-semibold text-white">Parents/Guardian</h3>
           </div>
-          
+
           {/* Content */}
           <div className="p-5 space-y-4 bg-gradient-to-br from-purple-50/50 to-white dark:from-slate-800/50 dark:to-slate-900">
             <div>
@@ -332,7 +332,7 @@ export const StudentProfileCard = ({
           style={{ borderTopColor: '#f59e0b' }}
         >
           {/* Header */}
-          <div 
+          <div
             className="px-5 py-3 flex items-center gap-2"
             style={{
               background: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 50%, #fde047 100%)'
@@ -341,14 +341,16 @@ export const StudentProfileCard = ({
             <MapPin className="h-4 w-4 text-white" />
             <h3 className="font-semibold text-white">Address Information</h3>
           </div>
-          
+
           {/* Content */}
           <div className="p-5 bg-gradient-to-br from-amber-50/50 to-white dark:from-slate-800/50 dark:to-slate-900">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">UAE Address</p>
-                <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{student.uae_address || 'Not provided'}</p>
-              </div>
+              {student.school === 'MABDC' && (
+                <div>
+                  <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">UAE Address</p>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{student.uae_address || 'Not provided'}</p>
+                </div>
+              )}
               <div>
                 <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">Philippine Address</p>
                 <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{student.phil_address || 'Not provided'}</p>

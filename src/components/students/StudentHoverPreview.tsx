@@ -89,7 +89,7 @@ export const StudentHoverPreview = ({ student, children }: StudentHoverPreviewPr
           )}
 
           {/* Address */}
-          {student.uae_address && (
+          {student.school === 'MABDC' && student.uae_address && (
             <div className="space-y-1">
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">UAE Address</p>
               <div className="flex items-start gap-1.5 text-xs text-muted-foreground">

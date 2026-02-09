@@ -36,6 +36,7 @@ export const StudentFormModal = ({
     lrn: '',
     student_name: '',
     level: 'Level 1',
+    school: '',
   });
 
   useEffect(() => {
@@ -55,6 +56,7 @@ export const StudentFormModal = ({
         uae_address: student.uae_address || undefined,
         previous_school: student.previous_school || undefined,
         religion: student.religion || undefined,
+        school: student.school || undefined,
       });
     } else {
       setFormData({
@@ -251,16 +253,18 @@ export const StudentFormModal = ({
                         rows={2}
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="uae_address">UAE Address</Label>
-                      <Textarea
-                        id="uae_address"
-                        value={formData.uae_address || ''}
-                        onChange={(e) => handleChange('uae_address', e.target.value)}
-                        placeholder="Enter UAE address"
-                        rows={2}
-                      />
-                    </div>
+                    {formData.school !== 'STFXSA' && (
+                      <div className="space-y-2">
+                        <Label htmlFor="uae_address">UAE Address</Label>
+                        <Textarea
+                          id="uae_address"
+                          value={formData.uae_address || ''}
+                          onChange={(e) => handleChange('uae_address', e.target.value)}
+                          placeholder="Enter UAE address"
+                          rows={2}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
 

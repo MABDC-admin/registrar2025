@@ -135,6 +135,24 @@ export const StudentInfoStep = ({ formData, errors, touched, handleChange, handl
                     </Select>
                     {touched.gender && <FieldError error={errors.gender} />}
                 </div>
+                <div className="space-y-2">
+                    <Label className="text-stat-purple">Mother Tongue</Label>
+                    <Input
+                        placeholder="e.g. Cebuano"
+                        value={formData.mother_tongue}
+                        onChange={(e) => handleChange('mother_tongue', e.target.value)}
+                        className="bg-secondary/50"
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label className="text-stat-purple">Dialects</Label>
+                    <Input
+                        placeholder="e.g. English, Tagalog"
+                        value={formData.dialects}
+                        onChange={(e) => handleChange('dialects', e.target.value)}
+                        className="bg-secondary/50"
+                    />
+                </div>
             </div>
         </div>
     );
