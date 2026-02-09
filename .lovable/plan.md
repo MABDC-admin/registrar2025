@@ -1,51 +1,29 @@
 
 
-# Add Learner Records Menu to Teacher Sidebar
+# Allow Admin to Reset Password for All User Roles
 
 ## Problem
+The "Reset Password" button in the credentials table only appears for **student** accounts (`cred.role === 'student'`). Admins cannot reset passwords for other admins, registrars, or teachers from this interface.
 
-Admin and Registrar roles have a **"Learner Records"** collapsible group in their sidebar containing items like "Learners", "LIS", and "Attendance". The Teacher role has **no equivalent** -- teachers currently cannot navigate to learner lists from their sidebar at all.
-
-## Proposed Change
-
-Add a **"Learner Records"** group to the Teacher's sidebar, with a subset of items appropriate for their role:
-
-### Updated Teacher Sidebar Structure
-
-```text
-Portal Home
-My Info
-  |-- Profile
-Learner Records        (NEW group)
-  |-- Learners         (NEW - view assigned students)
-Academics
-  |-- Grades
-  |-- Subjects
-  |-- Subject Enrollment
-  |-- Attendance
-  |-- Schedules
-  |-- Assignments
-  |-- Exams
-Messages
-...
+## Root Cause
+Line 620 in `UserManagement.tsx` has a conditional check:
 ```
-
-Teachers get the "Learners" item to view student lists (filtered by their assignments). Items like "LIS", "New Learner", and "Import CSV" are excluded since those are administrative functions.
-
-## File to Edit
-
-**`src/components/layout/DashboardLayout.tsx`** (around line 370) -- Insert a new collapsible group before the `academics` group in the teacher's menu:
-
-```typescript
-{
-  id: 'student-records',
-  icon: StudentIcon3D,
-  label: 'Learner Records',
-  isCollapsible: true,
-  items: [
-    { id: 'students', icon: StudentIcon3D, label: 'Learners' },
-  ]
-},
+cred.role === 'student' && cred.user_id
 ```
+This hides the reset button for non-student roles.
 
-This is a single small edit with no database or backend changes required.
+## Solution
+Two small changes:
+
+### 1. `src/components/admin/UserManagement.tsx`
+- **Remove the `cred.role === 'student'` condition** from line 620, keeping only the `cred.user_id` check
+- Change from: `{cred.role === 'student' && cred.user_id && (`
+- Change to: `{cred.user_id && (`
+- This makes the reset password button visible for admin, registrar, teacher, and student credentials alike
+
+### 2. `supabase/functions/create-users/index.ts` (no changes needed)
+The `reset_student_password` action already works generically -- it calls `supabase.auth.admin.updateUserById()` which works for any user regardless of role. No backend changes required.
+
+## Result
+All users with credentials (admin, registrar, teacher, student) will have the reset password button in the Actions column. Clicking it resets the password to "123456" and updates the credentials table, same as it does for students today.
+
