@@ -44,6 +44,8 @@ export const UserManagement = () => {
   const [selectedSchool, setSelectedSchool] = useState('M.A Brain Development Center');
   const [resettingPasswordId, setResettingPasswordId] = useState<string | null>(null);
   const [isDownloadingQRs, setIsDownloadingQRs] = useState(false);
+  const [bulkSchool, setBulkSchool] = useState<string>('all');
+  const [bulkGradeLevel, setBulkGradeLevel] = useState<string>('all');
   const printRef = useRef<HTMLDivElement>(null);
 
   const schoolOptions = [
@@ -289,7 +291,10 @@ export const UserManagement = () => {
   };
 
   const handleBulkCreateStudents = () => {
-    createUser('bulk_create_students', {});
+    createUser('bulk_create_students', {
+      school: bulkSchool,
+      gradeLevel: bulkGradeLevel,
+    });
   };
 
   const handleResetStudentAccounts = async () => {
@@ -474,13 +479,40 @@ export const UserManagement = () => {
             <CardDescription>Bulk create from existing students</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
+            <div>
+              <Label>School</Label>
+              <Select value={bulkSchool} onValueChange={(v) => { setBulkSchool(v); setBulkGradeLevel('all'); }}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Schools</SelectItem>
+                  <SelectItem value="MABDC">MABDC</SelectItem>
+                  <SelectItem value="STFXSA">STFXSA</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Grade Level</Label>
+              <Select value={bulkGradeLevel} onValueChange={setBulkGradeLevel}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Levels</SelectItem>
+                  {['Kinder 1', 'Kinder 2', 'Level 1', 'Level 2', 'Level 3', 'Level 4', 'Level 5', 'Level 6', 'Level 7', 'Level 8', 'Level 9', 'Level 10', 'Level 11', 'Level 12'].map(level => (
+                    <SelectItem key={level} value={level}>{level}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <p className="text-sm text-muted-foreground">
-              This will create login accounts for all students. Username will be their LRN.
+              Creates accounts for {bulkSchool === 'all' ? 'all' : bulkSchool} students{bulkGradeLevel !== 'all' ? ` in ${bulkGradeLevel}` : ''}. Username = LRN.
             </p>
             <div className="flex gap-2">
               <Button onClick={handleBulkCreateStudents} disabled={isLoading} className="flex-1" variant="secondary">
                 {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <UserPlus className="h-4 w-4 mr-2" />}
-                Create All
+                Create Accounts
               </Button>
               <Button onClick={() => setShowResetDialog(true)} variant="destructive" size="icon" title="Reset all student accounts">
                 <Trash2 className="h-4 w-4" />
