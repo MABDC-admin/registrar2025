@@ -1,42 +1,57 @@
 
-# Fix School Segregation in Admin User Management
+# Seed Sample Data for Nopal (STFXSA - Grade 5)
 
-## Problem
+## Target Student
+- **Name:** Nopal, Juliana Kiona Anonuevo
+- **ID:** `ee562fa6-1795-4105-b8ef-bd637ca06de5`
+- **School:** STFXSA (`22222222-2222-2222-2222-222222222222`)
+- **Academic Year:** 2025-2026 (`74fb8614-8b9d-49d8-ac4a-7f4c74df201e`)
+- **Grade Level:** Grade 5
 
-The "Generated Credentials" table in Admin User Management shows ALL user accounts from both MABDC and STFXSA together. There is no school filter, so MABDC student accounts appear when viewing STFXSA and vice versa.
+## Data to Seed
 
-**Root cause:** The `fetchCredentials` query joins `user_credentials` with `students` but does not fetch the `school` field, and the table has no school filter dropdown.
+### 1. Grades (`student_grades`)
+Insert quarterly grades for all 8 Grade 5 subjects (Filipino, English, Math, Science, EPP, AP, MAPEH, GMRC) with Q1 and Q2 grades filled in (simulating mid-year progress).
 
-## Changes
+| Subject | Q1 | Q2 | Q3 | Q4 |
+|---------|-----|-----|-----|-----|
+| Filipino | 88 | 90 | - | - |
+| English | 92 | 89 | - | - |
+| Math | 85 | 87 | - | - |
+| Science | 90 | 91 | - | - |
+| EPP | 93 | 94 | - | - |
+| AP | 87 | 85 | - | - |
+| MAPEH | 95 | 93 | - | - |
+| GMRC | 96 | 97 | - | - |
 
-### File: `src/components/admin/UserManagement.tsx`
+### 2. Attendance (`student_attendance`)
+Insert ~20 attendance records for January-February 2026 with a realistic mix:
+- 16 present, 2 late, 1 absent, 1 excused
 
-**1. Add school field to credential interface and query**
-- Add `student_school?: string` to the `UserCredential` interface
-- Update the `fetchCredentials` query to also fetch `school` from the students join:
-  ```
-  students:student_id (student_name, level, school)
-  ```
-- Map it as `student_school: cred.students?.school`
+### 3. Assignments (`student_assignments` + `assignment_submissions`)
+Create 4 assignments for Grade 5 at STFXSA, then create submissions for Nopal:
+- Math Worksheet (submitted, scored 45/50)
+- Science Lab Report (submitted, scored 38/40)
+- English Essay (pending, due in future)
+- Filipino Reading Task (overdue, not submitted)
 
-**2. Add a School filter dropdown to the credentials table**
-- Add `schoolFilter` state (default: `'all'`)
-- Place a "School" dropdown next to the existing Role and Level filters with options: All Schools, MABDC, STFXSA
-- For non-student roles (admin, registrar, teacher, finance) that have no `student_school`, they will only appear when the filter is set to "All Schools" or can be shown under both
+### 4. Exam Schedules (`exam_schedules`)
+Create 4 upcoming exam entries for Grade 5 Q2 at STFXSA:
+- Math Quarterly Exam (Feb 20)
+- Science Quarterly Exam (Feb 21)
+- English Quarterly Exam (Feb 24)
+- Filipino Quarterly Exam (Feb 25)
 
-**3. Update the filtering logic**
-- Extend `filteredCredentials` to also check `schoolFilter`:
-  - `'all'`: show everything (current behavior)
-  - `'MABDC'`: show credentials where `student_school` contains "MABDC" or is null (for non-student roles)
-  - `'STFXSA'`: show credentials where `student_school` contains "STFXSA" or "St. Francis"
-- Non-student roles (admin, registrar, teacher, finance) will appear under "All Schools" only, since they are not tied to a specific school in this table
+## Technical Details
 
-**4. Add a School column to the credentials table**
-- Add a "School" column header after "Level"
-- Display the student's school as a badge in each row, showing "MABDC", "STFXSA", or "-" for non-student accounts
+All data will be inserted via a single database migration with multiple INSERT statements. Key IDs:
 
-### Summary
-- 1 file modified: `src/components/admin/UserManagement.tsx`
-- No database changes needed
-- No edge function changes needed
-- The school data already exists in the `students` table -- just needs to be fetched and used for filtering
+- **Student ID:** `ee562fa6-1795-4105-b8ef-bd637ca06de5`
+- **School ID:** `22222222-2222-2222-2222-222222222222`
+- **Academic Year ID:** `74fb8614-8b9d-49d8-ac4a-7f4c74df201e`
+- **Subject IDs:** 8 subjects matching Grade 5 curriculum
+
+The migration will use `ON CONFLICT` clauses where possible to avoid duplicate errors if re-run.
+
+### Files Modified
+- Database migration only (no code file changes)
