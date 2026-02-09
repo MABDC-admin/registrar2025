@@ -45,7 +45,21 @@ serve(async (req) => {
       ...(body && method !== 'GET' ? { body: JSON.stringify(body) } : {}),
     });
 
-    const data = await nocoResponse.json();
+    const contentType = nocoResponse.headers.get('content-type') || '';
+    const responseText = await nocoResponse.text();
+
+    if (!contentType.includes('application/json') || responseText.trim().startsWith('<!')) {
+      console.error(`NocoDB returned non-JSON (status ${nocoResponse.status}):`, responseText.substring(0, 300));
+      return new Response(JSON.stringify({
+        error: `NocoDB returned non-JSON response (status ${nocoResponse.status}). Check your NOCODB_BASE_URL and NOCODB_API_TOKEN.`,
+        configured: true
+      }), {
+        status: 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const data = JSON.parse(responseText);
 
     return new Response(JSON.stringify({ data, configured: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
