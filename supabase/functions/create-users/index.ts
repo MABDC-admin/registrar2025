@@ -80,7 +80,8 @@ const handler = async (req: Request): Promise<Response> => {
       };
       const role = roleMap[action];
       
-      // Create user
+      // Create user - handle "already registered" gracefully
+      let authUserId: string;
       const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
         email,
         password: generatedPassword,
@@ -89,38 +90,54 @@ const handler = async (req: Request): Promise<Response> => {
       });
 
       if (userError) {
-        console.error("Error creating user:", userError);
-        return new Response(
-          JSON.stringify({ error: userError.message }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        if (userError.message?.includes("already been registered")) {
+          const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
+          const existingUser = users?.find(u => u.email === email);
+          if (existingUser) {
+            authUserId = existingUser.id;
+            console.log(`User ${email} already exists, updating role`);
+          } else {
+            return new Response(
+              JSON.stringify({ error: "User exists but could not be found" }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        } else {
+          console.error("Error creating user:", userError);
+          return new Response(
+            JSON.stringify({ error: userError.message }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      } else {
+        authUserId = userData.user.id;
       }
 
-      console.log(`User created: ${userData.user.id}`);
+      console.log(`User ready: ${authUserId}`);
 
       // Update role in user_roles table
       const { error: roleError } = await supabaseAdmin
         .from("user_roles")
         .update({ role })
-        .eq("user_id", userData.user.id);
+        .eq("user_id", authUserId);
 
       if (roleError) {
         console.error("Error updating role:", roleError);
       }
 
-      // Store credentials
-      await supabaseAdmin.from("user_credentials").insert({
-        user_id: userData.user.id,
+      // Store credentials (upsert to handle re-creation)
+      await supabaseAdmin.from("user_credentials").upsert({
+        user_id: authUserId,
         email,
         temp_password: generatedPassword,
         role,
-      });
+      }, { onConflict: 'user_id' }).select();
 
       return new Response(
         JSON.stringify({ 
           success: true, 
           message: `${role} account created successfully`,
-          userId: userData.user.id 
+          userId: authUserId 
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -179,7 +196,8 @@ const handler = async (req: Request): Promise<Response> => {
           const email = generateEmail(student.lrn, student.school);
           const password = "123456"; // Unified student password
 
-          // Create user
+          // Try to create user - handle "already registered" gracefully
+          let authUserId: string;
           const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
             email,
             password,
@@ -188,21 +206,38 @@ const handler = async (req: Request): Promise<Response> => {
           });
 
           if (userError) {
-            console.error(`Error creating user for ${student.student_name}:`, userError);
-            results.failed++;
-            results.errors.push(`${student.student_name}: ${userError.message}`);
-            continue;
+            // If user already exists in auth, find them and link credential
+            if (userError.message?.includes("already been registered")) {
+              const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
+              const existingUser = users?.find(u => u.email === email);
+              if (existingUser) {
+                authUserId = existingUser.id;
+                console.log(`User ${email} already exists in auth, linking credential`);
+              } else {
+                console.error(`User ${email} reported as existing but not found`);
+                results.failed++;
+                results.errors.push(`${student.student_name}: User exists but not found`);
+                continue;
+              }
+            } else {
+              console.error(`Error creating user for ${student.student_name}:`, userError);
+              results.failed++;
+              results.errors.push(`${student.student_name}: ${userError.message}`);
+              continue;
+            }
+          } else {
+            authUserId = userData.user.id;
           }
 
           // Role is already set to 'student' by trigger, but update if needed
           await supabaseAdmin
             .from("user_roles")
             .update({ role: "student" })
-            .eq("user_id", userData.user.id);
+            .eq("user_id", authUserId);
 
           // Store credentials with LRN as the display username
           await supabaseAdmin.from("user_credentials").insert({
-            user_id: userData.user.id,
+            user_id: authUserId,
             email: student.lrn, // Store LRN as the "email" field for display
             temp_password: password,
             role: "student",
@@ -308,6 +343,7 @@ const handler = async (req: Request): Promise<Response> => {
       const generatedEmail = generateEmail(studentLrn, studentSchool);
       const generatedPassword = "123456"; // Unified student password
 
+      let authUserId: string;
       const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
         email: generatedEmail,
         password: generatedPassword,
@@ -316,22 +352,39 @@ const handler = async (req: Request): Promise<Response> => {
       });
 
       if (userError) {
-        console.error("Error creating student user:", userError);
-        return new Response(
-          JSON.stringify({ error: userError.message }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        // Handle "already registered" by finding and linking existing user
+        if (userError.message?.includes("already been registered")) {
+          const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
+          const existingUser = users?.find(u => u.email === generatedEmail);
+          if (existingUser) {
+            authUserId = existingUser.id;
+            console.log(`Student auth user already exists for ${generatedEmail}, linking credential`);
+          } else {
+            return new Response(
+              JSON.stringify({ error: "Auth user exists but could not be found" }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        } else {
+          console.error("Error creating student user:", userError);
+          return new Response(
+            JSON.stringify({ error: userError.message }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      } else {
+        authUserId = userData.user.id;
       }
 
       // Update role to student
       await supabaseAdmin
         .from("user_roles")
         .update({ role: "student" })
-        .eq("user_id", userData.user.id);
+        .eq("user_id", authUserId);
 
       // Store credentials
       await supabaseAdmin.from("user_credentials").insert({
-        user_id: userData.user.id,
+        user_id: authUserId,
         email: studentLrn,
         temp_password: generatedPassword,
         role: "student",
