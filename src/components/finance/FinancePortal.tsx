@@ -52,6 +52,7 @@ export const FinancePortal = ({ onNavigate }: FinancePortalProps) => {
     { label: 'Accept Payment', icon: CreditCard, tab: 'cashier' },
     { label: 'Search Student', icon: Search, tab: 'student-ledger' },
     { label: 'Fee Setup', icon: FileText, tab: 'fee-setup' },
+    { label: 'Year-End Close', icon: Clock, tab: 'year-end-close' },
     { label: 'Reports', icon: FileText, tab: 'finance-reports' },
   ];
 

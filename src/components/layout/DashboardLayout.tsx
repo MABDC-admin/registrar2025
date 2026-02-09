@@ -171,6 +171,7 @@ const icon3DMap: Record<string, any> = {
   'finance-clearance': AdminIcon3D,
   'finance-reports': ReportsIcon3D,
   'finance-settings': AdminIcon3D,
+  'year-end-close': AdminIcon3D,
   'finance-audit': ImportIcon3D,
   'billing': ReportsIcon3D,
   'payments-group': EnterGradeIcon3D,
@@ -243,6 +244,7 @@ const iconAppleMap: Record<string, any> = {
   'finance-clearance': AppleAdminIcon,
   'finance-reports': AppleReportsIcon,
   'finance-settings': AppleAdminIcon,
+  'year-end-close': AppleAdminIcon,
   'finance-audit': AppleImportIcon,
   'billing': AppleReportsIcon,
   'payments-group': AppleGradesIcon,
@@ -512,6 +514,7 @@ const getNavGroupsForRole = (role: string | null): NavGroup[] => {
           isCollapsible: true,
           items: [
             { id: 'finance-settings', icon: AdminIcon3D, label: 'Finance Settings' },
+            { id: 'year-end-close', icon: AdminIcon3D, label: 'Year-End Close' },
             { id: 'finance-audit', icon: ImportIcon3D, label: 'Audit Logs' },
           ]
         },
