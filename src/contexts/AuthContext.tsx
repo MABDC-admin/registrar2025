@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { logAuditAction } from '@/hooks/useAuditLog';
 
 type AppRole = 'admin' | 'registrar' | 'teacher' | 'student' | 'parent';
 
@@ -96,7 +97,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    await logAuditAction({ action: 'login_attempt', status: 'success', error_message: `Attempt for ${email}` });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      await logAuditAction({
+        action: 'login_failure',
+        status: 'failure',
+        error_message: error.message
+      });
+    } else if (data.user) {
+      await logAuditAction({
+        action: 'login_success',
+        status: 'success'
+      }, data.user.id);
+    }
+
     return { error: error as Error | null };
   };
 
@@ -115,6 +131,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     try {
+      if (user) {
+        await logAuditAction({ action: 'logout', status: 'success' }, user.id);
+      }
+
       // Clear local state first to ensure UI updates immediately
       setUser(null);
       setSession(null);
@@ -135,11 +155,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn('Unauthorized impersonation attempt blocked.');
       return;
     }
+
+    logAuditAction({
+      action: 'impersonation_start',
+      status: 'success',
+      error_message: `Impersonating ${target.full_name || target.id} (${target.role})`
+    }, user?.id);
+
     setImpersonatedUser(target);
     sessionStorage.setItem('impersonating_target', JSON.stringify(target));
   };
 
   const stopImpersonating = () => {
+    if (user) {
+      logAuditAction({
+        action: 'impersonation_stop',
+        status: 'success'
+      }, user.id);
+    }
     setImpersonatedUser(null);
     sessionStorage.removeItem('impersonating_target');
     sessionStorage.removeItem('impersonating_admin_session');

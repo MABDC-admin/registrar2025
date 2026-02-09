@@ -178,6 +178,18 @@ export interface GradeRecord {
 }
 
 /**
+ * Grade type for quarterly/annual calculations with subject metadata
+ */
+export interface GradeRecordWithMetadata extends GradeRecord {
+    id: string;
+    subjects?: {
+        id: string;
+        name: string;
+        code: string;
+    } | null;
+}
+
+/**
  * Computes General Average for a single quarter across all subjects
  * DepEd: GA = Sum of all subject grades / Number of subjects
  */
@@ -236,4 +248,95 @@ export const getGradeColorClass = (grade: number | null): string => {
     if (grade >= 80) return 'text-cyan-600';                  // Satisfactory
     if (grade >= 75) return 'text-yellow-600';                // Fairly Satisfactory
     return 'text-red-600 font-medium';                        // Did Not Meet Expectations
+};
+
+/**
+ * Predicts the required average grade for remaining quarters to reach a target annual average
+ */
+export const predictRequiredGrades = (
+    currentGrades: (number | null)[],
+    targetAnnual: number
+): number | null => {
+    const validGrades = currentGrades.filter(g => g !== null) as number[];
+    const remainingCount = 4 - validGrades.length;
+
+    if (remainingCount <= 0) return null;
+
+    const currentSum = validGrades.reduce((a, b) => a + b, 0);
+    const requiredTotalSum = targetAnnual * 4;
+    const neededSum = requiredTotalSum - currentSum;
+    const neededAverage = neededSum / remainingCount;
+
+    return Number(neededAverage.toFixed(2));
+};
+
+/**
+ * Analytics for Subject Streaks and Improvements
+ */
+export interface SubjectInsight {
+    subjectName: string;
+    subjectCode: string;
+    type: 'passing_streak' | 'improvement' | 'consistent';
+    value: string;
+    description: string;
+}
+
+export const getSubjectInsights = (grades: GradeRecordWithMetadata[]): SubjectInsight[] => {
+    const insights: SubjectInsight[] = [];
+
+    grades.forEach(grade => {
+        const subjectName = grade.subjects?.name || 'Unknown';
+        const subjectCode = grade.subjects?.code || '';
+        const qGrades = [grade.q1_grade, grade.q2_grade, grade.q3_grade, grade.q4_grade].filter(g => g !== null) as number[];
+
+        if (qGrades.length < 2) return;
+
+        // Check for Passing Streak (Consecutive quarters >= 75)
+        let passingStreak = 0;
+        for (let i = qGrades.length - 1; i >= 0; i--) {
+            if (qGrades[i] >= PASSING_GRADE) passingStreak++;
+            else break;
+        }
+        if (passingStreak >= 2) {
+            insights.push({
+                subjectName,
+                subjectCode,
+                type: 'passing_streak',
+                value: `${passingStreak} Quarters`,
+                description: `Successfully passed ${passingStreak} consecutive quarters.`
+            });
+        }
+
+        // Check for Improvement (Latest grade > Previous grade)
+        const latest = qGrades[qGrades.length - 1];
+        const previous = qGrades[qGrades.length - 2];
+        if (latest > previous) {
+            const diff = latest - previous;
+            insights.push({
+                subjectName,
+                subjectCode,
+                type: 'improvement',
+                value: `+${diff.toFixed(1)}`,
+                description: `Improved by ${diff.toFixed(1)} points since last quarter.`
+            });
+        }
+
+        // Check for Consistency (Standard deviation is low)
+        if (qGrades.length >= 3) {
+            const mean = qGrades.reduce((a, b) => a + b, 0) / qGrades.length;
+            const variance = qGrades.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / qGrades.length;
+            const stdDev = Math.sqrt(variance);
+            if (stdDev < 2 && mean >= PASSING_GRADE) {
+                insights.push({
+                    subjectName,
+                    subjectCode,
+                    type: 'consistent',
+                    value: 'Stable',
+                    description: 'Maintained a very consistent performance level.'
+                });
+            }
+        }
+    });
+
+    return insights;
 };

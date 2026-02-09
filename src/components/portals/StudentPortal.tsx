@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Bell, Loader2, BookOpen, Award, User, Calendar, LogOut, LayoutDashboard, ClipboardList, GraduationCap, CheckCircle, BookMarked } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { StudentProfileCard } from '@/components/students/StudentProfileCard';
 import { AnimatedStudentAvatar } from '@/components/students/AnimatedStudentAvatar';
+import { StudentIDCard } from '@/components/students/StudentIDCard';
 import { supabase } from '@/integrations/supabase/client';
 import { Student } from '@/types/student';
 import { useQuery } from '@tanstack/react-query';
@@ -26,6 +27,14 @@ import { StudentAttendanceTab } from './student/StudentAttendanceTab';
 import { StudentAssignmentsTab } from './student/StudentAssignmentsTab';
 import { StudentExamsTab } from './student/StudentExamsTab';
 import { StudentAnnouncementsTab } from './student/StudentAnnouncementsTab';
+import {
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog';
+import { IdCard } from 'lucide-react';
 
 // Custom hook for fetching student data
 const useStudentData = (userId: string | undefined) => {
@@ -138,7 +147,8 @@ interface StudentPortalProps {
 
 export const StudentPortal = ({ activeSection = 'dashboard' }: StudentPortalProps) => {
   const { user, signOut } = useAuth();
-  
+  const [isIDOpen, setIsIDOpen] = useState(false);
+
   // Use custom hooks for data fetching
   const { data: student, isLoading: isLoadingStudent } = useStudentData(user?.id);
   const { data: grades = [], isLoading: isLoadingGrades } = useStudentGrades(student?.id);
@@ -154,7 +164,7 @@ export const StudentPortal = ({ activeSection = 'dashboard' }: StudentPortalProp
   // Compute General Averages per quarter and annual (DepEd Compliant)
   const generalAverages = useMemo(() => {
     if (!grades || grades.length === 0) return null;
-    
+
     const gradeRecords: GradeRecord[] = grades.map((g: any) => ({
       q1_grade: g.q1_grade,
       q2_grade: g.q2_grade,
@@ -212,7 +222,7 @@ export const StudentPortal = ({ activeSection = 'dashboard' }: StudentPortalProp
           <Card>
             <CardContent className="py-10 text-center">
               <p className="text-muted-foreground">
-                 Student profile not found. Please contact your administrator.
+                Student profile not found. Please contact your administrator.
               </p>
             </CardContent>
           </Card>
@@ -255,29 +265,27 @@ export const StudentPortal = ({ activeSection = 'dashboard' }: StudentPortalProp
                       return (
                         <div
                           key={quarter}
-                          className={`p-4 rounded-lg text-center transition-colors ${
-                            avg === null
-                              ? 'bg-muted/50'
-                              : passing
-                                ? 'bg-green-50 border border-green-200 dark:bg-green-950/30 dark:border-green-800'
-                                : 'bg-red-50 border border-red-200 dark:bg-red-950/30 dark:border-red-800'
-                          }`}
+                          className={`p-4 rounded-lg text-center transition-colors ${avg === null
+                            ? 'bg-muted/50'
+                            : passing
+                              ? 'bg-green-50 border border-green-200 dark:bg-green-950/30 dark:border-green-800'
+                              : 'bg-red-50 border border-red-200 dark:bg-red-950/30 dark:border-red-800'
+                            }`}
                         >
                           <p className="text-xs text-muted-foreground uppercase font-medium">
                             {quarter.toUpperCase()}
                           </p>
-                          <p className={`text-xl font-bold ${
-                            avg === null
-                              ? 'text-muted-foreground'
-                              : passing
-                                ? 'text-green-600 dark:text-green-400'
-                                : 'text-red-600 dark:text-red-400'
-                          }`}>
+                          <p className={`text-xl font-bold ${avg === null
+                            ? 'text-muted-foreground'
+                            : passing
+                              ? 'text-green-600 dark:text-green-400'
+                              : 'text-red-600 dark:text-red-400'
+                            }`}>
                             {avg?.toFixed(2) || '-'}
                           </p>
                           {avg !== null && (
-                            <Badge 
-                              variant={passing ? 'default' : 'destructive'} 
+                            <Badge
+                              variant={passing ? 'default' : 'destructive'}
                               className="mt-1 text-xs"
                             >
                               {passing ? 'Passed' : 'Failed'}
@@ -288,29 +296,27 @@ export const StudentPortal = ({ activeSection = 'dashboard' }: StudentPortalProp
                     })}
                     {/* Annual/Final Average */}
                     <div
-                      className={`p-4 rounded-lg text-center transition-colors ${
-                        generalAverages.annual === null
-                          ? 'bg-muted/50'
-                          : isPassing(generalAverages.annual)
-                            ? 'bg-purple-50 border-2 border-purple-300 dark:bg-purple-950/30 dark:border-purple-700'
-                            : 'bg-red-50 border-2 border-red-300 dark:bg-red-950/30 dark:border-red-700'
-                      }`}
+                      className={`p-4 rounded-lg text-center transition-colors ${generalAverages.annual === null
+                        ? 'bg-muted/50'
+                        : isPassing(generalAverages.annual)
+                          ? 'bg-purple-50 border-2 border-purple-300 dark:bg-purple-950/30 dark:border-purple-700'
+                          : 'bg-red-50 border-2 border-red-300 dark:bg-red-950/30 dark:border-red-700'
+                        }`}
                     >
                       <p className="text-xs text-muted-foreground uppercase font-medium">
                         Final
                       </p>
-                      <p className={`text-xl font-bold ${
-                        generalAverages.annual === null
-                          ? 'text-muted-foreground'
-                          : isPassing(generalAverages.annual)
-                            ? 'text-purple-600 dark:text-purple-400'
-                            : 'text-red-600 dark:text-red-400'
-                      }`}>
+                      <p className={`text-xl font-bold ${generalAverages.annual === null
+                        ? 'text-muted-foreground'
+                        : isPassing(generalAverages.annual)
+                          ? 'text-purple-600 dark:text-purple-400'
+                          : 'text-red-600 dark:text-red-400'
+                        }`}>
                         {generalAverages.annual?.toFixed(2) || '-'}
                       </p>
                       {generalAverages.annual !== null && (
-                        <Badge 
-                          variant={isPassing(generalAverages.annual) ? 'default' : 'destructive'} 
+                        <Badge
+                          variant={isPassing(generalAverages.annual) ? 'default' : 'destructive'}
                           className="mt-1 text-xs"
                         >
                           {getGradeDescriptor(generalAverages.annual)}
@@ -558,15 +564,36 @@ export const StudentPortal = ({ activeSection = 'dashboard' }: StudentPortalProp
             </p>
           </div>
         </div>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={signOut}
-          className="hidden lg:flex text-destructive hover:text-destructive hover:bg-destructive/10"
-        >
-          <LogOut className="h-4 w-4 mr-2" />
-          Log out
-        </Button>
+        <div className="flex items-center gap-2">
+          <Dialog open={isIDOpen} onOpenChange={setIsIDOpen}>
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-primary/5 border-primary/20 text-primary hover:bg-primary/10 transition-all shadow-sm"
+              >
+                <IdCard className="h-4 w-4 mr-2" />
+                Virtual ID
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-[400px] p-0 bg-transparent border-none shadow-none ring-0 focus:ring-0">
+              <DialogHeader className="sr-only">
+                <DialogTitle>Student ID Card</DialogTitle>
+              </DialogHeader>
+              {student && <StudentIDCard student={student} />}
+            </DialogContent>
+          </Dialog>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={signOut}
+            className="hidden lg:flex text-destructive hover:text-destructive hover:bg-destructive/10"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Log out
+          </Button>
+        </div>
       </motion.div>
 
       {/* Content */}

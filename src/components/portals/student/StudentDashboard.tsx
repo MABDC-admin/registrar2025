@@ -20,9 +20,11 @@ import {
   computeAnnualGeneralAverage,
   isPassing,
   getGradeDescriptor,
+  GradeRecordWithMetadata,
 } from '@/utils/gradeComputation';
 import { DAY_NAMES, EXAM_TYPE_COLORS, PRIORITY_COLORS } from '@/types/studentPortal';
 import { AnimatedStudentAvatar } from '@/components/students/AnimatedStudentAvatar';
+import { StudentAcademicInsights } from './widgets/StudentAcademicInsights';
 
 interface StudentDashboardProps {
   studentId: string;
@@ -222,65 +224,12 @@ export const StudentDashboard = ({
         </Card>
       </div>
 
-      {/* Quarterly Averages */}
+      {/* Academic Insights & Visualizations */}
       {generalAverages && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Award className="h-5 w-5" />
-              Quarterly General Averages
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-5 gap-3">
-              {(['q1', 'q2', 'q3', 'q4'] as const).map((quarter) => {
-                const avg = generalAverages[quarter];
-                const passing = isPassing(avg);
-                return (
-                  <div
-                    key={quarter}
-                    className={`p-3 rounded-lg text-center ${avg === null
-                      ? 'bg-muted/50'
-                      : passing
-                        ? 'bg-green-50 border border-green-200'
-                        : 'bg-red-50 border border-red-200'
-                      }`}
-                  >
-                    <p className="text-xs text-muted-foreground uppercase font-medium">
-                      {quarter.toUpperCase()}
-                    </p>
-                    <p className={`text-lg font-bold ${avg === null
-                      ? 'text-muted-foreground'
-                      : passing
-                        ? 'text-green-600'
-                        : 'text-red-600'
-                      }`}>
-                      {avg?.toFixed(2) || '-'}
-                    </p>
-                  </div>
-                );
-              })}
-              <div
-                className={`p-3 rounded-lg text-center ${generalAverages.annual === null
-                  ? 'bg-muted/50'
-                  : isPassing(generalAverages.annual)
-                    ? 'bg-purple-50 border-2 border-purple-300'
-                    : 'bg-red-50 border-2 border-red-300'
-                  }`}
-              >
-                <p className="text-xs text-muted-foreground uppercase font-medium">Final</p>
-                <p className={`text-lg font-bold ${generalAverages.annual === null
-                  ? 'text-muted-foreground'
-                  : isPassing(generalAverages.annual)
-                    ? 'text-purple-600'
-                    : 'text-red-600'
-                  }`}>
-                  {generalAverages.annual?.toFixed(2) || '-'}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <StudentAcademicInsights
+          grades={grades}
+          quarterlyAverages={generalAverages}
+        />
       )}
 
       <div className="grid md:grid-cols-2 gap-6">
