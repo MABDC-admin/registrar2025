@@ -1,42 +1,58 @@
 
-# Insert 4 STFXSA Kindergarten Students and Auto-Enroll in Subjects
 
-## Overview
+# Insert Grade 8-10 Subjects (Both Schools) and Auto-Enroll All Learners
 
-Insert 4 learners from the uploaded images into the STFXSA school as Kindergarten students, then auto-enroll each into all 6 available Kindergarten subjects.
+## Current State
 
-## Student Data (from images)
+- **Grade 7 / Level 7**: Already has all 8 correct subjects with dual naming (Filipino, English, Math, Science, AP, ESP, TLE, MAPEH) -- but 0 enrollments
+- **Level 8, 9, 10**: Only 4 subjects each (Filipino, English Language, Mathematics, Science) with MABDC-only naming. 428 existing enrollments tied to these.
+- **Students**: Only MABDC has learners in these levels (Level 7: 38, Level 8: 36, Level 9: 21, Level 10: 25). No STFXSA learners in Grade 7-10 yet.
 
-| # | LRN | Name | Gender | Birthdate | Age | Mother | Father | Address | Religion |
-|---|-----|------|--------|-----------|-----|--------|--------|---------|----------|
-| 1 | 411103250003 | BIBAT, ERGIEL LHIAM ALBESA | M | 2020-06-14 | 5 | ALBESA, WENGELYN, BATIAO | BIBAT, ERNEST, TRIGO | ESPERANZA, INOPACAN | Christianity |
-| 2 | 411103250002 | BATIANCILA, JORXIA VILLACORTE | F | 2020-05-10 | 5 | VILLACORTE, MARY GRACE, ANDUJAR | BATIANCILA, MARK JORIEL, BANDIJA | PLARIDEL, CITY OF BAYBAY | Christianity |
-| 3 | 411103250004 | MOLATO, GWYN XAVIENNA SUAL | F | 2020-07-15 | 5 | SUAL, RONALYN, BANCULO | MOLATO, JOHN MARK, BISNAR | JUBASAN, INOPACAN | Christianity |
-| 4 | 411103250061 | PALMA, FLORIANNE ANGELI BRONOLA | F | 2020-11-02 | 4 | BRONOLA, ANALISA, FALLER | PALMA, JEROME, POLISTICO | CONALUM, INOPACAN | Christianity |
+## Plan
 
-## Database Operations
+### Step 1: Update existing Level 8-10 subjects to add Grade naming
 
-Two data insertions using the insert tool (no schema changes needed):
+Update the 12 existing subjects (L8/L9/L10) to include dual naming so they work for both schools. This preserves the 428 existing enrollment records.
 
-### Step 1: Insert 4 students into `public.students`
+- `Level 8` subjects get `ARRAY['Level 8', 'Grade 8']`
+- `Level 9` subjects get `ARRAY['Level 9', 'Grade 9']`
+- `Level 10` subjects get `ARRAY['Level 10', 'Grade 10']`
 
-Key field mapping:
-- `student_name`: Last name, First name Middle name (DepEd format)
-- `level`: "Kindergarten" (STFXSA naming)
-- `school`: "STFXSA"
-- `school_id`: `22222222-2222-2222-2222-222222222222`
-- `academic_year_id`: `74fb8614-8b9d-49d8-ac4a-7f4c74df201e` (SY 2025-2026)
-- `phil_address`: Current Residence from the records
-- `religion`: Christianity
+Also standardize names to match Grade 7 style (e.g., "English Language" to "English", "Mathematics" to "Math").
 
-### Step 2: Auto-enroll each student in 6 Kindergarten subjects
+### Step 2: Insert missing subjects for Level 8-10
 
-Insert into `student_subjects` for each student, linking to all 6 Kindergarten subject IDs:
-- Literacy, Language, and Communication
-- Socio-Emotional Development
-- Values Development
-- Physical Health and Motor Development
-- Aesthetic/Creative Development
-- Cognitive Development
+Add the 4 missing subjects for each of Level 8, 9, 10 (12 new rows total):
+- Araling Panlipunan (AP)
+- Edukasyon sa Pagpapakatao (ESP) / Values Education
+- TLE (Technology and Livelihood Education)
+- MAPEH
 
-No code changes required -- this is purely data insertion.
+Each with dual grade_levels arrays.
+
+### Step 3: Auto-enroll all learners
+
+Enroll every student in Level 7-10 into all 8 subjects for their grade level:
+- Level 7: 38 students x 8 subjects = 304 enrollments
+- Level 8: 36 students x 8 subjects = 288 enrollments (minus 428 already enrolled = net ~144 new from missing subjects + re-check)
+- Level 9: 21 students x 8 subjects = 168 enrollments
+- Level 10: 25 students x 8 subjects = 200 enrollments
+
+Will use INSERT ... ON CONFLICT or NOT EXISTS to avoid duplicate enrollments for the 428 already enrolled.
+
+## Technical Details
+
+### Migration SQL sequence:
+
+1. **Update** 12 existing L8-L10 subjects: add Grade naming, standardize names
+2. **Insert** 12 new subjects (AP, ESP, TLE, MAPEH for each of L8, L9, L10)
+3. **Insert** enrollments for Level 7 students (38 x 8 = 304 rows)
+4. **Insert** enrollments for Level 8-10 students into NEW subjects only (avoiding duplicates for existing 4 subjects)
+
+Key IDs:
+- MABDC school_id: `33333333-3333-3333-3333-333333333333`
+- STFXSA school_id: `22222222-2222-2222-2222-222222222222`
+- Academic year (2025-2026): `74fb8614-8b9d-49d8-ac4a-7f4c74df201e`
+
+No code changes required -- purely database operations.
+
