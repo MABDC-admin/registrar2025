@@ -245,10 +245,10 @@ const Auth = () => {
                 "text-2xl font-bold transition-all duration-700 tracking-tight",
                 hasIdentified ? "text-white" : "text-white/40"
               )}>
-                {hasIdentified ? (currentSettings?.name || currentTheme.fullName) : "Regis360"}
+                {hasIdentified ? (currentSettings?.name || currentTheme.fullName) : "Portal"}
               </h1>
               <p className="text-white/30 text-sm mt-1">
-                {hasIdentified ? "School Portal Access" : "Unified Smart Login"}
+                {hasIdentified ? "School Portal Access" : "Unified Smart Portal"}
               </p>
             </div>
 
@@ -330,12 +330,12 @@ const Auth = () => {
             className="text-white/40 hover:text-white text-xs font-medium tracking-widest uppercase transition-all flex items-center gap-2 group"
           >
             <span className="w-8 h-[1px] bg-white/10 group-hover:bg-emerald-500/50 transition-colors" />
-            Admin Login
+            Admin Portal
             <span className="w-8 h-[1px] bg-white/10 group-hover:bg-emerald-500/50 transition-colors" />
           </button>
 
           <p className="text-[10px] text-white/10 text-center leading-relaxed max-w-[200px]">
-            © 2026 Regis360 Systems<br />
+            © 2026 Portal Systems<br />
             Secure International Education Gateway
           </p>
         </div>
