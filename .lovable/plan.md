@@ -1,57 +1,48 @@
 
-# Seed Sample Data for Nopal (STFXSA - Grade 5)
 
-## Target Student
-- **Name:** Nopal, Juliana Kiona Anonuevo
-- **ID:** `ee562fa6-1795-4105-b8ef-bd637ca06de5`
-- **School:** STFXSA (`22222222-2222-2222-2222-222222222222`)
-- **Academic Year:** 2025-2026 (`74fb8614-8b9d-49d8-ac4a-7f4c74df201e`)
-- **Grade Level:** Grade 5
+# Add Delete Account Function to Admin User Management
 
-## Data to Seed
+## Overview
+Add a delete button for each account row in the credentials table, with a confirmation dialog. The delete action will remove the auth user, user role, and credential record. This works per-account (any role) and respects the school filter already in place.
 
-### 1. Grades (`student_grades`)
-Insert quarterly grades for all 8 Grade 5 subjects (Filipino, English, Math, Science, EPP, AP, MAPEH, GMRC) with Q1 and Q2 grades filled in (simulating mid-year progress).
+## Changes
 
-| Subject | Q1 | Q2 | Q3 | Q4 |
-|---------|-----|-----|-----|-----|
-| Filipino | 88 | 90 | - | - |
-| English | 92 | 89 | - | - |
-| Math | 85 | 87 | - | - |
-| Science | 90 | 91 | - | - |
-| EPP | 93 | 94 | - | - |
-| AP | 87 | 85 | - | - |
-| MAPEH | 95 | 93 | - | - |
-| GMRC | 96 | 97 | - | - |
+### 1. Edge Function: `supabase/functions/create-users/index.ts`
 
-### 2. Attendance (`student_attendance`)
-Insert ~20 attendance records for January-February 2026 with a realistic mix:
-- 16 present, 2 late, 1 absent, 1 excused
+Add a new action `delete_account` that:
+- Accepts `credentialId` and `userId`
+- Deletes the auth user via `supabaseAdmin.auth.admin.deleteUser(userId)` (this cascades to `user_roles` and `profiles` due to foreign key `ON DELETE CASCADE`)
+- Deletes the credential record from `user_credentials`
+- Returns success/failure response
 
-### 3. Assignments (`student_assignments` + `assignment_submissions`)
-Create 4 assignments for Grade 5 at STFXSA, then create submissions for Nopal:
-- Math Worksheet (submitted, scored 45/50)
-- Science Lab Report (submitted, scored 38/40)
-- English Essay (pending, due in future)
-- Filipino Reading Task (overdue, not submitted)
+### 2. Frontend: `src/components/admin/UserManagement.tsx`
 
-### 4. Exam Schedules (`exam_schedules`)
-Create 4 upcoming exam entries for Grade 5 Q2 at STFXSA:
-- Math Quarterly Exam (Feb 20)
-- Science Quarterly Exam (Feb 21)
-- English Quarterly Exam (Feb 24)
-- Filipino Quarterly Exam (Feb 25)
+- Add state for `deletingAccountId` (tracks which account is being deleted) and `deleteTarget` (credential to delete, for confirmation dialog)
+- Add a delete (trash) button in the Actions column for each credential row
+- Add a confirmation dialog similar to the existing reset dialog:
+  - Shows the account email/name being deleted
+  - Requires clicking "Delete Account" to confirm
+- `handleDeleteAccount` function calls the edge function with `action: 'delete_account'`
+- After successful deletion, refresh credentials list
 
 ## Technical Details
 
-All data will be inserted via a single database migration with multiple INSERT statements. Key IDs:
+### Edge Function Addition (new action handler)
+```
+action: "delete_account"
+inputs: credentialId, userId
+steps:
+  1. Delete auth user (cascades user_roles, profiles)
+  2. Delete user_credentials row
+  3. Return { success, message }
+```
 
-- **Student ID:** `ee562fa6-1795-4105-b8ef-bd637ca06de5`
-- **School ID:** `22222222-2222-2222-2222-222222222222`
-- **Academic Year ID:** `74fb8614-8b9d-49d8-ac4a-7f4c74df201e`
-- **Subject IDs:** 8 subjects matching Grade 5 curriculum
-
-The migration will use `ON CONFLICT` clauses where possible to avoid duplicate errors if re-run.
+### UI Flow
+1. Admin clicks trash icon on a credential row
+2. Confirmation dialog appears: "Delete account for [email/name]?"
+3. On confirm, calls edge function
+4. On success, toasts and refreshes the list
 
 ### Files Modified
-- Database migration only (no code file changes)
+- `supabase/functions/create-users/index.ts` -- add `delete_account` action
+- `src/components/admin/UserManagement.tsx` -- add delete button, dialog, and handler
