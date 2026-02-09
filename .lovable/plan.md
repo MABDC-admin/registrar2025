@@ -1,82 +1,137 @@
 
 
-# Add Payment Collection UI to Cashier Dashboard
+# Enhance Finance Pages: Color Coding, Icons, Filters, Edit, and Print
 
-## The Problem
+## Overview
 
-The Cashier Dashboard (`PaymentCollection.tsx`) currently only shows a **read-only table** of recent payments. Although the code contains a `form` state and a `recordPayment` mutation, there is **no UI** to actually collect a payment -- no button, no dialog, no student search, no payment form. The cashier literally cannot record a payment.
-
-## Solution
-
-Add a **"Collect Payment"** button and dialog that follows this flow:
-
-1. Search and select a student (by name or LRN)
-2. View the student's active assessment and outstanding balance
-3. Enter payment amount, method, reference number, and notes
-4. Submit to record the payment and update the assessment balance
+Apply visual and functional improvements across the three main finance pages: **Payment Collection (Cashier)**, **Student Assessments**, and **Payment Plans**.
 
 ## Changes
 
-### Modified File: `src/components/finance/PaymentCollection.tsx`
+### 1. PaymentCollection.tsx -- Major Enhancements
 
-Add the following to the existing component:
+**Color-coded status badges:**
+- `verified` -- green (bg-green-100 text-green-800)
+- `pending` -- yellow
+- `voided` -- red
 
-**1. "Collect Payment" button** in the page header (next to the title)
+**Styled table headers:**
+- Add a subtle background color to the TableHeader row (e.g., `bg-muted/50`)
 
-**2. Payment Dialog** containing:
-- **Student Search**: Text input to search students by name/LRN (queries `students` table filtered by `school_id`)
-- **Student selector**: Clickable list of matching students
-- **Assessment display**: Once a student is selected, fetch their active `student_assessments` record showing total, paid, and balance
-- **Payment form**:
-  - Amount input (pre-filled with outstanding balance, editable)
-  - Payment method dropdown (cash, bank deposit, online transfer, e-wallet, card)
-  - Reference number input (optional, required for non-cash methods)
-  - Notes textarea (optional)
-- **Submit button**: Calls the existing `recordPayment` mutation
+**Money icons:**
+- Add `Banknote` icon next to Amount column header
+- Add `Wallet` icon next to Method column header
+- Add `DollarSign` icon in the page title area
 
-**3. Post-payment update**: After inserting the payment, also update the `student_assessments` record:
-- Increment `total_paid` by the payment amount
-- Recalculate `balance` (net_amount - new total_paid)
-- Update `status` to 'partial' or 'paid' based on remaining balance
+**Grade filter:**
+- Fetch payments joined with `students.level`
+- Add a grade-level dropdown filter above the table (All, Grade 1-12, etc.)
+- Filter the displayed payments by the selected grade
 
-**4. Receipt number generation**: Query `finance_settings` for the current OR/AR sequence number, assign it to the payment, and increment the counter.
+**Edit Payment (void and re-record):**
+- Add an "Edit" button (pencil icon) on each payment row
+- Opens a dialog showing the payment details pre-filled
+- Allows updating amount, method, reference number, and notes
+- On save: voids the original payment (sets `status = 'voided'`, `voided_by`, `voided_at`, `void_reason = 'Edited'`) and creates a new corrected payment
+- Recalculates the student assessment totals accordingly
+- This approach preserves the audit trail instead of silently modifying records
 
-### Data Queries Added
-- Search `students` by name/LRN within the school
-- Fetch `student_assessments` for the selected student (active, current academic year)
-- Fetch `finance_settings` for receipt numbering
-- Update `student_assessments` totals after payment
+**Print Receipt:**
+- Add a "Print" button (printer icon) on each payment row
+- Opens a printable receipt in a new window using `window.open` + `document.write`
+- Receipt contains: school name, OR number, student name, LRN, amount, payment method, date, received by
+- Styled for thermal/A5 printing
 
-### No Database Changes
-All required tables and columns already exist: `payments`, `student_assessments`, `students`, `finance_settings`.
+### 2. StudentAssessments.tsx -- Visual Polish
+
+**Status badges already have color coding** (lines 18-24) -- no changes needed there.
+
+**Styled table headers:**
+- Add `bg-muted/50` to the TableHeader row
+
+**Money icons:**
+- Add `Banknote` icon next to Total, Net, Paid, Balance column headers
+- Add `DollarSign` or `CircleDollarSign` icon in the page title
+
+**Grade filter:**
+- Add a grade-level Select dropdown next to the search input
+- Filter assessments by `students.level`
+
+### 3. PaymentPlans.tsx -- Visual Polish
+
+**Styled table headers:**
+- Add `bg-muted/50` to all TableHeader rows (main table and installment sub-table)
+
+**Color-coded installment status** (already partially done on line 277):
+- Ensure consistent colors: `paid` = green, `overdue` = destructive/red, `pending` = yellow/secondary
+
+**Money icons:**
+- Add `Banknote` icon next to Late Fee and Amount headers
+- Add `Wallet` icon in the page title
 
 ## Technical Details
 
-### Payment Recording Flow
+### Files Modified
+
+1. **`src/components/finance/PaymentCollection.tsx`**
+   - Add imports: `Banknote, Wallet, DollarSign, Printer, Pencil` from lucide-react
+   - Add state: `gradeFilter`, `editDialogOpen`, `editingPayment`
+   - Update payments query to include `students.level` in the select
+   - Add grade filter dropdown in the toolbar
+   - Add status color map (like StudentAssessments already has)
+   - Add edit mutation (void old + insert new + recalc assessment)
+   - Add `printReceipt` function using `window.open`
+   - Add Edit and Print icon buttons to each table row
+   - Style TableHeader with `bg-muted/50`
+
+2. **`src/components/finance/StudentAssessments.tsx`**
+   - Add imports: `Banknote, CircleDollarSign` from lucide-react
+   - Add `gradeFilter` state
+   - Add grade filter Select next to search
+   - Add icons to column headers
+   - Style TableHeader with `bg-muted/50`
+
+3. **`src/components/finance/PaymentPlans.tsx`**
+   - Add imports: `Banknote, Wallet` from lucide-react
+   - Add icons to column headers
+   - Style both TableHeader rows with `bg-muted/50`
+   - Ensure installment status badges use consistent color classes
+
+### Edit Payment Flow (Void + Re-record)
+
 ```text
-User clicks "Collect Payment"
-  -> Dialog opens
-  -> Search student (students table, school_id filter)
-  -> Select student
-  -> Fetch active assessment (student_assessments, is_closed=false)
-  -> Show balance info
-  -> Fill payment details (amount, method, reference, notes)
-  -> Click "Record Payment"
-     -> INSERT into payments (student_id, assessment_id, amount, method, etc.)
-     -> UPDATE student_assessments (total_paid += amount, balance -= amount, status)
-     -> Fetch & increment OR number from finance_settings
+User clicks Edit on a payment
+  -> Edit dialog opens with current values pre-filled
+  -> User modifies amount / method / reference / notes
+  -> Click "Save Changes"
+     -> UPDATE original payment: status='voided', voided_by, voided_at, void_reason='Corrected'
+     -> Reverse original amount from assessment (total_paid -= old_amount)
+     -> INSERT new payment with corrected values (new OR number)
+     -> Add new amount to assessment (total_paid += new_amount)
+     -> Recalculate balance and status
      -> Invalidate queries
-     -> Show success toast with OR number
 ```
 
-### Assessment Status Logic
-```text
-if balance <= 0 -> status = 'paid'
-if balance > 0 && total_paid > 0 -> status = 'partial'  
-if total_paid == 0 -> status = 'pending'
-```
+### Print Receipt Template
+
+A simple HTML document written via `window.open()` containing:
+- School name (from schoolData)
+- "OFFICIAL RECEIPT" header
+- OR Number
+- Date
+- Student Name and LRN
+- Amount in words and figures
+- Payment method and reference
+- Received by
+- Print-friendly CSS (no margins, monospaced feel)
+
+### Grade Levels for Filter
+
+Extract unique grade levels from the data already fetched (from `students.level` field) to populate the filter dropdown dynamically.
 
 ## Summary
-- 1 modified file: `PaymentCollection.tsx`
-- No new files, no database migrations
-- Adds the missing payment collection form that connects the cashier to student assessments
+
+- 3 files modified
+- No database changes
+- Adds: color-coded statuses, styled headers, money icons, grade filters, edit (void+re-record), and print receipt
+
