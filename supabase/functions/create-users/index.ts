@@ -17,6 +17,8 @@ interface CreateUserRequest {
   studentSchool?: string;
   credentialId?: string;
   userId?: string;
+  school?: string;
+  gradeLevel?: string;
 }
 
 // Generate a random password
@@ -57,7 +59,7 @@ const handler = async (req: Request): Promise<Response> => {
       },
     });
 
-    const { action, email, password, fullName, studentId, studentLrn, studentName, studentSchool, credentialId, userId }: CreateUserRequest = await req.json();
+    const { action, email, password, fullName, studentId, studentLrn, studentName, studentSchool, credentialId, userId, school, gradeLevel }: CreateUserRequest = await req.json();
     console.log(`Processing action: ${action}`);
 
     if (action === "create_admin" || action === "create_registrar" || action === "create_teacher" || action === "create_finance") {
@@ -125,10 +127,26 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     if (action === "bulk_create_students") {
-      // Fetch all students without accounts (include school field)
-      const { data: students, error: studentsError } = await supabaseAdmin
+      // Fetch students with optional school and grade level filtering
+      let query = supabaseAdmin
         .from("students")
         .select("id, student_name, lrn, level, school");
+
+      // Apply school filter
+      if (school && school !== 'all') {
+        if (school === 'MABDC') {
+          query = query.or('school.ilike.%mabdc%,school.is.null');
+        } else if (school === 'STFXSA') {
+          query = query.or('school.ilike.%stfxsa%,school.ilike.%st. francis%');
+        }
+      }
+
+      // Apply grade level filter
+      if (gradeLevel && gradeLevel !== 'all') {
+        query = query.eq('level', gradeLevel);
+      }
+
+      const { data: students, error: studentsError } = await query;
 
       if (studentsError) {
         console.error("Error fetching students:", studentsError);
