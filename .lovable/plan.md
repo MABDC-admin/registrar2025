@@ -1,37 +1,26 @@
 
-# Make Finance Reports the Default Tab and Remove Portal Home
+
+# Add Clickable Learner Names with Profile Popup in Finance Learners Page
 
 ## Overview
 
-Replace the Finance Portal home page with the Finance Reports page as the default landing view for finance users. The Portal Home is redundant since Reports already provides a comprehensive dashboard with KPIs, charts, and quick stats.
+Make learner names clickable in the Finance Learners table so clicking a name opens the existing `StudentProfileModal` with their complete profile (Personal Info, Academic History, Subjects, Documents, Anecdotal, Grades tabs).
 
 ## Changes
 
-### 1. `src/pages/Index.tsx`
+### File: `src/components/finance/FinanceLearnerPage.tsx`
 
-- Change the default tab for finance role from `'portal'` to `'finance-reports'` in the initialization useEffect (line ~170)
-- Remove the `FinancePortal` import and its render case (`case 'finance'` in `renderPortal`)
+**1. Fetch full student data** -- Update the students query `select` to fetch all fields (`*`) instead of only `id, student_name, lrn, gender, level, photo_url, school, school_id`. The `StudentProfileModal` requires a full `Student` object with fields like `birth_date`, `age`, `religion`, `mother_contact`, etc.
 
-### 2. `src/components/layout/DashboardLayout.tsx`
+**2. Add state for selected student** -- Add `selectedStudent` state to track which learner was clicked, and a boolean `profileOpen` to control the modal.
 
-- Remove the `{ id: 'portal', icon: HomeIcon3D, label: 'Portal Home' }` entry from the finance sidebar menu (line 490)
-- The first visible item becomes "Learners"
+**3. Make the name cell clickable** -- Wrap the student name `TableCell` content in a styled button/span with `text-primary underline-offset-2 hover:underline cursor-pointer` styling. On click, set the selected student and open the modal.
 
-## Technical Details
+**4. Import and render `StudentProfileModal`** -- Import from `@/components/students/StudentProfileModal` and render it at the bottom of the component, passing the selected student and open/close handlers.
 
-### File: `src/pages/Index.tsx`
-- Remove import of `FinancePortal` (line 79)
-- In the `renderPortal` function, remove `case 'finance': return <FinancePortal onNavigate={handleTabChange} />;` (lines 278-279)
-- In the initialization useEffect (line 170), change the default from `'portal'` to be role-aware: if role is `'finance'`, default to `'finance-reports'`; otherwise keep `'portal'`
+### Summary
 
-### File: `src/components/layout/DashboardLayout.tsx`
-- Remove line 490: `{ id: 'portal', icon: HomeIcon3D, label: 'Portal Home' },` from the finance menu items
-
-### File: `src/components/finance/FinancePortal.tsx`
-- No deletion needed (other code may reference it), but it will no longer be rendered
-
-## Summary
-
-- 2 files modified
+- 1 file modified (`FinanceLearnerPage.tsx`)
 - No database changes
-- Finance users will land directly on the Reports dashboard with charts and KPIs
+- Reuses the existing `StudentProfileModal` component for a consistent experience
+
