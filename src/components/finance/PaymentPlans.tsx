@@ -15,7 +15,7 @@ import { useAcademicYear } from '@/contexts/AcademicYearContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Plus, Search, User, ChevronDown, CalendarDays } from 'lucide-react';
+import { Plus, Search, User, ChevronDown, CalendarDays, Banknote, Wallet } from 'lucide-react';
 
 const PLAN_TYPES = ['monthly', 'quarterly', 'semestral', 'custom'];
 
@@ -209,9 +209,14 @@ export const PaymentPlans = () => {
   return (
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Payment Plans</h1>
-          <p className="text-muted-foreground">Manage installment schedules</p>
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Wallet className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Payment Plans</h1>
+            <p className="text-muted-foreground">Manage installment schedules</p>
+          </div>
         </div>
         <Button onClick={() => setDialogOpen(true)} className="gap-2">
           <Plus className="h-4 w-4" /> Create Plan
@@ -223,12 +228,12 @@ export const PaymentPlans = () => {
         <CardContent className="p-0">
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-muted/50">
                 <TableHead>Student</TableHead>
                 <TableHead>Plan Type</TableHead>
                 <TableHead>Installments</TableHead>
                 <TableHead>Grace Period</TableHead>
-                <TableHead>Late Fee</TableHead>
+                <TableHead><span className="flex items-center gap-1"><Banknote className="h-3.5 w-3.5" />Late Fee</span></TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
@@ -258,11 +263,11 @@ export const PaymentPlans = () => {
                               <p className="text-sm font-medium flex items-center gap-1"><CalendarDays className="h-4 w-4" /> Installment Schedule</p>
                               <Table>
                                 <TableHeader>
-                                  <TableRow>
+                                  <TableRow className="bg-muted/50">
                                     <TableHead>#</TableHead>
                                     <TableHead>Due Date</TableHead>
-                                    <TableHead>Amount</TableHead>
-                                    <TableHead>Paid</TableHead>
+                                    <TableHead><span className="flex items-center gap-1"><Banknote className="h-3.5 w-3.5" />Amount</span></TableHead>
+                                    <TableHead><span className="flex items-center gap-1"><Banknote className="h-3.5 w-3.5" />Paid</span></TableHead>
                                     <TableHead>Status</TableHead>
                                   </TableRow>
                                 </TableHeader>

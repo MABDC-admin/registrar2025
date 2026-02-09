@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, UserPlus, Tag } from 'lucide-react';
+import { Search, UserPlus, Tag, Banknote, CircleDollarSign } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useSchool } from '@/contexts/SchoolContext';
 import { useAcademicYear } from '@/contexts/AcademicYearContext';
@@ -28,6 +28,7 @@ export const StudentAssessments = () => {
   const { selectedYearId } = useAcademicYear();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
+  const [gradeFilter, setGradeFilter] = useState('all');
   const [assessOpen, setAssessOpen] = useState(false);
   const [studentSearch, setStudentSearch] = useState('');
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -221,15 +222,24 @@ export const StudentAssessments = () => {
   const filtered = assessments.filter((a: any) => {
     const name = a.students?.student_name?.toLowerCase() || '';
     const lrn = a.students?.lrn?.toLowerCase() || '';
-    return name.includes(search.toLowerCase()) || lrn.includes(search.toLowerCase());
+    const matchesSearch = name.includes(search.toLowerCase()) || lrn.includes(search.toLowerCase());
+    const matchesGrade = gradeFilter === 'all' || a.students?.level === gradeFilter;
+    return matchesSearch && matchesGrade;
   });
+
+  const gradeLevels = [...new Set(assessments.map((a: any) => a.students?.level).filter(Boolean))].sort();
 
   return (
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Student Assessments</h1>
-          <p className="text-muted-foreground">View and manage student fee assessments</p>
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+            <CircleDollarSign className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Student Assessments</h1>
+            <p className="text-muted-foreground">View and manage student fee assessments</p>
+          </div>
         </div>
         <Dialog open={assessOpen} onOpenChange={(v) => {
           setAssessOpen(v);
@@ -319,25 +329,32 @@ export const StudentAssessments = () => {
         </Dialog>
       </motion.div>
 
-      <div className="flex gap-4">
+      <div className="flex gap-4 items-center">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Search by name or LRN..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
         </div>
+        <Select value={gradeFilter} onValueChange={setGradeFilter}>
+          <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Grades" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Grades</SelectItem>
+            {gradeLevels.map((g: string) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
 
       <Card>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-muted/50">
                 <TableHead>Student</TableHead>
                 <TableHead>Grade</TableHead>
-                <TableHead>Total</TableHead>
+                <TableHead><span className="flex items-center gap-1"><Banknote className="h-3.5 w-3.5" />Total</span></TableHead>
                 <TableHead>Discount</TableHead>
-                <TableHead>Net</TableHead>
-                <TableHead>Paid</TableHead>
-                <TableHead>Balance</TableHead>
+                <TableHead><span className="flex items-center gap-1"><Banknote className="h-3.5 w-3.5" />Net</span></TableHead>
+                <TableHead><span className="flex items-center gap-1"><Banknote className="h-3.5 w-3.5" />Paid</span></TableHead>
+                <TableHead><span className="flex items-center gap-1"><Banknote className="h-3.5 w-3.5" />Balance</span></TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
