@@ -362,6 +362,91 @@ export type Database = {
         }
         Relationships: []
       }
+      balance_carry_forwards: {
+        Row: {
+          carried_amount: number
+          carried_at: string
+          carried_by: string | null
+          from_academic_year_id: string
+          from_assessment_id: string
+          id: string
+          notes: string | null
+          school_id: string
+          student_id: string
+          to_academic_year_id: string
+          to_assessment_id: string | null
+        }
+        Insert: {
+          carried_amount?: number
+          carried_at?: string
+          carried_by?: string | null
+          from_academic_year_id: string
+          from_assessment_id: string
+          id?: string
+          notes?: string | null
+          school_id: string
+          student_id: string
+          to_academic_year_id: string
+          to_assessment_id?: string | null
+        }
+        Update: {
+          carried_amount?: number
+          carried_at?: string
+          carried_by?: string | null
+          from_academic_year_id?: string
+          from_assessment_id?: string
+          id?: string
+          notes?: string | null
+          school_id?: string
+          student_id?: string
+          to_academic_year_id?: string
+          to_assessment_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "balance_carry_forwards_from_academic_year_id_fkey"
+            columns: ["from_academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "balance_carry_forwards_from_assessment_id_fkey"
+            columns: ["from_assessment_id"]
+            isOneToOne: false
+            referencedRelation: "student_assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "balance_carry_forwards_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "balance_carry_forwards_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "balance_carry_forwards_to_academic_year_id_fkey"
+            columns: ["to_academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "balance_carry_forwards_to_assessment_id_fkey"
+            columns: ["to_assessment_id"]
+            isOneToOne: false
+            referencedRelation: "student_assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       book_annotations: {
         Row: {
           book_id: string
@@ -2553,6 +2638,7 @@ export type Database = {
           created_at: string
           discount_amount: number
           id: string
+          is_closed: boolean
           net_amount: number
           school_id: string
           status: string
@@ -2570,6 +2656,7 @@ export type Database = {
           created_at?: string
           discount_amount?: number
           id?: string
+          is_closed?: boolean
           net_amount?: number
           school_id: string
           status?: string
@@ -2587,6 +2674,7 @@ export type Database = {
           created_at?: string
           discount_amount?: number
           id?: string
+          is_closed?: boolean
           net_amount?: number
           school_id?: string
           status?: string

@@ -87,6 +87,7 @@ import { FinanceClearance } from '@/components/finance/FinanceClearance';
 import { FinanceReports } from '@/components/finance/FinanceReports';
 import { FinanceSettings } from '@/components/finance/FinanceSettings';
 import { FinanceAuditLogs } from '@/components/finance/FinanceAuditLogs';
+import { YearEndClose } from '@/components/finance/YearEndClose';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -550,6 +551,7 @@ const Index = () => {
       {activeTab === 'finance-clearance' && (role === 'finance' || role === 'admin') && <FinanceClearance />}
       {activeTab === 'finance-reports' && (role === 'finance' || role === 'admin') && <FinanceReports />}
       {activeTab === 'finance-settings' && (role === 'finance' || role === 'admin') && <FinanceSettings />}
+      {activeTab === 'year-end-close' && (role === 'finance' || role === 'admin') && <YearEndClose />}
       {activeTab === 'finance-audit' && (role === 'finance' || role === 'admin') && <FinanceAuditLogs />}
 
       {/* Modals */}

@@ -16,6 +16,7 @@ const statusColors: Record<string, string> = {
   partial: 'bg-blue-100 text-blue-800',
   paid: 'bg-green-100 text-green-800',
   overpaid: 'bg-purple-100 text-purple-800',
+  closed: 'bg-red-100 text-red-800',
 };
 
 export const StudentAssessments = () => {
@@ -75,11 +76,12 @@ export const StudentAssessments = () => {
                 <TableHead>Paid</TableHead>
                 <TableHead>Balance</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Closed</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.map((a: any) => (
-                <TableRow key={a.id}>
+                <TableRow key={a.id} className={a.is_closed ? 'opacity-60' : ''}>
                   <TableCell>
                     <div><span className="font-medium">{a.students?.student_name}</span><br /><span className="text-xs text-muted-foreground">{a.students?.lrn}</span></div>
                   </TableCell>
@@ -89,10 +91,11 @@ export const StudentAssessments = () => {
                   <TableCell>₱{Number(a.net_amount).toLocaleString()}</TableCell>
                   <TableCell>₱{Number(a.total_paid).toLocaleString()}</TableCell>
                   <TableCell className="font-semibold">₱{Number(a.balance).toLocaleString()}</TableCell>
-                  <TableCell><Badge className={statusColors[a.status] || ''}>{a.status}</Badge></TableCell>
+                  <TableCell><Badge className={statusColors[a.is_closed ? 'closed' : a.status] || ''}>{a.is_closed ? 'closed' : a.status}</Badge></TableCell>
+                  <TableCell>{a.is_closed ? <Badge variant="destructive">Closed</Badge> : '—'}</TableCell>
                 </TableRow>
               ))}
-              {filtered.length === 0 && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No assessments found</TableCell></TableRow>}
+              {filtered.length === 0 && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">No assessments found</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>
