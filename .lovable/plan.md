@@ -1,48 +1,56 @@
 
 
-# Add Delete Account Function to Admin User Management
+# Payment History Dropdown in Student Ledger
 
 ## Overview
-Add a delete button for each account row in the credentials table, with a confirmation dialog. The delete action will remove the auth user, user role, and credential record. This works per-account (any role) and respects the school filter already in place.
+Add an expandable/collapsible payment history row beneath each student in the Student Ledger table. Clicking a chevron toggle on any ledger row will reveal a detailed sub-table showing all payment records for that learner, including transaction date, amount, method, OR number, reference number, status, and notes.
 
-## Changes
+## User Experience
 
-### 1. Edge Function: `supabase/functions/create-users/index.ts`
-
-Add a new action `delete_account` that:
-- Accepts `credentialId` and `userId`
-- Deletes the auth user via `supabaseAdmin.auth.admin.deleteUser(userId)` (this cascades to `user_roles` and `profiles` due to foreign key `ON DELETE CASCADE`)
-- Deletes the credential record from `user_credentials`
-- Returns success/failure response
-
-### 2. Frontend: `src/components/admin/UserManagement.tsx`
-
-- Add state for `deletingAccountId` (tracks which account is being deleted) and `deleteTarget` (credential to delete, for confirmation dialog)
-- Add a delete (trash) button in the Actions column for each credential row
-- Add a confirmation dialog similar to the existing reset dialog:
-  - Shows the account email/name being deleted
-  - Requires clicking "Delete Account" to confirm
-- `handleDeleteAccount` function calls the edge function with `action: 'delete_account'`
-- After successful deletion, refresh credentials list
+1. Each row in the Student Ledger gets a toggle (chevron) button in a new first column
+2. Clicking the toggle expands a sub-row beneath the student showing their full payment history
+3. The sub-table displays: Date, OR #, Amount, Method, Reference #, Status, and Notes
+4. Payment data is fetched on-demand when a row is expanded (lazy loading)
+5. Multiple rows can be expanded simultaneously
+6. Voided payments appear with reduced opacity and strikethrough styling
 
 ## Technical Details
 
-### Edge Function Addition (new action handler)
-```
-action: "delete_account"
-inputs: credentialId, userId
-steps:
-  1. Delete auth user (cascades user_roles, profiles)
-  2. Delete user_credentials row
-  3. Return { success, message }
+### File Modified: `src/components/finance/StudentLedger.tsx`
+
+**State additions:**
+- `expandedRows: Set<string>` -- tracks which assessment IDs are currently expanded
+
+**New sub-component: `PaymentHistoryRow`**
+- Accepts `assessmentId`, `schoolId`, and `isOpen` props
+- Uses `useQuery` to fetch payments from the `payments` table filtered by `assessment_id` and `school_id`, ordered by `payment_date DESC`
+- Renders inside a `Collapsible` / `CollapsibleContent` wrapper
+- Displays a sub-table with columns: Date, OR #, Amount, Method, Ref #, Status, Notes
+- Shows a loading skeleton while fetching
+- Shows "No payments recorded" if empty
+
+**Table changes:**
+- Add a new first column header (narrow, for the toggle icon)
+- Each `TableRow` gets a `ChevronDown`/`ChevronRight` icon button that toggles `expandedRows`
+- After each student row, render a full-width `TableRow` containing the `PaymentHistoryRow` component (spans all 9 columns)
+- Column count increases from 8 to 9
+
+**Imports to add:**
+- `ChevronDown, ChevronRight` from `lucide-react`
+- `Collapsible, CollapsibleContent, CollapsibleTrigger` from UI
+- `Skeleton` from UI (for loading state)
+- `format` from `date-fns` (for date formatting)
+
+**Query for payment history:**
+```typescript
+supabase
+  .from('payments')
+  .select('*')
+  .eq('assessment_id', assessmentId)
+  .eq('school_id', schoolId)
+  .order('payment_date', { ascending: false })
 ```
 
-### UI Flow
-1. Admin clicks trash icon on a credential row
-2. Confirmation dialog appears: "Delete account for [email/name]?"
-3. On confirm, calls edge function
-4. On success, toasts and refreshes the list
+### No database changes required
+The `payments` table already contains all needed columns: `payment_date`, `amount`, `payment_method`, `or_number`, `reference_number`, `status`, `notes`, `void_reason`.
 
-### Files Modified
-- `supabase/functions/create-users/index.ts` -- add `delete_account` action
-- `src/components/admin/UserManagement.tsx` -- add delete button, dialog, and handler
