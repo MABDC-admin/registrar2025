@@ -1,84 +1,42 @@
 
-# Add School and Grade Level Selection to Student Account Creation
+# Fix School Segregation in Admin User Management
 
-## Overview
+## Problem
 
-Enhance the Student Accounts card in Admin User Management to allow selecting a specific school and grade level before creating accounts. This ensures proper email domain assignment (LRN@mabdc.org vs LRN@stfxsa.org) and allows creating accounts for specific grade levels instead of all students at once.
+The "Generated Credentials" table in Admin User Management shows ALL user accounts from both MABDC and STFXSA together. There is no school filter, so MABDC student accounts appear when viewing STFXSA and vice versa.
+
+**Root cause:** The `fetchCredentials` query joins `user_credentials` with `students` but does not fetch the `school` field, and the table has no school filter dropdown.
 
 ## Changes
 
-### 1. `src/components/admin/UserManagement.tsx`
+### File: `src/components/admin/UserManagement.tsx`
 
-**Add new state variables:**
-- `bulkSchool` -- selected school for account creation (`'MABDC'` | `'STFXSA'` | `'all'`)
-- `bulkGradeLevel` -- selected grade level (`'all'` or a specific level like `'Level 1'`)
+**1. Add school field to credential interface and query**
+- Add `student_school?: string` to the `UserCredential` interface
+- Update the `fetchCredentials` query to also fetch `school` from the students join:
+  ```
+  students:student_id (student_name, level, school)
+  ```
+- Map it as `student_school: cred.students?.school`
 
-**Update the Student Accounts card UI:**
-- Add a School dropdown (MABDC, STFXSA, All Schools)
-- Add a Grade Level dropdown (All Levels, Kinder 1, Kinder 2, Level 1-12) that dynamically shows levels for the selected school
-- Update the description text to reflect the current selection
-- Pass `school` and `gradeLevel` parameters to the edge function call
+**2. Add a School filter dropdown to the credentials table**
+- Add `schoolFilter` state (default: `'all'`)
+- Place a "School" dropdown next to the existing Role and Level filters with options: All Schools, MABDC, STFXSA
+- For non-student roles (admin, registrar, teacher, finance) that have no `student_school`, they will only appear when the filter is set to "All Schools" or can be shown under both
 
-**Update `handleBulkCreateStudents`:**
-```typescript
-const handleBulkCreateStudents = () => {
-  createUser('bulk_create_students', {
-    school: bulkSchool,        // 'MABDC', 'STFXSA', or 'all'
-    gradeLevel: bulkGradeLevel // 'all' or specific level
-  });
-};
-```
+**3. Update the filtering logic**
+- Extend `filteredCredentials` to also check `schoolFilter`:
+  - `'all'`: show everything (current behavior)
+  - `'MABDC'`: show credentials where `student_school` contains "MABDC" or is null (for non-student roles)
+  - `'STFXSA'`: show credentials where `student_school` contains "STFXSA" or "St. Francis"
+- Non-student roles (admin, registrar, teacher, finance) will appear under "All Schools" only, since they are not tied to a specific school in this table
 
-### 2. `supabase/functions/create-users/index.ts`
+**4. Add a School column to the credentials table**
+- Add a "School" column header after "Level"
+- Display the student's school as a badge in each row, showing "MABDC", "STFXSA", or "-" for non-student accounts
 
-**Update the `bulk_create_students` action:**
-- Accept `school` and `gradeLevel` parameters from the request body
-- Add school filtering to the students query:
-  - `'MABDC'`: filter `school.ilike.%mabdc%` OR `school.is.null`
-  - `'STFXSA'`: filter `school.ilike.%stfxsa%` OR `school.ilike.%st. francis%`
-  - `'all'`: no school filter
-- Add grade level filtering: if not `'all'`, filter by `level.eq.<gradeLevel>`
-- This ensures only matching students get accounts created with the correct email domain
-
-**Update the interface:**
-```typescript
-interface CreateUserRequest {
-  // ...existing fields
-  school?: string;      // For bulk_create_students filtering
-  gradeLevel?: string;  // For bulk_create_students filtering
-}
-```
-
-## UI Layout (Student Accounts Card)
-
-```
-+-----------------------------------+
-| Student Accounts                  |
-| Bulk create from existing students|
-|                                   |
-| School                            |
-| [MABDC v]                         |
-|                                   |
-| Grade Level                       |
-| [All Levels v]                    |
-|                                   |
-| Creates accounts for MABDC        |
-| students. Username = LRN.         |
-|                                   |
-| [Create Accounts] [Reset]         |
-+-----------------------------------+
-```
-
-## Technical Details
-
-### Grade Levels List
-Uses the existing constant pattern: Kinder 1, Kinder 2, Level 1 through Level 12.
-
-### Email Domain Logic (already exists in edge function)
-- MABDC students: `{LRN}@mabdc.org`
-- STFXSA students: `{LRN}@stfxsa.org`
-- The `generateEmail` function in the edge function already handles this based on the student's `school` field.
-
-### Files Modified
-- `src/components/admin/UserManagement.tsx` -- Add school/grade dropdowns and pass params
-- `supabase/functions/create-users/index.ts` -- Accept and apply school/gradeLevel filters
+### Summary
+- 1 file modified: `src/components/admin/UserManagement.tsx`
+- No database changes needed
+- No edge function changes needed
+- The school data already exists in the `students` table -- just needs to be fetched and used for filtering
