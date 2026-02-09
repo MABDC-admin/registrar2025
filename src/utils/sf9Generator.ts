@@ -13,6 +13,13 @@ interface Grade {
     remarks: string | null;
 }
 
+interface Attendance {
+    month: string;
+    days_present: number;
+    days_absent: number;
+    total_days: number;
+}
+
 interface StudentData {
     student_name: string;
     lrn: string;
@@ -22,7 +29,12 @@ interface StudentData {
     school: string | null;
 }
 
-export const generateSF9 = (student: StudentData, grades: Grade[], academicYear: string) => {
+export const generateSF9 = (
+    student: StudentData,
+    grades: Grade[],
+    attendance: Attendance[],
+    academicYear: string
+) => {
     const doc = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
@@ -36,9 +48,9 @@ export const generateSF9 = (student: StudentData, grades: Grade[], academicYear:
     // --- HEADER (Official DepEd Style) ---
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    doc.text('SF 9-ES', pageWidth - 25, margin + 5);
+    doc.text('SF 9', pageWidth - 25, margin + 5);
 
-    // Graphical Seal Placeholders (Same style as Annex 1 for consistency)
+    // Graphical Seal Placeholders
     const drawSealPlaceholder = (x: number, y: number, label: string) => {
         doc.setDrawColor(200, 200, 200);
         doc.circle(x, y, 12, 'D');
@@ -46,19 +58,21 @@ export const generateSF9 = (student: StudentData, grades: Grade[], academicYear:
         doc.text(label, x, y, { align: 'center' });
     };
 
-    drawSealPlaceholder(margin + 15, margin + 15, 'Republic of\nthe Philippines');
-    drawSealPlaceholder(pageWidth - margin - 15, margin + 15, 'Department\nof Education');
+    drawSealPlaceholder(margin + 15, margin + 18, 'Republic of\nthe Philippines');
+    drawSealPlaceholder(pageWidth - margin - 15, margin + 18, 'Department\nof Education');
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.text('Republic of the Philippines', pageWidth / 2, margin + 10, { align: 'center' });
     doc.setFont('helvetica', 'bold');
     doc.text('Department of Education', pageWidth / 2, margin + 15, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.text('ST. FRANCIS XAVIER SCHOOL', pageWidth / 2, margin + 20, { align: 'center' });
 
     doc.setFontSize(12);
-    doc.text('LEARNER\'S PROGRESS REPORT CARD', pageWidth / 2, margin + 25, { align: 'center' });
+    doc.text('LEARNER\'S PROGRESS REPORT CARD', pageWidth / 2, margin + 30, { align: 'center' });
     doc.setFontSize(10);
-    doc.text(`School Year: ${academicYear}`, pageWidth / 2, margin + 30, { align: 'center' });
+    doc.text(`School Year: ${academicYear}`, pageWidth / 2, margin + 35, { align: 'center' });
 
     // --- STUDENT INFO ---
     let currentY = margin + 45;
@@ -95,7 +109,7 @@ export const generateSF9 = (student: StudentData, grades: Grade[], academicYear:
     doc.rect(margin + 45, currentY, 40, 10);
     doc.text('Section', margin + 47, currentY + 4);
     doc.setFont('helvetica', 'bold');
-    doc.text('Beryl', margin + 47, currentY + 8); // Generic placeholder section
+    doc.text('N/A', margin + 47, currentY + 8);
 
     doc.setFont('helvetica', 'normal');
     doc.rect(margin + 90, currentY, 45, 10);
@@ -120,7 +134,7 @@ export const generateSF9 = (student: StudentData, grades: Grade[], academicYear:
         margin: { left: margin, right: margin },
         head: [['Learning Areas', '1', '2', '3', '4', 'Final Rating', 'Remarks']],
         body: grades.map(g => [
-            g.subject_name,
+            g.subject_name.toUpperCase(),
             g.q1 || '',
             g.q2 || '',
             g.q3 || '',
@@ -165,8 +179,51 @@ export const generateSF9 = (student: StudentData, grades: Grade[], academicYear:
         }
     });
 
+    // --- ATTENDANCE REPORT ---
+    currentY = (doc as any).lastAutoTable.finalY + 10;
+    doc.setFont('helvetica', 'bold');
+    doc.text('REPORT ON ATTENDANCE', margin, currentY);
+
+    currentY += 5;
+    const months = ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Total'];
+    const attendanceData = [
+        ['No. of School Days', ...months.map(m => {
+            if (m === 'Total') return attendance.reduce((acc, curr) => acc + curr.total_days, 0) || '';
+            const data = attendance.find(a => a.month === m);
+            return data ? data.total_days : '';
+        })],
+        ['No. of Days Present', ...months.map(m => {
+            if (m === 'Total') return attendance.reduce((acc, curr) => acc + curr.days_present, 0) || '';
+            const data = attendance.find(a => a.month === m);
+            return data ? data.days_present : '';
+        })],
+        ['No. of Days Absent', ...months.map(m => {
+            if (m === 'Total') return attendance.reduce((acc, curr) => acc + curr.days_absent, 0) || '';
+            const data = attendance.find(a => a.month === m);
+            return data ? data.days_absent : '';
+        })]
+    ];
+
+    autoTable(doc, {
+        startY: currentY,
+        margin: { left: margin, right: margin },
+        head: [['Month', ...months]],
+        body: attendanceData,
+        theme: 'grid',
+        headStyles: {
+            fillColor: [100, 100, 100],
+            textColor: [255, 255, 255],
+            fontSize: 7,
+            halign: 'center'
+        },
+        bodyStyles: {
+            fontSize: 7,
+            halign: 'center'
+        }
+    });
+
     // --- REPORT ON LEARNER'S OBSERVED VALUES ---
-    let finalY = (doc as any).lastAutoTable.finalY + 15;
+    let finalY = (doc as any).lastAutoTable.finalY + 10;
     doc.setFont('helvetica', 'bold');
     doc.text('REPORT ON LEARNER\'S OBSERVED VALUES', margin, finalY);
 
@@ -176,10 +233,10 @@ export const generateSF9 = (student: StudentData, grades: Grade[], academicYear:
         margin: { left: margin, right: margin },
         head: [['Core Values', 'Behavior Statements', '1', '2', '3', '4']],
         body: [
-            ['1. Maka-Diyos', 'Expresses one\'s spiritual beliefs while respecting the spiritual beliefs of others.', '', '', '', ''],
+            ['1. Maka-Diyos', 'Expresses one\'s spiritual beliefs while respecting others.', '', '', '', ''],
             ['2. Makatao', 'Is sensitive to individual, social, and cultural differences.', '', '', '', ''],
-            ['3. Makakalikasan', 'Cares for the environment and utilizes resources wisely, judiciously, and economically.', '', '', '', ''],
-            ['4. Makabansa', 'Demonstrates pride in being a Filipino; exercises the rights and responsibilities of a Filipino citizen.', '', '', '', '']
+            ['3. Makakalikasan', 'Cares for the environment and utilizes resources wisely.', '', '', '', ''],
+            ['4. Makabansa', 'Demonstrates pride in being a Filipino.', '', '', '', '']
         ],
         theme: 'grid',
         headStyles: {
@@ -202,12 +259,20 @@ export const generateSF9 = (student: StudentData, grades: Grade[], academicYear:
     });
 
     // --- SIGNATURES ---
-    finalY = (doc as any).lastAutoTable.finalY + 25;
-    doc.line(margin + 10, finalY, margin + 70, finalY);
-    doc.line(pageWidth - margin - 70, finalY, pageWidth - margin - 10, finalY);
+    finalY = (doc as any).lastAutoTable.finalY + 20;
+
+    // Check if we need a new page
+    if (finalY > 265) {
+        doc.addPage();
+        finalY = margin + 20;
+    }
 
     doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text('__________________________', margin + 40, finalY, { align: 'center' });
     doc.text('Parent/Guardian Signature', margin + 40, finalY + 4, { align: 'center' });
+
+    doc.text('__________________________', pageWidth - margin - 40, finalY, { align: 'center' });
     doc.text('Class Adviser', pageWidth - margin - 40, finalY + 4, { align: 'center' });
 
     currentY = finalY + 15;

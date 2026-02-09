@@ -404,6 +404,7 @@ const StudentProfile = () => {
       if (gradesError) throw gradesError;
 
       const academicYear = gradesData?.[0]?.academic_years?.name || '2025-2026';
+      const yearId = gradesData?.[0]?.academic_year_id || currentAcademicYearId;
 
       const formattedGrades = (gradesData || []).map((g: any) => ({
         subject_code: g.subjects?.code || 'N/A',
@@ -416,7 +417,30 @@ const StudentProfile = () => {
         remarks: g.remarks
       }));
 
-      generateSF9(student as any, formattedGrades, academicYear);
+      // Fetch and aggregate attendance
+      const { data: attendanceData, error: attendanceError } = await supabase
+        .from('student_attendance')
+        .select('*')
+        .eq('student_id', student.id)
+        .eq('academic_year_id', yearId);
+
+      if (attendanceError) throw attendanceError;
+
+      const monthNames = ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May'];
+      const aggregatedAttendance = monthNames.map(month => {
+        const records = (attendanceData || []).filter(r => {
+          const date = new Date(r.date);
+          return date.toLocaleString('en-US', { month: 'short' }) === month;
+        });
+        return {
+          month,
+          days_present: records.filter(r => r.status === 'present' || r.status === 'late').length,
+          days_absent: records.filter(r => r.status === 'absent').length,
+          total_days: records.length || 0
+        };
+      });
+
+      generateSF9(student as any, formattedGrades, aggregatedAttendance, academicYear);
       toast.success('SF9 Report Card generated successfully');
     } catch (error) {
       console.error('Error generating SF9:', error);
