@@ -1,39 +1,42 @@
 
-# Insert DepEd Subjects for SY 2025-2026 (Both Schools)
+# Insert 4 STFXSA Kindergarten Students and Auto-Enroll in Subjects
 
 ## Overview
 
-Insert the complete DepEd subject list from the uploaded image into the `subjects` table, mapped to both school naming conventions:
-- **MABDC** uses: Kinder 2, Level 1 through Level 7
-- **STFXSA** uses: Kindergarten, Grade 1 through Grade 7
+Insert 4 learners from the uploaded images into the STFXSA school as Kindergarten students, then auto-enroll each into all 6 available Kindergarten subjects.
 
-The current subjects table has incomplete/incorrect entries (only Math, English, Filipino, Science per level). These will be replaced with the accurate DepEd curriculum.
+## Student Data (from images)
 
-## Approach
+| # | LRN | Name | Gender | Birthdate | Age | Mother | Father | Address | Religion |
+|---|-----|------|--------|-----------|-----|--------|--------|---------|----------|
+| 1 | 411103250003 | BIBAT, ERGIEL LHIAM ALBESA | M | 2020-06-14 | 5 | ALBESA, WENGELYN, BATIAO | BIBAT, ERNEST, TRIGO | ESPERANZA, INOPACAN | Christianity |
+| 2 | 411103250002 | BATIANCILA, JORXIA VILLACORTE | F | 2020-05-10 | 5 | VILLACORTE, MARY GRACE, ANDUJAR | BATIANCILA, MARK JORIEL, BANDIJA | PLARIDEL, CITY OF BAYBAY | Christianity |
+| 3 | 411103250004 | MOLATO, GWYN XAVIENNA SUAL | F | 2020-07-15 | 5 | SUAL, RONALYN, BANCULO | MOLATO, JOHN MARK, BISNAR | JUBASAN, INOPACAN | Christianity |
+| 4 | 411103250061 | PALMA, FLORIANNE ANGELI BRONOLA | F | 2020-11-02 | 4 | BRONOLA, ANALISA, FALLER | PALMA, JEROME, POLISTICO | CONALUM, INOPACAN | Christianity |
 
-A single database migration will:
-1. **Delete** all existing subjects whose grade_levels overlap with the affected levels (Kinder through Level/Grade 7)
-2. **Insert** the correct subjects with `grade_levels` arrays containing BOTH naming conventions so they appear for both schools
+## Database Operations
 
-## Subject Data (from the image)
+Two data insertions using the insert tool (no schema changes needed):
 
-| Level | Subjects |
-|-------|----------|
-| Kinder (Kinder 2 + Kindergarten) | Literacy, Language, and Communication; Socio-Emotional Development; Values Development; Physical Health and Motor Development; Aesthetic/Creative Development; Cognitive Development |
-| Grade/Level 1 | Math, GMRC, Language, Reading and Literacy, Makabansa |
-| Grade/Level 2 | Filipino, English, Math, Makabansa, GMRC |
-| Grade/Level 3 | Filipino, English, Math, Science, Makabansa, GMRC |
-| Grade/Level 4-5 | Filipino, English, Math, Science, EPP, AP, MAPEH, GMRC |
-| Grade/Level 6 | Filipino, English, Math, Science, AP, TLE, ESP, MAPEH |
-| Grade/Level 7 | Filipino, English, Math, Science, AP, TLE, ESP, MAPEH (same as Grade 6, standard DepEd JHS) |
+### Step 1: Insert 4 students into `public.students`
 
-## Technical Details
+Key field mapping:
+- `student_name`: Last name, First name Middle name (DepEd format)
+- `level`: "Kindergarten" (STFXSA naming)
+- `school`: "STFXSA"
+- `school_id`: `22222222-2222-2222-2222-222222222222`
+- `academic_year_id`: `74fb8614-8b9d-49d8-ac4a-7f4c74df201e` (SY 2025-2026)
+- `phil_address`: Current Residence from the records
+- `religion`: Christianity
 
-**Single SQL migration** that:
-- Deletes subjects with grade_levels matching Kinder 1, Kinder 2, Kindergarten, Level 1-7, Grade 1-7
-- Inserts ~30 new subject rows with proper codes, names, and dual grade_level arrays
-- Each subject gets a unique code (e.g., `K-LLC`, `G1-MATH`, `G45-EPP`)
-- Grade 4 and 5 share the same subjects, so those entries will have `{'Level 4', 'Level 5', 'Grade 4', 'Grade 5'}` in their grade_levels array
-- All subjects set to `is_active = true`, `units = 1`
+### Step 2: Auto-enroll each student in 6 Kindergarten subjects
 
-No code file changes needed -- this is purely a data insertion via migration.
+Insert into `student_subjects` for each student, linking to all 6 Kindergarten subject IDs:
+- Literacy, Language, and Communication
+- Socio-Emotional Development
+- Values Development
+- Physical Health and Motor Development
+- Aesthetic/Creative Development
+- Cognitive Development
+
+No code changes required -- this is purely data insertion.
