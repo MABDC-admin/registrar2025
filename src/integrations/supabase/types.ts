@@ -61,6 +61,137 @@ export type Database = {
           },
         ]
       }
+      admission_audit_logs: {
+        Row: {
+          action: string
+          admission_id: string
+          created_at: string
+          details: Json | null
+          id: string
+          performed_by: string | null
+        }
+        Insert: {
+          action: string
+          admission_id: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          performed_by?: string | null
+        }
+        Update: {
+          action?: string
+          admission_id?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          performed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admission_audit_logs_admission_id_fkey"
+            columns: ["admission_id"]
+            isOneToOne: false
+            referencedRelation: "admissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admissions: {
+        Row: {
+          academic_year_id: string
+          birth_date: string | null
+          created_at: string
+          created_by: string | null
+          father_contact: string | null
+          father_name: string | null
+          gender: string | null
+          id: string
+          level: string
+          lrn: string | null
+          mother_contact: string | null
+          mother_maiden_name: string | null
+          parent_email: string | null
+          phil_address: string | null
+          previous_school: string | null
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          school: string | null
+          school_id: string
+          status: string
+          student_name: string
+          uae_address: string | null
+          updated_at: string
+        }
+        Insert: {
+          academic_year_id: string
+          birth_date?: string | null
+          created_at?: string
+          created_by?: string | null
+          father_contact?: string | null
+          father_name?: string | null
+          gender?: string | null
+          id?: string
+          level: string
+          lrn?: string | null
+          mother_contact?: string | null
+          mother_maiden_name?: string | null
+          parent_email?: string | null
+          phil_address?: string | null
+          previous_school?: string | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          school?: string | null
+          school_id: string
+          status?: string
+          student_name: string
+          uae_address?: string | null
+          updated_at?: string
+        }
+        Update: {
+          academic_year_id?: string
+          birth_date?: string | null
+          created_at?: string
+          created_by?: string | null
+          father_contact?: string | null
+          father_name?: string | null
+          gender?: string | null
+          id?: string
+          level?: string
+          lrn?: string | null
+          mother_contact?: string | null
+          mother_maiden_name?: string | null
+          parent_email?: string | null
+          phil_address?: string | null
+          previous_school?: string | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          school?: string | null
+          school_id?: string
+          status?: string
+          student_name?: string
+          uae_address?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admissions_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admissions_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       announcements: {
         Row: {
           academic_year_id: string | null
