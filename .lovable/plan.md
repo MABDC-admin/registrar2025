@@ -1,80 +1,69 @@
 
 
-# Fix Enrollment School Segregation (New Learner Page)
+# Add Teal Header and Alternating Row Colors to All Tables
 
-## Problems Confirmed
+## Overview
+Apply a consistent teal header background and light grey alternating row colors to every table across the entire application -- covering both schools and all modules.
 
-After checking both enrollment forms used in the "New Learner" page:
+## Approach: Global + Targeted
 
-### EnrollmentWizard (multi-step wizard)
-- Sets `school` text correctly from context
-- Does NOT set `school_id` UUID -- new students are missing their UUID link
-- Does NOT set `academic_year_id`
-- No duplicate LRN check before insert
+The most efficient approach is two-pronged:
+1. **Update the shared UI Table component** (`src/components/ui/table.tsx`) -- this automatically applies to all 36 files using the shadcn Table
+2. **Update the 6 files using raw HTML `<table>` elements** -- apply matching styles individually
 
-### EnrollmentForm (single-page form)
-- Sets `school` text correctly from context
-- Does NOT set `school_id` UUID
-- Does NOT set `academic_year_id`
-- `handleNewEnrollment` (line 359) hardcodes `school: 'MABDC'` -- **BUG**: after enrolling in STFXSA and clicking "Enroll Another", the form resets to MABDC
-- No duplicate LRN check before insert
+## Visual Style
+- **Header**: Teal background (`bg-teal-600 text-white`) with white text for strong contrast
+- **Alternating rows**: Even rows get a light grey background (`even:[&>tr]:bg-gray-50 dark:even:[&>tr]:bg-gray-800/30`) for readability
+- **Hover**: Preserved on all rows
 
-### useCreateStudent hook
-- Simply passes raw form data directly to the database insert -- no enrichment of `school_id` or `academic_year_id`
+## Technical Details
 
-## What This Causes
+### 1. `src/components/ui/table.tsx` (shared component -- affects 36 files)
 
-- Newly enrolled students have `school_id = NULL` in the database
-- Finance, grades, attendance, and other modules that filter by `school_id` (UUID) will not find these students
-- Students enrolled at STFXSA can accidentally get reset to MABDC on re-enrollment
+**TableHeader**: Change from `[&_tr]:border-b` to include teal background:
+```
+bg-teal-600 text-white [&_tr]:border-b
+```
 
-## Resolution Plan
+**TableHead**: Update text color from `text-muted-foreground` to `text-white` so header text is visible on teal:
+```
+text-white font-semibold
+```
 
-### 1. New file: `src/utils/schoolIdMap.ts`
+**TableBody**: Add alternating row colors:
+```
+[&_tr:last-child]:border-0 [&_tr:nth-child(even)]:bg-gray-50 dark:[&_tr:nth-child(even)]:bg-gray-800/30
+```
 
-A simple constant mapping school codes to their database UUIDs:
-- `MABDC` maps to `33333333-3333-3333-3333-333333333333`
-- `STFXSA` maps to `22222222-2222-2222-2222-222222222222`
+### 2. Raw HTML table files (6 files, individual updates)
 
-This avoids an async database lookup during enrollment.
+Each file's `<thead>` and `<tbody>` will get matching teal and alternating styles:
 
-### 2. Update: `src/hooks/useStudents.ts` (useCreateStudent)
+| File | Current Header Style |
+|------|---------------------|
+| `src/components/students/StudentTable.tsx` | `bg-secondary/50` |
+| `src/components/tacticalrmm/AgentTable.tsx` | `bg-muted/50` |
+| `src/components/nocodb/NocoDBDashboard.tsx` | `bg-muted/50` |
+| `src/components/teachers/TeacherCSVImport.tsx` | `bg-secondary/50` |
+| `src/components/import/CSVImport.tsx` | `bg-secondary/50` |
+| `src/components/portals/StudentPortal.tsx` | no background |
 
-Before inserting, automatically enrich the student data:
-- Look up `school_id` from the school code using the map
-- Accept an optional `academic_year_id` parameter and include it in the insert
+For each:
+- `<thead>` gets `bg-teal-600 text-white`
+- `<th>` text color changed to white
+- `<tbody>` gets `[&>tr:nth-child(even)]:bg-gray-50`
 
-### 3. Update: `src/components/enrollment/EnrollmentWizard.tsx`
-
-- Import `useAcademicYear` context and pass `academic_year_id` into `createStudent.mutateAsync()`
-- Add a pre-submit duplicate LRN check: query `students` table for matching LRN + school before inserting
-
-### 4. Update: `src/components/enrollment/EnrollmentForm.tsx`
-
-- Import `useAcademicYear` context and pass `academic_year_id` into `createStudent.mutateAsync()`
-- Fix `handleNewEnrollment` (line 359): change hardcoded `'MABDC'` to `selectedSchool`
-- Add the same pre-submit duplicate LRN check
-
-### 5. Update: `src/components/curriculum/EnrollmentManagement.tsx`
-
-- Replace the hardcoded placeholder UUID `'00000000-0000-0000-0000-000000000000'` with the correct UUID from the school map utility
-
-## Files to Change
+### Files to Change (8 total)
 
 | File | Change |
 |------|--------|
-| `src/utils/schoolIdMap.ts` | New -- school code to UUID mapping |
-| `src/hooks/useStudents.ts` | Enrich insert with `school_id` and `academic_year_id` |
-| `src/components/enrollment/EnrollmentWizard.tsx` | Pass `academic_year_id`, add LRN duplicate check |
-| `src/components/enrollment/EnrollmentForm.tsx` | Pass `academic_year_id`, fix MABDC reset bug, add LRN duplicate check |
-| `src/components/curriculum/EnrollmentManagement.tsx` | Use real school UUID from map |
+| `src/components/ui/table.tsx` | Teal header, white text, alternating rows (global) |
+| `src/components/students/StudentTable.tsx` | Teal header, alternating rows |
+| `src/components/tacticalrmm/AgentTable.tsx` | Teal header, alternating rows |
+| `src/components/nocodb/NocoDBDashboard.tsx` | Teal header, alternating rows |
+| `src/components/teachers/TeacherCSVImport.tsx` | Teal header, alternating rows |
+| `src/components/import/CSVImport.tsx` | Teal header, alternating rows |
+| `src/components/portals/StudentPortal.tsx` | Teal header, alternating rows |
 
-## After This Fix
+Note: Some files using the shadcn Table also add their own `className="bg-muted/50"` on `TableRow` inside `TableHeader`. These overrides will be removed where found to let the global teal style apply consistently.
 
-Every newly enrolled student will have:
-- Correct `school` text value (MABDC or STFXSA)
-- Correct `school_id` UUID
-- Correct `academic_year_id`
-- No duplicate LRN within the same school
-
-This ensures they appear correctly in finance, grades, attendance, and all other school-segregated modules from the moment of enrollment.
