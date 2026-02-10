@@ -1,56 +1,39 @@
 
 
-# Payment History Dropdown in Student Ledger
+# Delete 6 STFXSA Learner Records
 
-## Overview
-Add an expandable/collapsible payment history row beneath each student in the Student Ledger table. Clicking a chevron toggle on any ledger row will reveal a detailed sub-table showing all payment records for that learner, including transaction date, amount, method, OR number, reference number, status, and notes.
+## Records to Delete
 
-## User Experience
+| Name | Level | ID |
+|------|-------|----|
+| Agta Nalata | Grade 1 | 2b352922-... |
+| Isabella Cruz | Grade 1 | c13db39f-... |
+| Juan Dela Cruz | Grade 2 | c201ac9d-... |
+| Maria Santos | Grade 1 | b0b421ff-... |
+| Miguel Garcia | Kinder 2 | c9636ca6-... |
+| Sofia Reyes | Grade 3 | 95959e0a-... |
 
-1. Each row in the Student Ledger gets a toggle (chevron) button in a new first column
-2. Clicking the toggle expands a sub-row beneath the student showing their full payment history
-3. The sub-table displays: Date, OR #, Amount, Method, Reference #, Status, and Notes
-4. Payment data is fetched on-demand when a row is expanded (lazy loading)
-5. Multiple rows can be expanded simultaneously
-6. Voided payments appear with reduced opacity and strikethrough styling
+All 6 learners belong to STFXSA school. None have associated grade records or documents, so this is a clean delete.
+
+## What Will Happen
+
+A single database migration will delete these 6 rows from the `students` table using their exact IDs. This is permanent and cannot be undone.
 
 ## Technical Details
 
-### File Modified: `src/components/finance/StudentLedger.tsx`
-
-**State additions:**
-- `expandedRows: Set<string>` -- tracks which assessment IDs are currently expanded
-
-**New sub-component: `PaymentHistoryRow`**
-- Accepts `assessmentId`, `schoolId`, and `isOpen` props
-- Uses `useQuery` to fetch payments from the `payments` table filtered by `assessment_id` and `school_id`, ordered by `payment_date DESC`
-- Renders inside a `Collapsible` / `CollapsibleContent` wrapper
-- Displays a sub-table with columns: Date, OR #, Amount, Method, Ref #, Status, Notes
-- Shows a loading skeleton while fetching
-- Shows "No payments recorded" if empty
-
-**Table changes:**
-- Add a new first column header (narrow, for the toggle icon)
-- Each `TableRow` gets a `ChevronDown`/`ChevronRight` icon button that toggles `expandedRows`
-- After each student row, render a full-width `TableRow` containing the `PaymentHistoryRow` component (spans all 9 columns)
-- Column count increases from 8 to 9
-
-**Imports to add:**
-- `ChevronDown, ChevronRight` from `lucide-react`
-- `Collapsible, CollapsibleContent, CollapsibleTrigger` from UI
-- `Skeleton` from UI (for loading state)
-- `format` from `date-fns` (for date formatting)
-
-**Query for payment history:**
-```typescript
-supabase
-  .from('payments')
-  .select('*')
-  .eq('assessment_id', assessmentId)
-  .eq('school_id', schoolId)
-  .order('payment_date', { ascending: false })
+**Migration SQL:**
+```sql
+DELETE FROM public.students
+WHERE id IN (
+  '2b352922-cb5c-465c-a2ec-7992efa075eb',
+  'c13db39f-8b90-4bdf-a29b-ee9803371508',
+  'c201ac9d-1a33-4b01-8df1-a17845b07103',
+  'b0b421ff-b664-4e99-aedd-14945e483183',
+  'c9636ca6-c7ec-444d-b037-b7e8133b0a34',
+  '95959e0a-588e-40fd-b435-4af489b5cc79'
+)
+AND school_id = '22222222-2222-2222-2222-222222222222';
 ```
 
-### No database changes required
-The `payments` table already contains all needed columns: `payment_date`, `amount`, `payment_method`, `or_number`, `reference_number`, `status`, `notes`, `void_reason`.
+The `AND school_id` clause is a safety check to ensure only STFXSA records are affected.
 
