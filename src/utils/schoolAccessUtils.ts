@@ -99,7 +99,7 @@ export async function getUserSchools(): Promise<UserSchool[]> {
     });
 
     if (error) {
-        console.error('Error fetching user schools:', error);
+        // Error fetching user schools - return empty array
         return [];
     }
 
@@ -184,7 +184,7 @@ export async function logSchoolAccess(params: {
     });
 
     if (error) {
-        console.error('Error logging school access:', error);
+        // Error logging school access
         return null;
     }
 
@@ -206,7 +206,7 @@ export async function getSchoolAccessLogs(
         .limit(limit);
 
     if (error) {
-        console.error('Error fetching access logs:', error);
+        // Error fetching access logs
         return [];
     }
 
@@ -257,7 +257,7 @@ export async function getSchoolSwitchHistory(
         .limit(limit);
 
     if (error) {
-        console.error('Error fetching switch history:', error);
+        // Error fetching switch history
         return [];
     }
 
@@ -323,7 +323,7 @@ export async function getExportHistory(
         .limit(limit);
 
     if (error) {
-        console.error('Error fetching export history:', error);
+        // Error fetching export history
         return [];
     }
 
@@ -354,7 +354,7 @@ export async function getSchoolExportStats(schoolId: string): Promise<{
     const exportsByType: Record<string, number> = {};
     const exportsByTable: Record<string, number> = {};
 
-    data.forEach((exp) => {
+    data.forEach((exp: { export_type: string; table_name: string }) => {
         exportsByType[exp.export_type] = (exportsByType[exp.export_type] || 0) + 1;
         exportsByTable[exp.table_name] = (exportsByTable[exp.table_name] || 0) + 1;
     });

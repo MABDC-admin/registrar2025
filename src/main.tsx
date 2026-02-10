@@ -11,7 +11,8 @@ registerSW({
     }
   },
   onOfflineReady() {
-    console.log("App is ready for offline use.");
+    // App is ready for offline use
+    // In production, this could trigger a toast notification
   },
 });
 

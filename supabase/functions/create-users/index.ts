@@ -21,14 +21,31 @@ interface CreateUserRequest {
   gradeLevel?: string;
 }
 
-// Generate a random password
-function generatePassword(length = 12): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%";
+// Generate a cryptographically secure random password
+function generateSecurePassword(length = 12): string {
+  const uppercase = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const lowercase = "abcdefghjkmnpqrstuvwxyz";
+  const numbers = "23456789";
+  const special = "!@#$%";
+  const all = uppercase + lowercase + numbers + special;
+  
+  const array = new Uint8Array(length);
+  crypto.getRandomValues(array);
+  
   let password = "";
-  for (let i = 0; i < length; i++) {
-    password += chars.charAt(Math.floor(Math.random() * chars.length));
+  // Ensure at least one of each character type
+  password += uppercase[array[0] % uppercase.length];
+  password += lowercase[array[1] % lowercase.length];
+  password += numbers[array[2] % numbers.length];
+  password += special[array[3] % special.length];
+  
+  // Fill the rest
+  for (let i = 4; i < length; i++) {
+    password += all[array[i] % all.length];
   }
-  return password;
+  
+  // Shuffle the password
+  return password.split('').sort(() => (crypto.getRandomValues(new Uint8Array(1))[0] % 2) - 0.5).join('');
 }
 
 // Generate email from LRN and school
@@ -63,7 +80,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log(`Processing action: ${action}`);
 
     if (action === "create_admin" || action === "create_registrar" || action === "create_teacher" || action === "create_finance") {
-      const generatedPassword = password || generatePassword();
+      const generatedPassword = password || generateSecurePassword();
       
       if (!email) {
         return new Response(
@@ -194,7 +211,7 @@ const handler = async (req: Request): Promise<Response> => {
         try {
           // Use LRN and school to generate email
           const email = generateEmail(student.lrn, student.school);
-          const password = "123456"; // Unified student password
+          const password = generateSecurePassword(10); // Generate secure unique password for each student
 
           // Try to create user - handle "already registered" gracefully
           let authUserId: string;
@@ -341,7 +358,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
 
       const generatedEmail = generateEmail(studentLrn, studentSchool);
-      const generatedPassword = "123456"; // Unified student password
+      const generatedPassword = generateSecurePassword(10); // Generate secure unique password
 
       let authUserId: string;
       const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
@@ -413,7 +430,7 @@ const handler = async (req: Request): Promise<Response> => {
         );
       }
 
-      const newPassword = "123456"; // Unified student password
+      const newPassword = generateSecurePassword(10); // Generate secure password for reset
 
       // Update password in auth
       const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {

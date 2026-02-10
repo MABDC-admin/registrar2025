@@ -33,8 +33,8 @@ export const logAuditAction = async (entry: AuditLogEntry, userId?: string) => {
                     city: data.city
                 };
             }
-        } catch (e) {
-            console.warn('Could not fetch IP data for audit log:', e);
+        } catch (_e) {
+            // Silently fail - IP geolocation is not critical for audit logging
         }
 
         const { error } = await supabase.from('audit_logs').insert({
@@ -51,10 +51,11 @@ export const logAuditAction = async (entry: AuditLogEntry, userId?: string) => {
         });
 
         if (error) {
-            console.error('Failed to save audit log:', error);
+            // Log to error tracking service in production
+            // console.error('Failed to save audit log:', error);
         }
-    } catch (err) {
-        console.error('Audit logging error:', err);
+    } catch (_err) {
+        // Silently fail - audit logging should not break the app
     }
 };
 

@@ -8,8 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Search, CreditCard, Plus, User, Receipt, Banknote, Wallet, DollarSign, Printer, Pencil, CalendarIcon } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Search, CreditCard, Plus, User, Receipt, Banknote, Wallet, DollarSign, Printer, Pencil, CalendarIcon, Trash2, AlertCircle, AlertTriangle } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
@@ -50,9 +50,40 @@ const numberToWords = (num: number): string => {
   return result;
 };
 
-const printReceipt = (payment: any, schoolName: string) => {
+const printReceipt = async (payment: any, schoolName: string, schoolId: string, academicYearId: string) => {
+  // Only fetch assessment data if we have valid school and academic year IDs
+  if (!schoolId || !academicYearId) {
+    console.warn('Missing schoolId or academicYearId for balance calculation');
+  }
+  // Fetch current assessment balance for the student
+  let currentBalance = 0;
+  let totalAssessed = 0;
+  let totalPaid = 0;
+  
+  try {
+    const { data: assessment } = await supabase
+      .from('student_assessments')
+      .select('net_amount, total_paid, balance')
+      .eq('student_id', payment.student_id)
+      .eq('school_id', schoolId)
+      .eq('academic_year_id', academicYearId)
+      .eq('is_closed', false)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    if (assessment) {
+      currentBalance = Number(assessment.balance);
+      totalAssessed = Number(assessment.net_amount);
+      totalPaid = Number(assessment.total_paid);
+    }
+  } catch (error) {
+    console.error('Error fetching assessment data:', error);
+  }
+  
   const win = window.open('', '_blank', 'width=400,height=600');
   if (!win) return;
+  
   win.document.write(`
     <!DOCTYPE html>
     <html><head><title>Receipt - ${payment.or_number || 'N/A'}</title>
@@ -62,6 +93,8 @@ const printReceipt = (payment: any, schoolName: string) => {
       .bold { font-weight: bold; }
       .divider { border-top: 1px dashed #000; margin: 8px 0; }
       .row { display: flex; justify-content: space-between; margin: 4px 0; }
+      .total-row { display: flex; justify-content: space-between; margin: 6px 0; font-weight: bold; }
+      .balance-row { display: flex; justify-content: space-between; margin: 6px 0; font-weight: bold; color: #dc2626; }
       h2 { margin: 4px 0; font-size: 16px; }
       h3 { margin: 4px 0; font-size: 13px; }
       @media print { body { padding: 0; } }
@@ -81,11 +114,16 @@ const printReceipt = (payment: any, schoolName: string) => {
       <div class="row"><span>Method:</span><span>${payment.payment_method?.replace(/_/g, ' ').toUpperCase()}</span></div>
       ${payment.reference_number ? `<div class="row"><span>Ref #:</span><span>${payment.reference_number}</span></div>` : ''}
       <div class="divider"></div>
-      <div class="row bold" style="font-size:14px;"><span>Amount:</span><span>₱${Number(payment.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+      <div class="total-row" style="font-size:14px;"><span>Payment Amount:</span><span>₱${Number(payment.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
       <div style="margin-top:4px;font-size:11px;font-style:italic;">${numberToWords(Number(payment.amount))}</div>
+      <div class="divider"></div>
+      <div class="row"><span>Total Assessed:</span><span>₱${totalAssessed.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+      <div class="row"><span>Total Paid:</span><span>₱${totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+      <div class="balance-row"><span>BALANCE LEFT:</span><span>₱${currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
       ${payment.notes ? `<div class="divider"></div><div><span>Notes: </span><span>${payment.notes}</span></div>` : ''}
       <div class="divider"></div>
       <div class="center" style="margin-top:12px;font-size:10px;">Thank you for your payment!</div>
+      <div class="center" style="margin-top:6px;font-size:9px;color:#666;">Keep this receipt for your records</div>
       <script>window.onload=function(){window.print();}</script>
     </body></html>
   `);
@@ -105,6 +143,9 @@ export const PaymentCollection = () => {
   const [gradeFilter, setGradeFilter] = useState('all');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState<any>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingPayment, setDeletingPayment] = useState<any>(null);
+  const [deleteReason, setDeleteReason] = useState('');
   const [paymentForm, setPaymentForm] = useState({
     amount: '',
     payment_method: 'cash',
@@ -257,6 +298,83 @@ export const PaymentCollection = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const deletePayment = useMutation({
+    mutationFn: async () => {
+      if (!deletingPayment) throw new Error('No payment selected');
+      if (!deleteReason.trim()) throw new Error('Reason is required');
+      
+      // Check if user has finance role
+      if (!user || !user.id) throw new Error('User not authenticated');
+      
+      const { data: userRole } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (!userRole || (userRole.role !== 'finance' && userRole.role !== 'admin')) {
+        throw new Error('Insufficient permissions. Only finance or admin roles can delete payments.');
+      }
+
+      // 1. Void the payment
+      const { error: voidErr } = await supabase.from('payments').update({
+        status: 'voided',
+        voided_by: user.id,
+        voided_at: new Date().toISOString(),
+        void_reason: deleteReason,
+      }).eq('id', deletingPayment.id);
+      
+      if (voidErr) throw voidErr;
+
+      // 2. Reverse the payment amount from assessment
+      if (deletingPayment.assessment_id) {
+        const { data: assessmentData } = await supabase
+          .from('student_assessments')
+          .select('total_paid, net_amount, balance, status')
+          .eq('id', deletingPayment.assessment_id)
+          .single();
+
+        if (assessmentData) {
+          const newTotalPaid = Math.max(0, Number(assessmentData.total_paid) - Number(deletingPayment.amount));
+          const newBalance = Number(assessmentData.net_amount) - newTotalPaid;
+          const newStatus = newBalance <= 0 ? 'paid' : newTotalPaid > 0 ? 'partial' : 'pending';
+
+          await supabase.from('student_assessments').update({
+            total_paid: newTotalPaid,
+            balance: Math.max(0, newBalance),
+            status: newStatus,
+          }).eq('id', deletingPayment.assessment_id);
+        }
+      }
+
+      // 3. Log the deletion in audit logs
+      await supabase.from('audit_logs').insert({
+        user_id: user.id,
+        action: 'payment_deleted',
+        status: 'success',
+        lrn: deletingPayment.students?.lrn,
+        details: {
+          payment_id: deletingPayment.id,
+          or_number: deletingPayment.or_number,
+          amount: deletingPayment.amount,
+          reason: deleteReason,
+        },
+        school: selectedSchool,
+      });
+
+      return deletingPayment.or_number;
+    },
+    onSuccess: (orNumber) => {
+      queryClient.invalidateQueries({ queryKey: ['recent-payments'] });
+      queryClient.invalidateQueries({ queryKey: ['student-assessment-payment'] });
+      toast.success(`Payment ${orNumber} deleted successfully`);
+      setDeleteDialogOpen(false);
+      setDeletingPayment(null);
+      setDeleteReason('');
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const editPayment = useMutation({
     mutationFn: async () => {
       if (!editingPayment) throw new Error('No payment selected');
@@ -366,6 +484,12 @@ export const PaymentCollection = () => {
     setEditDialogOpen(true);
   };
 
+  const openDeleteDialog = (payment: any) => {
+    setDeletingPayment(payment);
+    setDeleteReason('');
+    setDeleteDialogOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
@@ -435,7 +559,18 @@ export const PaymentCollection = () => {
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
                       )}
-                      <Button variant="ghost" size="icon" className="h-7 w-7" title="Print Receipt" onClick={() => printReceipt(p, schoolData?.name || selectedSchool || 'School')}>
+                      {p.status === 'verified' && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10" 
+                          title="Delete Payment" 
+                          onClick={() => openDeleteDialog(p)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="icon" className="h-7 w-7" title="Print Receipt" onClick={() => printReceipt(p, schoolData?.name || selectedSchool || 'School', schoolData?.id || '', selectedYearId || '')}>
                         <Printer className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -451,7 +586,7 @@ export const PaymentCollection = () => {
       </Card>
 
       {/* Collect Payment Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) resetDialog(); else setDialogOpen(true); }}>
+      <Dialog open={dialogOpen} onOpenChange={(open: boolean) => { if (!open) resetDialog(); else setDialogOpen(true); }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Receipt className="h-5 w-5" />Collect Payment</DialogTitle>
@@ -575,7 +710,7 @@ export const PaymentCollection = () => {
       </Dialog>
 
       {/* Edit Payment Dialog */}
-      <Dialog open={editDialogOpen} onOpenChange={(open) => { if (!open) { setEditDialogOpen(false); setEditingPayment(null); } }}>
+      <Dialog open={editDialogOpen} onOpenChange={(open: boolean) => { if (!open) { setEditDialogOpen(false); setEditingPayment(null); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Pencil className="h-5 w-5" />Edit Payment</DialogTitle>
@@ -638,6 +773,77 @@ export const PaymentCollection = () => {
             <Button variant="outline" onClick={() => { setEditDialogOpen(false); setEditingPayment(null); }}>Cancel</Button>
             <Button variant="destructive" onClick={() => editPayment.mutate()} disabled={editPayment.isPending || !editForm.amount || parseFloat(editForm.amount) <= 0}>
               {editPayment.isPending ? 'Correcting...' : 'Void & Re-record'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Payment Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={(open: boolean) => { 
+        if (!open) { 
+          setDeleteDialogOpen(false); 
+          setDeletingPayment(null); 
+          setDeleteReason(''); 
+        } 
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Payment
+            </DialogTitle>
+            <DialogDescription>
+              This action will void the payment and reverse the amount from the student's assessment. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {deletingPayment && (
+            <div className="space-y-4">
+              <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-medium text-sm">{deletingPayment.students?.student_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      OR: {deletingPayment.or_number} • Amount: ₱{Number(deletingPayment.amount).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Reason for Deletion <span className="text-destructive">*</span></Label>
+                <Textarea 
+                  value={deleteReason} 
+                  onChange={(e) => setDeleteReason(e.target.value)} 
+                  placeholder="Enter reason for deleting this payment..." 
+                  rows={3}
+                  className="border-destructive/30 focus:border-destructive focus:ring-destructive/20"
+                />
+                <p className="text-xs text-muted-foreground">
+                  This reason will be logged in the audit trail for compliance purposes.
+                </p>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => { 
+                setDeleteDialogOpen(false); 
+                setDeletingPayment(null); 
+                setDeleteReason(''); 
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={() => deletePayment.mutate()} 
+              disabled={deletePayment.isPending || !deleteReason.trim()}
+            >
+              {deletePayment.isPending ? 'Deleting...' : 'Delete Payment' }
             </Button>
           </DialogFooter>
         </DialogContent>

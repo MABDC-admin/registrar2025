@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { logAuditAction } from '@/hooks/useAuditLog';
+import { useSchool } from '@/contexts/SchoolContext';
 
 type AppRole = 'admin' | 'registrar' | 'teacher' | 'student' | 'parent' | 'finance';
 
@@ -36,6 +37,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
+  const { setSelectedSchool } = useSchool();
 
   // Impersonation state
   const [impersonatedUser, setImpersonatedUser] = useState<{ id: string, role: AppRole, full_name?: string | null } | null>(null);
@@ -50,6 +52,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!error && data) {
       setRole(data.role as AppRole);
     }
+  };
+
+  const setDefaultSchoolForUser = (userEmail: string, userRole: AppRole | null) => {
+    // Special case: finance user ivyan@stfxsa.org should default to STFXSA
+    if (userEmail === 'ivyan@stfxsa.org' && userRole === 'finance') {
+      setSelectedSchool('STFXSA');
+      return;
+    }
+    
+    // Default logic based on email domain
+    if (userEmail.endsWith('@stfxsa.org')) {
+      setSelectedSchool('STFXSA');
+    } else if (userEmail.endsWith('@mabdc.org')) {
+      setSelectedSchool('MABDC');
+    }
+    // For other cases, keep current selection
   };
 
   useEffect(() => {
@@ -73,6 +91,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (session?.user) {
           setTimeout(() => {
             fetchUserRole(session.user.id);
+            // Set default school after role is fetched
+            setTimeout(() => {
+              if (session.user.email) {
+                setDefaultSchoolForUser(session.user.email, role);
+              }
+            }, 100);
           }, 0);
         } else {
           setRole(null);
@@ -89,6 +113,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchUserRole(session.user.id);
+        // Set default school after role is fetched
+        setTimeout(() => {
+          if (session.user.email) {
+            setDefaultSchoolForUser(session.user.email, role);
+          }
+        }, 100);
       }
       setLoading(false);
     });
