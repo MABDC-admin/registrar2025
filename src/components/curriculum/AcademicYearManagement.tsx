@@ -33,11 +33,11 @@ const initialFormState = {
 };
 
 import { PromoteStudentsWorkflow } from './PromoteStudentsWorkflow';
-
-// ... existing imports
+import { useAcademicYear } from '@/contexts/AcademicYearContext';
 
 export const AcademicYearManagement = () => {
   const { data: schoolId, isLoading: isSchoolLoading } = useSchoolId();
+  const { refetch: refetchGlobalYear } = useAcademicYear();
   const [years, setYears] = useState<AcademicYear[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -132,6 +132,7 @@ export const AcademicYearManagement = () => {
 
       setIsModalOpen(false);
       fetchYears();
+      refetchGlobalYear();
     } catch (error: any) {
       console.error('Error:', error);
       toast.error(error.message || 'Failed to save');
@@ -159,6 +160,7 @@ export const AcademicYearManagement = () => {
 
       toast.success(`${year.name} set as current academic year`);
       fetchYears();
+      refetchGlobalYear();
     } catch (error: any) {
       toast.error(error.message || 'Failed to set current academic year');
     }
@@ -180,6 +182,7 @@ export const AcademicYearManagement = () => {
       if (error) throw error;
       toast.success('Academic year deleted');
       fetchYears();
+      refetchGlobalYear();
     } catch (error: any) {
       toast.error(error.message || 'Failed to delete');
     }
@@ -233,6 +236,7 @@ export const AcademicYearManagement = () => {
       toast.success(`${archiveConfirm.name} archived successfully. ${grades?.length || 0} grade snapshots created.`);
       setArchiveConfirm(null);
       fetchYears();
+      refetchGlobalYear();
     } catch (error: any) {
       console.error('Archive error:', error);
       toast.error('Failed to archive: ' + error.message);
