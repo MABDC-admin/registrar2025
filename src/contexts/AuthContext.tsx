@@ -43,14 +43,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [impersonatedUser, setImpersonatedUser] = useState<{ id: string, role: AppRole, full_name?: string | null } | null>(null);
 
   const fetchUserRole = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .single();
 
-    if (!error && data) {
-      setRole(data.role as AppRole);
+      if (!error && data) {
+        const userRole = data.role as AppRole;
+        setRole(userRole);
+        
+        // Set default school based on user email and role
+        const currentUser = session?.user;
+        if (currentUser?.email) {
+          setDefaultSchoolForUser(currentUser.email, userRole);
+        }
+      } else if (error) {
+        console.warn('Error fetching user role:', error);
+        // Set default role or handle error appropriately
+        setRole('student');
+      }
+    } catch (err) {
+      console.error('Exception in fetchUserRole:', err);
+      setRole('student');
     }
   };
 
@@ -84,6 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
 
@@ -91,12 +108,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (session?.user) {
           setTimeout(() => {
             fetchUserRole(session.user.id);
-            // Set default school after role is fetched
-            setTimeout(() => {
-              if (session.user.email) {
-                setDefaultSchoolForUser(session.user.email, role);
-              }
-            }, 100);
           }, 0);
         } else {
           setRole(null);
@@ -109,16 +120,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session check:', session?.user?.email);
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchUserRole(session.user.id);
-        // Set default school after role is fetched
-        setTimeout(() => {
-          if (session.user.email) {
-            setDefaultSchoolForUser(session.user.email, role);
-          }
-        }, 100);
       }
       setLoading(false);
     });
