@@ -10,13 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Send } from "lucide-react";
+import { ArrowLeft, Send, Monitor, User } from "lucide-react";
 import { toast } from "sonner";
 import { Database } from "@/integrations/supabase/types";
 import { AttachmentUpload } from "@/components/helpdesk/AttachmentUpload";
 import { AttachmentList } from "@/components/helpdesk/AttachmentList";
 
-// Workaround for type inference issues
 type TicketDetailType = Database["public"]["Tables"]["helpdesk_tickets"]["Row"] & {
     creator: { email: string | null } | null;
     assignee: { email: string | null } | null;
@@ -39,23 +38,28 @@ export default function TicketDetail() {
             if (!ticketId) throw new Error("No ticket ID");
             const { data, error } = await supabase
                 .from("helpdesk_tickets")
-                .select(`
-          *,
-          creator:created_by (
-            email
-          ),
-          assignee:assigned_to (
-            email
-          )
-        `)
+                .select(`*, creator:created_by ( email ), assignee:assigned_to ( email )`)
                 .eq("id", ticketId)
                 .single();
-
             if (error) throw error;
-            // Force cast to match our expected type, since Supabase types are sometimes tricky with manual joins
             return data as unknown as TicketDetailType;
         },
         enabled: !!ticketId,
+    });
+
+    // Fetch requester profile
+    const { data: requesterProfile } = useQuery({
+        queryKey: ["helpdesk-requester-profile", ticket?.created_by],
+        queryFn: async () => {
+            if (!ticket?.created_by) return null;
+            const { data } = await supabase
+                .from("profiles")
+                .select("full_name, email")
+                .eq("id", ticket.created_by)
+                .maybeSingle();
+            return data;
+        },
+        enabled: !!ticket?.created_by,
     });
 
     const { data: attachments, refetch: refetchAttachments } = useQuery({
@@ -69,24 +73,18 @@ export default function TicketDetail() {
             if (error) throw error;
             return data;
         },
-        enabled: !!ticketId
+        enabled: !!ticketId,
     });
 
-    const { data: comments, isLoading: isLoadingComments } = useQuery({
+    const { data: comments } = useQuery({
         queryKey: ["helpdesk-comments", ticketId],
         queryFn: async () => {
             if (!ticketId) throw new Error("No ticket ID");
             const { data, error } = await supabase
                 .from("helpdesk_comments")
-                .select(`
-          *,
-          author:user_id (
-            email
-          )
-        `)
+                .select(`*, author:user_id ( email )`)
                 .eq("ticket_id", ticketId)
                 .order("created_at", { ascending: true });
-
             if (error) throw error;
             return data as unknown as TicketCommentType[];
         },
@@ -108,45 +106,32 @@ export default function TicketDetail() {
             queryClient.invalidateQueries({ queryKey: ["helpdesk-comments", ticketId] });
             toast.success("Comment added");
         },
-        onError: (error) => {
-            toast.error("Failed to add comment: " + error.message);
-        },
+        onError: (error) => toast.error("Failed to add comment: " + error.message),
     });
 
     const updateStatusMutation = useMutation({
-        mutationFn: async (status: Database["public"]["Tables"]["helpdesk_tickets"]["Row"]["status"]) => {
-            const { error } = await supabase
-                .from("helpdesk_tickets")
-                .update({ status })
-                .eq("id", ticketId!);
+        mutationFn: async (status: string) => {
+            const { error } = await supabase.from("helpdesk_tickets").update({ status } as any).eq("id", ticketId!);
             if (error) throw error;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["helpdesk-ticket", ticketId] });
             toast.success("Status updated");
         },
-        onError: (error) => {
-            toast.error("Failed to update status: " + error.message);
-        },
+        onError: (error) => toast.error("Failed to update status: " + error.message),
     });
 
     const updatePriorityMutation = useMutation({
-        mutationFn: async (priority: Database["public"]["Tables"]["helpdesk_tickets"]["Row"]["priority"]) => {
-            const { error } = await supabase
-                .from("helpdesk_tickets")
-                .update({ priority })
-                .eq("id", ticketId!);
+        mutationFn: async (priority: string) => {
+            const { error } = await supabase.from("helpdesk_tickets").update({ priority } as any).eq("id", ticketId!);
             if (error) throw error;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["helpdesk-ticket", ticketId] });
             toast.success("Priority updated");
         },
-        onError: (error) => {
-            toast.error("Failed to update priority: " + error.message);
-        },
+        onError: (error) => toast.error("Failed to update priority: " + error.message),
     });
-
 
     if (isLoadingTicket) {
         return <div className="p-8 text-center">Loading ticket details...</div>;
@@ -157,12 +142,13 @@ export default function TicketDetail() {
     }
 
     const isAdmin = role === 'admin';
+    const requesterName = requesterProfile?.full_name || ticket.creator?.email || "Unknown";
 
     return (
         <div className="container mx-auto py-8 space-y-8 max-w-5xl">
-            <Button variant="ghost" onClick={() => navigate("/", { state: { activeTab: 'helpdesk' } })} className="mb-4">
+            <Button variant="ghost" onClick={() => navigate("/helpdesk")} className="mb-4">
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Dashboard
+                Back to Helpdesk
             </Button>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -172,14 +158,16 @@ export default function TicketDetail() {
                             <div className="flex justify-between items-start">
                                 <div>
                                     <h1 className="text-2xl font-bold">{ticket.title}</h1>
-                                    <div className="text-sm text-muted-foreground mt-2">
-                                        Opened by {ticket.creator?.email} on {format(new Date(ticket.created_at), "PPP p")}
+                                    <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
+                                        <User className="h-3.5 w-3.5" />
+                                        <span className="font-medium text-foreground">{requesterName}</span>
+                                        <span>·</span>
+                                        <span>{ticket.created_at ? format(new Date(ticket.created_at), "PPP p") : "N/A"}</span>
                                     </div>
                                 </div>
                                 <Badge variant={
                                     ticket.status === 'open' ? 'default' :
-                                        ticket.status === 'in_progress' ? 'secondary' :
-                                            ticket.status === 'resolved' ? 'outline' : 'outline'
+                                        ticket.status === 'in_progress' ? 'secondary' : 'outline'
                                 }>
                                     {ticket.status.replace("_", " ").toUpperCase()}
                                 </Badge>
@@ -199,7 +187,7 @@ export default function TicketDetail() {
                                 <CardContent className="p-4">
                                     <div className="flex justify-between items-center mb-2">
                                         <span className="font-semibold text-sm">{comment.author?.email}</span>
-                                        <span className="text-xs text-muted-foreground">{format(new Date(comment.created_at), "PPP p")}</span>
+                                        <span className="text-xs text-muted-foreground">{comment.created_at ? format(new Date(comment.created_at), "PPP p") : ""}</span>
                                     </div>
                                     <p className="text-sm whitespace-pre-wrap">{comment.content}</p>
                                 </CardContent>
@@ -236,13 +224,8 @@ export default function TicketDetail() {
                             <div>
                                 <span className="text-sm text-muted-foreground block mb-1">Status</span>
                                 {isAdmin ? (
-                                    <Select
-                                        defaultValue={ticket.status}
-                                        onValueChange={(val: any) => updateStatusMutation.mutate(val)}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
+                                    <Select defaultValue={ticket.status} onValueChange={(val) => updateStatusMutation.mutate(val)}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="open">Open</SelectItem>
                                             <SelectItem value="in_progress">In Progress</SelectItem>
@@ -258,13 +241,8 @@ export default function TicketDetail() {
                             <div>
                                 <span className="text-sm text-muted-foreground block mb-1">Priority</span>
                                 {isAdmin ? (
-                                    <Select
-                                        defaultValue={ticket.priority}
-                                        onValueChange={(val: any) => updatePriorityMutation.mutate(val)}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
+                                    <Select defaultValue={ticket.priority} onValueChange={(val) => updatePriorityMutation.mutate(val)}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="low">Low</SelectItem>
                                             <SelectItem value="medium">Medium</SelectItem>
@@ -285,9 +263,21 @@ export default function TicketDetail() {
                             </div>
 
                             <div>
+                                <span className="text-sm text-muted-foreground block mb-1">Requester</span>
+                                <div className="font-medium">{requesterName}</div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <Monitor className="h-4 w-4 text-muted-foreground" />
+                                <div>
+                                    <span className="text-sm text-muted-foreground block">PC / Device</span>
+                                    <div className="font-medium">{ticket.pc_name || "Not specified"}</div>
+                                </div>
+                            </div>
+
+                            <div>
                                 <span className="text-sm text-muted-foreground block mb-1">Assignee</span>
                                 <div className="font-medium">{ticket.assignee?.email || "Unassigned"}</div>
-                                {/* Admin can assign here later */}
                             </div>
                         </CardContent>
                     </Card>
@@ -297,10 +287,7 @@ export default function TicketDetail() {
                             <CardTitle className="text-sm font-medium">Attachments</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <AttachmentUpload
-                                ticketId={ticketId}
-                                onUploadComplete={refetchAttachments}
-                            />
+                            <AttachmentUpload ticketId={ticketId} onUploadComplete={refetchAttachments} />
                             <AttachmentList attachments={attachments || []} />
                         </CardContent>
                     </Card>

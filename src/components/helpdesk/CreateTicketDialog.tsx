@@ -6,6 +6,7 @@ import { Loader2, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSchool } from "@/contexts/SchoolContext";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -40,6 +41,7 @@ const ticketSchema = z.object({
     description: z.string().min(10, "Description must be at least 10 characters"),
     category: z.enum(["hardware", "software", "network", "access", "other"]),
     priority: z.enum(["low", "medium", "high", "urgent"]),
+    pc_name: z.string().optional(),
 });
 
 type TicketFormValues = z.infer<typeof ticketSchema>;
@@ -49,6 +51,7 @@ export function CreateTicketDialog() {
     const { user } = useAuth();
     const { selectedSchool } = useSchool();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const queryClient = useQueryClient();
 
     const form = useForm<TicketFormValues>({
         resolver: zodResolver(ticketSchema),
@@ -57,6 +60,7 @@ export function CreateTicketDialog() {
             description: "",
             category: "other",
             priority: "medium",
+            pc_name: "",
         },
     });
 
@@ -68,11 +72,9 @@ export function CreateTicketDialog() {
 
         setIsSubmitting(true);
         try {
-            // First get the school ID
             let schoolId = null;
 
-            // Try to find school by name (lowercase)
-            const { data: schoolData, error: schoolError } = await supabase
+            const { data: schoolData } = await supabase
                 .from("schools")
                 .select("id")
                 .ilike("name", `%${selectedSchool}%`)
@@ -82,9 +84,7 @@ export function CreateTicketDialog() {
             if (schoolData) {
                 schoolId = schoolData.id;
             } else {
-                // Fallback: Get the first school in the database
-                console.log("Could not find school by name, trying fallback...");
-                const { data: fallbackSchool, error: fallbackError } = await supabase
+                const { data: fallbackSchool } = await supabase
                     .from("schools")
                     .select("id")
                     .limit(1)
@@ -92,8 +92,6 @@ export function CreateTicketDialog() {
 
                 if (fallbackSchool) {
                     schoolId = fallbackSchool.id;
-                } else {
-                    console.error("No schools found in database:", fallbackError);
                 }
             }
 
@@ -108,6 +106,7 @@ export function CreateTicketDialog() {
                 description: values.description,
                 category: values.category,
                 priority: values.priority,
+                pc_name: values.pc_name || null,
                 school_id: schoolId,
                 created_by: user.id,
             });
@@ -117,7 +116,7 @@ export function CreateTicketDialog() {
             toast.success("Ticket created successfully");
             setOpen(false);
             form.reset();
-            // Optional: Trigger a refresh of the ticket list
+            queryClient.invalidateQueries({ queryKey: ["helpdesk-tickets"] });
         } catch (error: any) {
             console.error("Error creating ticket:", error);
             toast.error(error.message || "Failed to create ticket");
@@ -207,6 +206,20 @@ export function CreateTicketDialog() {
                                 )}
                             />
                         </div>
+
+                        <FormField
+                            control={form.control}
+                            name="pc_name"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>PC / Device Name (Optional)</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="e.g. PC-LAB01" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
 
                         <FormField
                             control={form.control}

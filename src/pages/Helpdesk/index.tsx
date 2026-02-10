@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
@@ -8,6 +8,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { AlertCircle, CheckCircle2, Clock, Inbox } from "lucide-react";
+
+type TicketRow = Database["public"]["Tables"]["helpdesk_tickets"]["Row"];
+
+export type HelpdeskTicket = TicketRow & {
+    creator?: { id?: string; email: string | null } | null;
+    assignee?: { id?: string; email: string | null } | null;
+    requester_name?: string | null;
+};
 
 export default function HelpdeskIndex() {
     const { user, role } = useAuth();
@@ -19,17 +27,10 @@ export default function HelpdeskIndex() {
             let query = supabase
                 .from("helpdesk_tickets")
                 .select(`
-          *,
-          creator:created_by (
-            id,
-            email
-            -- full_name might be in a different table or metadata, adjusting based on context
-          ),
-          assignee:assigned_to (
-            id,
-            email
-          )
-        `)
+                    *,
+                    creator:created_by ( id, email ),
+                    assignee:assigned_to ( id, email )
+                `)
                 .order("created_at", { ascending: false });
 
             if (activeTab === "open") {
@@ -40,23 +41,49 @@ export default function HelpdeskIndex() {
 
             const { data, error } = await query;
             if (error) throw error;
-            // Cast the response to include the joined creator and assignee fields which Supabase types don't infer automatically for complex joins
-            return data as unknown as (Database["public"]["Tables"]["helpdesk_tickets"]["Row"] & {
-                creator: { id: string; email: string | null } | null;
-                assignee: { id: string; email: string | null } | null;
-            })[];
+            return data as unknown as HelpdeskTicket[];
         },
         enabled: !!user,
     });
 
-    // Calculate stats
-    // Note: For a real app with many tickets, we should use a separate count query or RPC
-    // But for now, calculation on the client side for the fetched set (which is RLS filtered) is okay for MVP
+    // Fetch profiles for requester names
+    const creatorIds = useMemo(() => {
+        if (!tickets) return [];
+        return [...new Set(tickets.map(t => t.created_by).filter(Boolean))] as string[];
+    }, [tickets]);
+
+    const { data: profiles } = useQuery({
+        queryKey: ["helpdesk-profiles", creatorIds],
+        queryFn: async () => {
+            if (creatorIds.length === 0) return {};
+            const { data, error } = await supabase
+                .from("profiles")
+                .select("id, full_name, email")
+                .in("id", creatorIds);
+            if (error) throw error;
+            const map: Record<string, string> = {};
+            data?.forEach(p => {
+                map[p.id] = p.full_name || p.email || "Unknown";
+            });
+            return map;
+        },
+        enabled: creatorIds.length > 0,
+    });
+
+    // Merge requester names into tickets
+    const enrichedTickets = useMemo(() => {
+        if (!tickets) return [];
+        return tickets.map(t => ({
+            ...t,
+            requester_name: (profiles && t.created_by ? profiles[t.created_by] : null) || t.creator?.email || "Unknown",
+        }));
+    }, [tickets, profiles]);
+
     const stats = {
-        total: tickets?.length || 0,
-        open: tickets?.filter((t) => t.status === "open").length || 0,
-        inProgress: tickets?.filter((t) => t.status === "in_progress").length || 0,
-        resolved: tickets?.filter((t) => ["resolved", "closed"].includes(t.status)).length || 0,
+        total: enrichedTickets.length,
+        open: enrichedTickets.filter((t) => t.status === "open").length,
+        inProgress: enrichedTickets.filter((t) => t.status === "in_progress").length,
+        resolved: enrichedTickets.filter((t) => ["resolved", "closed"].includes(t.status)).length,
     };
 
     return (
@@ -120,13 +147,13 @@ export default function HelpdeskIndex() {
                 </div>
 
                 <TabsContent value="all" className="mt-0">
-                    <TicketList tickets={tickets || []} isLoading={isLoading} />
+                    <TicketList tickets={enrichedTickets} isLoading={isLoading} />
                 </TabsContent>
                 <TabsContent value="open" className="mt-0">
-                    <TicketList tickets={tickets || []} isLoading={isLoading} />
+                    <TicketList tickets={enrichedTickets} isLoading={isLoading} />
                 </TabsContent>
                 <TabsContent value="resolved" className="mt-0">
-                    <TicketList tickets={tickets || []} isLoading={isLoading} />
+                    <TicketList tickets={enrichedTickets} isLoading={isLoading} />
                 </TabsContent>
             </Tabs>
         </div>
