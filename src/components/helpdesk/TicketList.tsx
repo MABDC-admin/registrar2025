@@ -10,26 +10,20 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Database } from "@/integrations/supabase/types";
-
-type Ticket = Database["public"]["Tables"]["helpdesk_tickets"]["Row"] & {
-    creator?: { id?: string; email: string | null } | null;
-    assignee?: { id?: string; email: string | null } | null;
-};
+import type { HelpdeskTicket } from "@/pages/Helpdesk/index";
 
 interface TicketListProps {
-    tickets: Ticket[];
+    tickets: HelpdeskTicket[];
     isLoading: boolean;
 }
 
 const getPriorityColor = (priority: string) => {
     switch (priority) {
         case "urgent":
-            return "destructive";
         case "high":
-            return "destructive"; // Or maybe orange if available, but destructive works for high attention
+            return "destructive";
         case "medium":
-            return "default"; // blue-ish usually
+            return "default";
         case "low":
             return "secondary";
         default:
@@ -40,18 +34,16 @@ const getPriorityColor = (priority: string) => {
 const getStatusColor = (status: string) => {
     switch (status) {
         case "open":
-            return "default"; // blue
+            return "default";
         case "in_progress":
-            return "secondary"; // yellow/orange often implies work
+            return "secondary";
         case "resolved":
-            return "outline"; // green often implies done
         case "closed":
-            return "outline"; // gray
+            return "outline";
         default:
             return "outline";
     }
 };
-
 
 export function TicketList({ tickets, isLoading }: TicketListProps) {
     const navigate = useNavigate();
@@ -79,6 +71,8 @@ export function TicketList({ tickets, isLoading }: TicketListProps) {
                         <TableHead className="w-[100px]">Status</TableHead>
                         <TableHead className="w-[100px]">Priority</TableHead>
                         <TableHead>Subject</TableHead>
+                        <TableHead className="hidden md:table-cell">Requester</TableHead>
+                        <TableHead className="hidden lg:table-cell">PC Name</TableHead>
                         <TableHead className="hidden md:table-cell">Category</TableHead>
                         <TableHead className="hidden md:table-cell">Created</TableHead>
                         <TableHead className="text-right">Action</TableHead>
@@ -100,14 +94,20 @@ export function TicketList({ tickets, isLoading }: TicketListProps) {
                             <TableCell className="font-medium">
                                 {ticket.title}
                                 <div className="md:hidden text-xs text-muted-foreground mt-1">
-                                    {format(new Date(ticket.created_at), "MMM d, yyyy")}
+                                    {ticket.requester_name || "Unknown"} · {ticket.created_at ? format(new Date(ticket.created_at), "MMM d, yyyy") : "N/A"}
                                 </div>
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell">
+                                {ticket.requester_name || "Unknown"}
+                            </TableCell>
+                            <TableCell className="hidden lg:table-cell text-muted-foreground">
+                                {ticket.pc_name || "—"}
                             </TableCell>
                             <TableCell className="hidden md:table-cell capitalize">
                                 {ticket.category}
                             </TableCell>
                             <TableCell className="hidden md:table-cell">
-                                {format(new Date(ticket.created_at), "MMM d, yyyy")}
+                                {ticket.created_at ? format(new Date(ticket.created_at), "MMM d, yyyy") : "N/A"}
                             </TableCell>
                             <TableCell className="text-right">
                                 <Button variant="ghost" size="sm">View</Button>
