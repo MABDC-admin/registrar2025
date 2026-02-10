@@ -1,45 +1,91 @@
 
 
-# Add Payment Date Field to Payment Collection
+# Fix: MABDC Learners Showing as STFXSA After Login
 
 ## Problem
-The "Collect Payment" dialog has no date picker. All payments are recorded with today's date automatically. Cashiers need to enter previous collection dates for proper timestamping (e.g., recording payments received yesterday or over the weekend).
+
+When MABDC students log in, their school context shows STFXSA instead of MABDC. The data segregation is correct at the database level, but the **frontend school context** is set incorrectly after login.
+
+## Root Cause
+
+There are two compounding bugs:
+
+1. **Stale session in AuthContext**: The `fetchUserRole` function reads `session?.user` from React state, but this state hasn't been updated yet when the function runs (it's called from a `setTimeout` or directly before re-render). So `currentUser?.email` is `undefined`, and `setDefaultSchoolForUser` silently does nothing.
+
+2. **Geolocation override on Auth page**: For users in the Philippines, the login page defaults the school to STFXSA via IP geolocation. If the AuthContext fails to correct this after login (due to bug #1), STFXSA persists into localStorage and the entire session.
 
 ## Solution
-Add a "Payment Date" field (defaulting to today) to both the Collect Payment and Edit Payment dialogs. The selected date will be saved as `payment_date` in the database insert.
+
+### 1. Fix AuthContext to use the actual session user (not stale state)
+
+Pass the user email directly into `fetchUserRole` from the auth callback where the fresh session is available, instead of reading from stale React state.
+
+**File: `src/contexts/AuthContext.tsx`**
+- Change `fetchUserRole` to accept a `userEmail` parameter
+- In `onAuthStateChange` and `getSession`, pass `session.user.email` directly
+- This guarantees the email is always available when setting the school
+
+### 2. Add a database-backed school resolution fallback
+
+After setting school by email domain, also query the student's actual `school` column from `user_credentials` + `students` table as a secondary guarantee. This handles edge cases where email domain doesn't match.
+
+**File: `src/contexts/AuthContext.tsx`**
+- After the email-domain check, query user_credentials to get student_id, then students to get school
+- Set the school context based on the actual database record
+
+### 3. Remove geolocation school override for identified students
+
+The geolocation effect in Auth.tsx should not override the school once the user is authenticated and the AuthContext has set the correct school.
+
+**File: `src/pages/Auth.tsx`**  
+- No changes needed here since the fix in AuthContext will run after login and correctly override any geolocation default
 
 ## Technical Details
 
-### File: `src/components/finance/PaymentCollection.tsx`
+### AuthContext changes (primary fix)
 
-**1. Add date import**
-- Import `CalendarIcon` from lucide-react
-- Import `Popover, PopoverContent, PopoverTrigger` from UI
-- Import `Calendar` component
-- Import `format` from date-fns
+```typescript
+// Before (broken - session state is stale):
+const fetchUserRole = async (userId: string) => {
+  // ...fetch role...
+  const currentUser = session?.user; // <-- stale!
+  if (currentUser?.email) {
+    setDefaultSchoolForUser(currentUser.email, userRole);
+  }
+};
 
-**2. Add `payment_date` to form state**
-- `paymentForm`: add `payment_date: new Date().toISOString().split('T')[0]` (today as default)
-- `editForm`: same default
-- `resetDialog`: reset date back to today
+// After (fixed - email passed directly):
+const fetchUserRole = async (userId: string, userEmail?: string) => {
+  // ...fetch role...
+  if (userEmail) {
+    setDefaultSchoolForUser(userEmail, userRole);
+  }
+  // Also query DB for student's actual school as fallback
+  const { data: cred } = await supabase
+    .from('user_credentials')
+    .select('student_id')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (cred?.student_id) {
+    const { data: student } = await supabase
+      .from('students')
+      .select('school')
+      .eq('id', cred.student_id)
+      .maybeSingle();
+    if (student?.school) {
+      setSelectedSchool(student.school.toUpperCase() as SchoolType);
+    }
+  }
+};
 
-**3. Add date picker UI in Collect Payment dialog (after Amount field, around line 510)**
-- Label: "Payment Date"
-- A date input or calendar popover so the cashier can pick a past date
-- Default: today's date
+// Callers updated:
+// onAuthStateChange: fetchUserRole(session.user.id, session.user.email)
+// getSession: fetchUserRole(session.user.id, session.user.email)
+```
 
-**4. Add date picker UI in Edit Payment dialog (around line 562)**
-- Same date field for corrections
+## Expected Result
 
-**5. Pass date to database insert**
-- In `recordPayment` mutation (line 209): add `payment_date: paymentForm.payment_date`
-- In `editPayment` mutation (line 287): add `payment_date: editForm.payment_date`
-
-**6. Update `openEditDialog`** to pre-fill the original payment's date
-
-### Files to Change
-
-| File | Change |
-|------|--------|
-| `src/components/finance/PaymentCollection.tsx` | Add payment_date to form state, add date input to both dialogs, pass date on insert |
+- MABDC students logging in will have their school context correctly set to MABDC
+- STFXSA students will continue to work as before
+- The fix works regardless of geolocation or email domain by using the actual student record as the source of truth
 
