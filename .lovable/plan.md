@@ -1,91 +1,55 @@
 
 
-# Fix: MABDC Learners Showing as STFXSA After Login
+# Populate MABDC Student Subject Enrollments
 
-## Problem
+## What's Happening
 
-When MABDC students log in, their school context shows STFXSA instead of MABDC. The data segregation is correct at the database level, but the **frontend school context** is set incorrectly after login.
+STFXSA students already have 1,356 subject enrollments in the database, but MABDC's 534 students have **zero** subject enrollments. The subjects themselves already exist with MABDC-compatible grade levels (using "Level X" and "Kinder X" naming). We just need to create the enrollment records in `student_subjects`.
 
-## Root Cause
+## What Will Be Done
 
-There are two compounding bugs:
+Run a SQL insert that automatically enrolls every MABDC student into the subjects that match their grade level, for the current academic year (2025-2026).
 
-1. **Stale session in AuthContext**: The `fetchUserRole` function reads `session?.user` from React state, but this state hasn't been updated yet when the function runs (it's called from a `setTimeout` or directly before re-render). So `currentUser?.email` is `undefined`, and `setDefaultSchoolForUser` silently does nothing.
+### Data Summary
 
-2. **Geolocation override on Auth page**: For users in the Philippines, the login page defaults the school to STFXSA via IP geolocation. If the AuthContext fails to correct this after login (due to bug #1), STFXSA persists into localStorage and the entire session.
+| MABDC Level | Students | Example Subjects |
+|---|---|---|
+| Kinder 1 | 47 | (No subjects defined for Kinder 1) |
+| Kinder 2 | 57 | Cognitive Development, Literacy/Language, etc. |
+| Level 1 | 55 | Language, Makabansa, Math, GMRC |
+| Level 2 | 57 | English, Filipino, Math, GMRC |
+| Level 3 | 50 | English, Filipino, Math, GMRC |
+| Level 4-5 | 83 | English, Filipino, Math, AP, EPP, GMRC |
+| Level 6 | 33 | English, Filipino, Math, Science, AP, ESP, MAPEH |
+| Level 7-10 | 120 | English, Filipino, Math, Science, AP, ESP, MAPEH, TLE |
+| Level 11-12 | 32 | English Language, Filipino, Math |
 
-## Solution
+### SQL Logic
 
-### 1. Fix AuthContext to use the actual session user (not stale state)
-
-Pass the user email directly into `fetchUserRole` from the auth callback where the fresh session is available, instead of reading from stale React state.
-
-**File: `src/contexts/AuthContext.tsx`**
-- Change `fetchUserRole` to accept a `userEmail` parameter
-- In `onAuthStateChange` and `getSession`, pass `session.user.email` directly
-- This guarantees the email is always available when setting the school
-
-### 2. Add a database-backed school resolution fallback
-
-After setting school by email domain, also query the student's actual `school` column from `user_credentials` + `students` table as a secondary guarantee. This handles edge cases where email domain doesn't match.
-
-**File: `src/contexts/AuthContext.tsx`**
-- After the email-domain check, query user_credentials to get student_id, then students to get school
-- Set the school context based on the actual database record
-
-### 3. Remove geolocation school override for identified students
-
-The geolocation effect in Auth.tsx should not override the school once the user is authenticated and the AuthContext has set the correct school.
-
-**File: `src/pages/Auth.tsx`**  
-- No changes needed here since the fix in AuthContext will run after login and correctly override any geolocation default
-
-## Technical Details
-
-### AuthContext changes (primary fix)
-
-```typescript
-// Before (broken - session state is stale):
-const fetchUserRole = async (userId: string) => {
-  // ...fetch role...
-  const currentUser = session?.user; // <-- stale!
-  if (currentUser?.email) {
-    setDefaultSchoolForUser(currentUser.email, userRole);
-  }
-};
-
-// After (fixed - email passed directly):
-const fetchUserRole = async (userId: string, userEmail?: string) => {
-  // ...fetch role...
-  if (userEmail) {
-    setDefaultSchoolForUser(userEmail, userRole);
-  }
-  // Also query DB for student's actual school as fallback
-  const { data: cred } = await supabase
-    .from('user_credentials')
-    .select('student_id')
-    .eq('user_id', userId)
-    .maybeSingle();
-  if (cred?.student_id) {
-    const { data: student } = await supabase
-      .from('students')
-      .select('school')
-      .eq('id', cred.student_id)
-      .maybeSingle();
-    if (student?.school) {
-      setSelectedSchool(student.school.toUpperCase() as SchoolType);
-    }
-  }
-};
-
-// Callers updated:
-// onAuthStateChange: fetchUserRole(session.user.id, session.user.email)
-// getSession: fetchUserRole(session.user.id, session.user.email)
+```sql
+INSERT INTO student_subjects (student_id, subject_id, academic_year_id, school_id, status)
+SELECT 
+  s.id,
+  sub.id,
+  '44444444-4444-4444-4444-444444444444',  -- MABDC 2025-2026
+  '33333333-3333-3333-3333-333333333333',  -- MABDC school_id
+  'enrolled'
+FROM students s
+CROSS JOIN subjects sub
+WHERE s.school = 'MABDC'
+  AND sub.is_active = true
+  AND s.level = ANY(sub.grade_levels)
+  AND NOT EXISTS (
+    SELECT 1 FROM student_subjects ss
+    WHERE ss.student_id = s.id
+      AND ss.subject_id = sub.id
+      AND ss.academic_year_id = '44444444-4444-4444-4444-444444444444'
+  );
 ```
+
+This cross-joins every MABDC student with every active subject, filters to only matching grade levels, and skips any that already exist (idempotent).
 
 ## Expected Result
 
-- MABDC students logging in will have their school context correctly set to MABDC
-- STFXSA students will continue to work as before
-- The fix works regardless of geolocation or email domain by using the actual student record as the source of truth
+Approximately 2,500-3,000 new enrollment records will be created, giving every MABDC student their full curriculum for 2025-2026. Note: Kinder 1 students may get zero subjects if no subjects have "Kinder 1" in their grade_levels array.
 
