@@ -1,5 +1,7 @@
 # Welcome to your Lovable project
 
+<!-- Build trigger: Feb 10, 2026 -->
+
 ## Project info
 
 **URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
